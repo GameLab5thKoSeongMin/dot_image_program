@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pixel Icon Generator Tests</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f4;
+      --panel: #ffffff;
+      --border: #d7dcd1;
+      --text: #20251f;
+      --muted: #667064;
+      --pass: #2f7d56;
+      --fail: #b3261e;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    button {
+      min-height: 40px;
+      padding: 0 16px;
+      border: 1px solid var(--pass);
+      border-radius: 6px;
+      background: var(--pass);
+      color: #ffffff;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .summary {
+      margin: 0 0 18px;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .case {
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .case h2 {
+      margin: 0 0 6px;
+      font-size: 17px;
+    }
+
+    .case p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .preview-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .source-preview,
+    .result-preview {
+      width: 96px;
+      height: 96px;
+      border: 1px solid var(--border);
+      object-fit: contain;
+      background:
+        linear-gradient(45deg, #e2e6de 25%, transparent 25%),
+        linear-gradient(-45deg, #e2e6de 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e2e6de 75%),
+        linear-gradient(-45deg, transparent 75%, #e2e6de 75%);
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+      background-size: 16px 16px;
+    }
+
+    .result-preview {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .status {
+      font-weight: 700;
+    }
+
+    .status.pass {
+      color: var(--pass);
+    }
+
+    .status.fail {
+      color: var(--fail);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Pixel Icon Generator Test Cases</h1>
+      <button id="runTestsButton" type="button">Run verification</button>
+    </header>
+    <p id="summary" class="summary">Click the button to generate test images and run the tile median converter.</p>
+    <section id="results" class="grid" aria-live="polite"></section>
+  </main>
+
+  <script src="../src/constants.js"></script>
+  <script src="../src/imageProcessor.js"></script>
+  <script src="./testImageFactory.js"></script>
+  <script>
+    (function () {
+      "use strict";
+
+      var button = document.getElementById("runTestsButton");
+      var results = document.getElementById("results");
+      var summary = document.getElementById("summary");
+
+      function canvasToImage(canvas, className, alt) {
+        var image = new Image();
+        image.className = className;
+        image.alt = alt;
+        image.src = canvas.toDataURL("image/png");
+        return image;
+      }
+
+      function createCaseElement(testCase, result, error) {
+        var article = document.createElement("article");
+        var title = document.createElement("h2");
+        var description = document.createElement("p");
+        var previewRow = document.createElement("div");
+        var status = document.createElement("div");
+
+        article.className = "case";
+        title.textContent = testCase.name;
+        description.textContent = testCase.description;
+        previewRow.className = "preview-row";
+        previewRow.appendChild(canvasToImage(testCase.canvas, "source-preview", testCase.name + " source"));
+
+        if (result && result.canvas) {
+          previewRow.appendChild(canvasToImage(result.canvas, "result-preview", testCase.name + " result"));
+        }
+
+        if (error) {
+          status.className = "status fail";
+          status.textContent = "Fail: " + error.message;
+        } else if (result.width === 32 && result.height === 32) {
+          status.className = "status pass";
+          status.textContent = "Pass: output is 32x32.";
+        } else {
+          status.className = "status fail";
+          status.textContent = "Fail: output is " + result.width + "x" + result.height + ".";
+        }
+
+        article.appendChild(title);
+        article.appendChild(description);
+        article.appendChild(previewRow);
+        article.appendChild(status);
+        return article;
+      }
+
+      async function runTests() {
+        var cases = window.PixelIconTestImageFactory.createTestImages();
+        var passCount = 0;
+
+        results.textContent = "";
+        summary.textContent = "Running " + cases.length + " cases...";
+
+        for (var index = 0; index < cases.length; index += 1) {
+          var testCase = cases[index];
+          var result = null;
+          var error = null;
+
+          try {
+            var image = await window.PixelIconImageProcessor.loadImageFromDataURL(testCase.canvas.toDataURL("image/png"));
+            result = window.PixelIconImageProcessor.convertImageToPixelIcon(image);
+
+            if (result.width === 32 && result.height === 32) {
+              passCount += 1;
+            }
+          } catch (caughtError) {
+            error = caughtError;
+          }
+
+          results.appendChild(createCaseElement(testCase, result, error));
+        }
+
+        summary.textContent = passCount + " / " + cases.length + " cases passed.";
+      }
+
+      button.addEventListener("click", runTests);
+    })();
+  </script>
+</body>
+</html>

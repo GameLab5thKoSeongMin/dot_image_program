@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>32x32 Pixel Icon Generator</title>
+  <link rel="stylesheet" href="./styles/style.css">
+</head>
+<body>
+  <main class="app-shell" aria-label="32x32 pixel icon generator">
+    <section class="panel panel-preview" aria-labelledby="originalPreviewTitle">
+      <div class="panel-header">
+        <h1 id="originalPreviewTitle">입력 이미지 미리보기</h1>
+        <span id="sourceSizeLabel" class="panel-meta">대기 중</span>
+      </div>
+      <div class="preview-stage preview-stage-original">
+        <p id="originalPlaceholder" class="placeholder">PNG, JPG, JPEG 이미지를 입력하면 여기에 표시됩니다.</p>
+        <img id="originalPreview" class="original-preview" alt="입력 이미지 미리보기" hidden>
+      </div>
+    </section>
+
+    <section class="panel panel-preview" aria-labelledby="resultPreviewTitle">
+      <div class="panel-header">
+        <h2 id="resultPreviewTitle">생성된 32x32 아이콘</h2>
+        <span class="panel-meta">PNG output</span>
+      </div>
+      <div class="preview-stage preview-stage-result">
+        <p id="resultPlaceholder" class="placeholder">생성된 32x32 아이콘 미리보기</p>
+        <img id="resultPreview" class="result-preview" alt="생성된 32x32 아이콘 미리보기" hidden>
+      </div>
+    </section>
+
+    <section class="panel panel-input" aria-labelledby="inputTitle">
+      <div class="panel-header compact">
+        <h2 id="inputTitle">이미지 입력</h2>
+      </div>
+      <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-describedby="inputHelp errorMessage">
+        <input id="fileInput" class="file-input" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg">
+        <label class="file-button" for="fileInput">파일 선택</label>
+        <p id="inputHelp" class="drop-copy">또는 이미지를 이 영역으로 드래그하세요.</p>
+        <p class="file-types">지원 형식: PNG, JPG, JPEG</p>
+      </div>
+      <p id="errorMessage" class="message error-message" role="alert" aria-live="polite"></p>
+      <p id="statusMessage" class="message status-message" aria-live="polite">이미지를 기다리는 중입니다.</p>
+    </section>
+
+    <section class="panel panel-output" aria-labelledby="outputTitle">
+      <div class="panel-header compact">
+        <h2 id="outputTitle">파일 정보 / 다운로드</h2>
+      </div>
+      <dl class="file-info">
+        <div>
+          <dt>결과 파일명</dt>
+          <dd id="outputFilename">-</dd>
+        </div>
+        <div>
+          <dt>이미지 크기</dt>
+          <dd id="outputSize">32x32 px</dd>
+        </div>
+        <div>
+          <dt>파일 형식</dt>
+          <dd>PNG</dd>
+        </div>
+      </dl>
+      <button id="downloadButton" class="download-button" type="button" disabled>PNG 다운로드</button>
+    </section>
+  </main>
+
+  <script src="./src/constants.js"></script>
+  <script src="./src/fileHandler.js"></script>
+  <script src="./src/imageProcessor.js"></script>
+  <script src="./src/uiController.js"></script>
+  <script src="./src/app.js"></script>
+</body>
+</html>
