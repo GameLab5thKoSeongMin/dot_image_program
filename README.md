@@ -1,19 +1,27 @@
-# 32x32 Pixel Icon Generator
+# Pixel Icon Generator
 
 ## 1. Overview
-This is a local browser app that converts a PNG/JPG/JPEG image into a 32x32 pixel icon.
+This is a local browser app that converts PNG/JPG/JPEG images into small pixel icons.
 
-The conversion is not a simple resize. The app divides the original image into a 32-column by 32-row grid, calculates the median color for each tile, and writes those median colors into a new 32x32 PNG image.
+The default behavior remains a 32x32 median-sampled PNG output. The app also supports variable output sizes, additional sampling modes, and multiple export formats.
+
+The conversion is not a simple resize. The source image is divided into an output-width by output-height grid. Each tile is converted into one output pixel using the selected sampling mode.
 
 ## 2. Main Features
 - PNG/JPG/JPEG image input
 - Drag-and-drop support
-- 32x32 tile-based median color conversion
+- Preset output sizes: 16x16, 24x24, 32x32, 48x48, 64x64
+- Custom output width and height
+- Output size validation
+- Sampling modes: `median`, `average`, `center`
 - Transparent PNG handling
-- Original image preview
-- Generated result preview with pixelated scaling
-- PNG download
-- Manual algorithm test page
+- Result preview with pixelated rendering
+- Warning banner for invalid options and JPG transparency limitations
+- PNG export
+- JPG export with white background compositing
+- `.aseprite` binary export
+- Download filenames that include size, sampling mode, and extension
+- Manual test page
 
 ## 3. How to Run
 Open `index.html` directly in a modern browser.
@@ -34,30 +42,46 @@ http://localhost:8000/
 
 ## 4. How to Use
 1. Open `index.html`.
-2. Choose a PNG/JPG/JPEG image with the file button, or drag an image into the drop area.
-3. Check the original preview in the top-left panel.
-4. Check the generated 32x32 icon in the top-right panel.
-5. Save the PNG using the download button in the bottom-right panel.
+2. Choose a PNG/JPG/JPEG image or drag an image into the drop area.
+3. Select a preset size or enter custom width and height.
+4. Select `median`, `average`, or `center` sampling.
+5. Select PNG, JPG, or Aseprite output.
+6. Check the generated preview.
+7. Download the result.
 
-## 5. Supported File Types
-- PNG
-- JPG
-- JPEG
+## 5. Output Size Rules
+- Width and height must be integers.
+- Width and height must be at least 1.
+- Width and height must not exceed the source image dimensions.
+- Width and height must not exceed 256.
+- Presets larger than the loaded source image are disabled.
 
-## 6. Output Specification
-- Size: 32x32 px
-- Format: PNG
-- Transparent background support for PNG input
-- Filename: `pixel_icon_32x32.png` or `original_filename_32x32.png`
+## 6. Output Formats
+- PNG: Preserves transparency.
+- JPG: Does not preserve transparency. Transparent pixels are composited over white and a warning is shown.
+- `.aseprite`: Exports a binary Aseprite file with one frame, one layer, and raw RGBA cel data.
 
-## 7. Testing
-Open `tests/test-cases.html` in a browser to run generated canvas test cases.
+## 7. Output Filename
+Filenames use:
 
-The test page creates synthetic images, runs them through the same tile median algorithm, and verifies that each result canvas is exactly 32x32.
+```txt
+originalName_widthxheight_samplingMode.extension
+```
 
-Manual test expectations and recorded results are in `TEST_PLAN.md`.
+Example:
 
-## 8. Known Limitations
-- Very large images are processed on the main browser thread and may briefly pause the UI.
-- The initial version does not support custom output sizes.
-- The initial version does not include average color, dominant color, dithering, or palette reduction modes.
+```txt
+sample_64x64_average.jpg
+sample_48x32_center.aseprite
+```
+
+## 8. Testing
+Open `tests/test-cases.html` to run generated test cases.
+
+The current test page verifies legacy 32x32 behavior, variable sizes, sampling modes, validation behavior, PNG/JPG export, Aseprite binary structure, and filename generation.
+
+Recorded test results are in `TEST_PLAN.md`.
+
+## 9. Known Limitations
+- Very large images are processed on the main browser thread.
+- `.aseprite` export is structurally validated, but this environment did not include the Aseprite desktop app or CLI for external open/save validation.

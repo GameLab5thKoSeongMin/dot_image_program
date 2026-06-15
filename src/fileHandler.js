@@ -44,6 +44,87 @@
     };
   }
 
+  function toInteger(value) {
+    if (typeof value === "number") {
+      return Number.isInteger(value) ? value : NaN;
+    }
+
+    if (typeof value !== "string" || value.trim() === "") {
+      return NaN;
+    }
+
+    if (!/^-?\d+$/.test(value.trim())) {
+      return NaN;
+    }
+
+    return Number(value);
+  }
+
+  function validateOutputSize(outputWidth, outputHeight, imageWidth, imageHeight) {
+    var width = toInteger(outputWidth);
+    var height = toInteger(outputHeight);
+    var maxWidth = Math.min(imageWidth || 0, constants.MAX_OUTPUT_DIMENSION);
+    var maxHeight = Math.min(imageHeight || 0, constants.MAX_OUTPUT_DIMENSION);
+
+    if (!Number.isInteger(width) || !Number.isInteger(height)) {
+      return {
+        valid: false,
+        message: "출력 width와 height는 정수여야 합니다."
+      };
+    }
+
+    if (width < 1 || height < 1) {
+      return {
+        valid: false,
+        message: "출력 width와 height는 1 이상이어야 합니다."
+      };
+    }
+
+    if (width > constants.MAX_OUTPUT_DIMENSION || height > constants.MAX_OUTPUT_DIMENSION) {
+      return {
+        valid: false,
+        message: "출력 width와 height는 256을 초과할 수 없습니다."
+      };
+    }
+
+    if (imageWidth && width > imageWidth) {
+      return {
+        valid: false,
+        message: "출력 width는 원본 이미지 width(" + imageWidth + ")를 초과할 수 없습니다."
+      };
+    }
+
+    if (imageHeight && height > imageHeight) {
+      return {
+        valid: false,
+        message: "출력 height는 원본 이미지 height(" + imageHeight + ")를 초과할 수 없습니다."
+      };
+    }
+
+    return {
+      valid: true,
+      message: "",
+      width: width,
+      height: height,
+      maxWidth: maxWidth,
+      maxHeight: maxHeight
+    };
+  }
+
+  function normalizeSamplingMode(samplingMode) {
+    if (constants.SAMPLING_MODES.indexOf(samplingMode) === -1) {
+      return constants.DEFAULT_SAMPLING_MODE;
+    }
+    return samplingMode;
+  }
+
+  function normalizeOutputFormat(outputFormat) {
+    if (constants.OUTPUT_FORMATS.indexOf(outputFormat) === -1) {
+      return constants.DEFAULT_OUTPUT_FORMAT;
+    }
+    return outputFormat;
+  }
+
   function readFileAsDataURL(file) {
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
@@ -72,12 +153,16 @@
     return safeName || "pixel_icon";
   }
 
-  function createOutputFilename(originalFilename) {
-    if (!originalFilename) {
-      return constants.DEFAULT_OUTPUT_FILENAME;
-    }
+  function createOutputFilename(originalFilename, options) {
+    var normalizedOptions = options || {};
+    var width = normalizedOptions.outputWidth || constants.DEFAULT_OUTPUT_WIDTH;
+    var height = normalizedOptions.outputHeight || constants.DEFAULT_OUTPUT_HEIGHT;
+    var samplingMode = normalizeSamplingMode(normalizedOptions.samplingMode);
+    var outputFormat = normalizeOutputFormat(normalizedOptions.outputFormat);
+    var extension = constants.FORMAT_EXTENSIONS[outputFormat];
+    var baseName = originalFilename ? sanitizeBaseName(originalFilename) : "pixel_icon";
 
-    return sanitizeBaseName(originalFilename) + "_32x32.png";
+    return baseName + "_" + width + "x" + height + "_" + samplingMode + "." + extension;
   }
 
   function getReadableFileSize(bytes) {
@@ -98,6 +183,9 @@
 
   window.PixelIconFileHandler = {
     validateImageFile: validateImageFile,
+    validateOutputSize: validateOutputSize,
+    normalizeSamplingMode: normalizeSamplingMode,
+    normalizeOutputFormat: normalizeOutputFormat,
     readFileAsDataURL: readFileAsDataURL,
     createOutputFilename: createOutputFilename,
     getFileExtension: getFileExtension,

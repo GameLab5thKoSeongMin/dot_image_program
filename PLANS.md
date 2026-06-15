@@ -1,78 +1,86 @@
 # PLANS.md
 
 ## 1. Current Objective
-Complete a dependency-free local 32x32 pixel icon generator that uses tile-based median color sampling, supports PNG/JPG/JPEG input, preserves transparent PNG behavior, provides preview and download, and includes verification documentation.
+Extend the completed fixed 32x32 median PNG generator into a flexible pixel icon generator while preserving existing behavior.
 
 ## 2. Current Step
-Step 10. Final self evaluation is complete after implementing, reviewing, and verifying the initial version.
+Extension E9 is complete: implementation, browser verification, test page expansion, and documentation updates are complete.
 
-## 3. Step Checklist
-- [x] Step 0. Initial directory structure and documentation
-- [x] Step 1. Basic GUI layout
-- [x] Step 2. Image input
-- [x] Step 3. 32x32 conversion algorithm
-- [x] Step 4. Result preview and download
-- [x] Step 5. Self testing and fixes
-- [x] Step 6. Documentation cleanup
-- [x] Step 7. Refactoring and structure review
-- [x] Step 8. Algorithm verification test images
-- [x] Step 9. Manual test checklist execution
-- [x] Step 10. Final self evaluation
+## 3. Extension Checklist
+- [x] E0. Audit current implementation
+- [x] E1. Generalize conversion options
+- [x] E2. Generalize image processing
+- [x] E3. Add sampling modes
+- [x] E4. Add output format pipeline
+- [x] E5. Add UI controls and warning banner
+- [x] E6. Add validation blocking
+- [x] E7. Update filename generation and download flow
+- [x] E8. Expand tests
+- [x] E9. Refactor carefully and finalize docs
 
-## 4. Decisions
-- The project uses plain HTML, CSS, and JavaScript with no build step.
-- ES Modules are not used. Scripts are loaded in dependency order from `index.html`.
-- Source files expose small namespaces on `window` to keep direct browser execution simple.
-- `imageProcessor.js` owns image loading and conversion logic only.
-- `fileHandler.js` owns file validation, file reading, and output filename generation.
-- `uiController.js` owns DOM updates and screen state only.
-- `app.js` connects events, validation, conversion, UI updates, and download.
-- The conversion algorithm draws the source image onto a temporary canvas at original source dimensions only to read pixels, then directly samples `ImageData` by tile.
-- The output canvas is filled from calculated tile medians. It is not produced by resizing the original image to 32x32.
-- Transparent pixels use `TRANSPARENT_ALPHA_THRESHOLD` and `MIN_OPAQUE_RATIO` constants.
-- Browser verification was performed with installed Microsoft Edge in headless mode because the in-app browser runtime and bundled Playwright browser binary were unavailable in this environment.
+## 4. Audit Findings
+- The previous app hard-coded `OUTPUT_SIZE = 32` in `src/constants.js` and `src/imageProcessor.js`.
+- Download filenames were fixed to `original_32x32.png`.
+- The UI had a four-section layout that could be preserved.
+- `imageProcessor.js` already separated image conversion from DOM work, so it was extended instead of replaced.
+- `uiController.js` owned DOM state, so new controls and warning banner behavior were added there.
+- `app.js` owned event flow and was extended to reprocess when options change.
+- Tests existed and were expanded instead of removed.
 
-## 5. Risks
-- Browser download behavior cannot be fully automated from a `file://` page without user interaction, so the test page verifies canvas output and the app code path uses `canvas.toBlob`.
-- Extremely large images can still take noticeable CPU time because the app intentionally samples every source pixel in each tile.
-- Some browsers may restrict local file access differently. The app itself uses user-selected `File` objects and data URLs, so normal browser execution should work.
+## 5. Decisions
+- Keep Vanilla HTML/CSS/JavaScript and normal script tags.
+- Add `src/exporter.js` to keep PNG/JPG/Aseprite export out of `app.js`.
+- Keep default options as 32x32, median, PNG.
+- Use output width and height separately instead of a single `OUTPUT_SIZE`.
+- Validate output size before conversion.
+- Disable preset buttons that are larger than the loaded source image.
+- Use an upper-center warning banner with icon and text for validation and JPG transparency warnings.
+- Export JPG by compositing the result over white because JPG cannot preserve alpha.
+- Export `.aseprite` as a real binary file with an Aseprite header, one frame, one layer chunk, and one raw cel chunk.
 
-## 6. Next Actions
-- Open `index.html` in a browser and use the app with real user images.
-- Open `tests/test-cases.html` to rerun algorithm verification cases.
-- Consider adding progress indication or worker-based processing if very large images become a usability issue.
+## 6. Risks
+- `.aseprite` export is structurally validated in-browser but was not opened in the Aseprite desktop app or CLI in this environment.
+- Very large images are still processed synchronously on the main browser thread.
+- The app intentionally blocks output sizes larger than the source image, so small images such as 20x20 cannot use the default 32x32 preset until the user selects a valid smaller size.
 
 ## 7. Verification Log
-- JS syntax checks passed for all files in `src/` and `tests/testImageFactory.js` using the bundled Node runtime.
-- Source search found no ES Module `import/export` usage in app source files.
+- JS syntax checks passed for all files in `src/` and `tests/testImageFactory.js`.
+- Source search found no ES Module `import/export` statements in app JS.
 - Source search found no `drawImage(image, 0, 0, 32, 32)` shortcut.
-- Headless Edge opened `index.html` through `file://` and verified generated PNG, JPG, JPEG, transparent PNG, 17x17 small image, and 1920x1080 large image flows.
-- Headless Edge verified invalid file rejection and disabled download state.
-- Headless Edge dispatched a drag-and-drop `DataTransfer` file and verified output generation.
-- Headless Edge verified the download suggested filename as `dropped_32x32.png`.
-- Headless Edge opened `tests/test-cases.html`; the algorithm test page reported `10 / 10 cases passed.`
-- Headless Edge verified corrupted PNG-like input shows an error and keeps download disabled.
-- Headless Edge verified the 390px mobile layout has no horizontal overflow and still shows four panels.
+- Headless Edge opened `index.html` through `file://`.
+- Headless Edge verified default `sample_32x32_median.png` behavior.
+- Headless Edge verified 64x64 average JPG generation and download filename.
+- Headless Edge verified JPG transparency warning for transparent PNG input and warning close behavior.
+- Headless Edge verified Aseprite download filename.
+- Headless Edge verified invalid width warning and blocked download.
+- Headless Edge verified small 20x20 input blocks 24x24 and allows 16x16.
+- Headless Edge verified the mobile 390px layout has no horizontal overflow and still shows four panels.
+- `tests/test-cases.html` reported `31 / 31 cases passed.`
+
+## 8. Next Actions
+- Open `index.html` in a browser and test with real production images.
+- Open generated `.aseprite` files in Aseprite if the desktop app is available.
+- Consider a Web Worker if large-image processing becomes a usability issue.
 
 # Final Self Evaluation
 
 ## 1. Requirement Satisfaction
-The initial implementation satisfies the requested local 32x32 pixel icon generator behavior: PNG/JPG/JPEG file input, drag-and-drop, original preview, generated preview, PNG download, four-section GUI layout, and test documentation are present.
+The extension preserves the original 32x32 median PNG behavior and adds variable size, presets, custom width/height, sampling modes, output validation, warning banner UI, PNG/JPG/Aseprite export, updated filenames, tests, and documentation.
 
 ## 2. Algorithm Accuracy
-The algorithm divides the source image into 32 columns and 32 rows. For every output pixel, it calculates tile bounds, collects source pixels from that tile, filters very low-alpha pixels, and calculates median R, G, B, and A values.
+The conversion still divides the source image into outputWidth by outputHeight tiles. Each output pixel is calculated from source tile pixels using `median`, `average`, or `center` mode.
 
 ## 3. Why This Is Not Simple Resize
-`src/imageProcessor.js` creates a 32x32 output `ImageData` and writes each output pixel from tile median values. It does not call `drawImage(image, 0, 0, 32, 32)` to generate the icon.
+`src/imageProcessor.js` reads source `ImageData`, calculates tile bounds, collects or samples pixels, and writes a new output `ImageData`. It does not resize the source image into the output canvas as the conversion method.
 
 ## 4. Transparent PNG Handling
-Pixels with alpha below `TRANSPARENT_ALPHA_THRESHOLD` are treated as transparent. If a tile's opaque pixel ratio is lower than `MIN_OPAQUE_RATIO`, that output pixel becomes fully transparent. Otherwise, RGB and alpha medians are calculated from opaque pixels only.
+Median and average modes ignore very low-alpha pixels and make low-opaque-ratio tiles transparent. PNG and Aseprite export preserve alpha. JPG export composites onto white and shows a warning when transparency exists.
 
 ## 5. GUI Usability
-The UI presents input preview and result preview in the top row for direct comparison. The bottom-left pane handles file input and drag-and-drop. The bottom-right pane shows generated file information and a disabled/enabled download button.
+The four-section layout is preserved. Output settings are grouped in the bottom-left panel. Result size, mode, format, and filename are shown in the bottom-right panel. Warnings appear near the top center.
 
 ## 6. Remaining Limitations
-The app uses synchronous canvas processing on the main thread. Very large files may briefly block interaction. The first version does not include output size options, dithering, palette reduction, or Web Worker processing.
+The Aseprite binary is structurally validated but not externally opened. Large images can still briefly block the UI.
 
 ## 7. Future Improvements
-Useful future additions include a Web Worker conversion path, selectable output sizes, selectable median/average/dominant color modes, palette limiting, transparent threshold controls, and batch conversion.
+Useful next work includes Aseprite CLI validation, Web Worker processing, palette limiting, dithering, batch processing, and richer Aseprite layer metadata.

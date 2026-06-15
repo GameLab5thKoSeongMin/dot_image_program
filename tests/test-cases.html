@@ -64,7 +64,7 @@
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 12px;
     }
 
@@ -133,12 +133,14 @@
       <h1>Pixel Icon Generator Test Cases</h1>
       <button id="runTestsButton" type="button">Run verification</button>
     </header>
-    <p id="summary" class="summary">Click the button to generate test images and run the tile median converter.</p>
+    <p id="summary" class="summary">Click the button to run conversion, validation, and export checks.</p>
     <section id="results" class="grid" aria-live="polite"></section>
   </main>
 
   <script src="../src/constants.js"></script>
+  <script src="../src/fileHandler.js"></script>
   <script src="../src/imageProcessor.js"></script>
+  <script src="../src/exporter.js"></script>
   <script src="./testImageFactory.js"></script>
   <script>
     (function () {
@@ -147,6 +149,11 @@
       var button = document.getElementById("runTestsButton");
       var results = document.getElementById("results");
       var summary = document.getElementById("summary");
+      var factory = window.PixelIconTestImageFactory;
+      var processor = window.PixelIconImageProcessor;
+      var fileHandler = window.PixelIconFileHandler;
+      var exporter = window.PixelIconExporter;
+      var constants = window.PixelIconConstants;
 
       function canvasToImage(canvas, className, alt) {
         var image = new Image();
@@ -156,7 +163,7 @@
         return image;
       }
 
-      function createCaseElement(testCase, result, error) {
+      function createCaseElement(testCase) {
         var article = document.createElement("article");
         var title = document.createElement("h2");
         var description = document.createElement("p");
@@ -165,59 +172,216 @@
 
         article.className = "case";
         title.textContent = testCase.name;
-        description.textContent = testCase.description;
+        description.textContent = testCase.description || "";
         previewRow.className = "preview-row";
-        previewRow.appendChild(canvasToImage(testCase.canvas, "source-preview", testCase.name + " source"));
 
-        if (result && result.canvas) {
-          previewRow.appendChild(canvasToImage(result.canvas, "result-preview", testCase.name + " result"));
+        if (testCase.sourceCanvas) {
+          previewRow.appendChild(canvasToImage(testCase.sourceCanvas, "source-preview", testCase.name + " source"));
         }
 
-        if (error) {
-          status.className = "status fail";
-          status.textContent = "Fail: " + error.message;
-        } else if (result.width === 32 && result.height === 32) {
-          status.className = "status pass";
-          status.textContent = "Pass: output is 32x32.";
-        } else {
-          status.className = "status fail";
-          status.textContent = "Fail: output is " + result.width + "x" + result.height + ".";
+        if (testCase.resultCanvas) {
+          previewRow.appendChild(canvasToImage(testCase.resultCanvas, "result-preview", testCase.name + " result"));
         }
+
+        status.className = "status " + (testCase.pass ? "pass" : "fail");
+        status.textContent = (testCase.pass ? "Pass: " : "Fail: ") + testCase.note;
 
         article.appendChild(title);
         article.appendChild(description);
-        article.appendChild(previewRow);
+        if (previewRow.children.length) {
+          article.appendChild(previewRow);
+        }
         article.appendChild(status);
         return article;
       }
 
-      async function runTests() {
-        var cases = window.PixelIconTestImageFactory.createTestImages();
-        var passCount = 0;
+      async function canvasToImageElement(canvas) {
+        return await processor.loadImageFromDataURL(canvas.toDataURL("image/png"));
+      }
 
-        results.textContent = "";
-        summary.textContent = "Running " + cases.length + " cases...";
+      function assert(condition, message) {
+        if (!condition) {
+          throw new Error(message);
+        }
+      }
+
+      async function runConversionCase(name, sourceCanvas, options) {
+        var image = await canvasToImageElement(sourceCanvas);
+        var result = processor.convertImageToPixelIcon(image, options);
+        assert(result.width === options.outputWidth, "Unexpected width " + result.width);
+        assert(result.height === options.outputHeight, "Unexpected height " + result.height);
+        return {
+          name: name,
+          description: options.outputWidth + "x" + options.outputHeight + " " + options.samplingMode,
+          sourceCanvas: sourceCanvas,
+          resultCanvas: result.canvas,
+          pass: true,
+          note: "output is " + result.width + "x" + result.height + "."
+        };
+      }
+
+      async function runLegacyCases() {
+        var cases = factory.createTestImages();
+        var results = [];
 
         for (var index = 0; index < cases.length; index += 1) {
           var testCase = cases[index];
-          var result = null;
-          var error = null;
-
-          try {
-            var image = await window.PixelIconImageProcessor.loadImageFromDataURL(testCase.canvas.toDataURL("image/png"));
-            result = window.PixelIconImageProcessor.convertImageToPixelIcon(image);
-
-            if (result.width === 32 && result.height === 32) {
-              passCount += 1;
-            }
-          } catch (caughtError) {
-            error = caughtError;
-          }
-
-          results.appendChild(createCaseElement(testCase, result, error));
+          var image = await canvasToImageElement(testCase.canvas);
+          var result = processor.convertImageToPixelIcon(image, {
+            outputWidth: 32,
+            outputHeight: 32,
+            samplingMode: "median"
+          });
+          assert(result.width === 32 && result.height === 32, "Legacy 32x32 output failed");
+          results.push({
+            name: "Legacy default: " + testCase.name,
+            description: testCase.description,
+            sourceCanvas: testCase.canvas,
+            resultCanvas: result.canvas,
+            pass: true,
+            note: "32x32 median conversion still works."
+          });
         }
 
-        summary.textContent = passCount + " / " + cases.length + " cases passed.";
+        return results;
+      }
+
+      function runValidationCase(name, width, height, imageWidth, imageHeight, shouldPass) {
+        var validation = fileHandler.validateOutputSize(width, height, imageWidth, imageHeight);
+        assert(validation.valid === shouldPass, "Validation result mismatch: " + validation.message);
+
+        return {
+          name: name,
+          description: width + "x" + height + " against " + imageWidth + "x" + imageHeight,
+          pass: true,
+          note: shouldPass ? "accepted as expected." : "rejected as expected."
+        };
+      }
+
+      async function runExportCases() {
+        var sourceCanvas = factory.createTransparentShapeImage();
+        var image = await canvasToImageElement(sourceCanvas);
+        var result = processor.convertImageToPixelIcon(image, {
+          outputWidth: 32,
+          outputHeight: 32,
+          samplingMode: "median"
+        });
+        var pngBlob = await exporter.exportCanvas(result.canvas, "png");
+        var jpgBlob = await exporter.exportCanvas(result.canvas, "jpg");
+        var asepriteBuffer = exporter.createAsepriteArrayBuffer(result.canvas);
+        var asepriteBlob = exporter.createAsepriteBlob(result.canvas);
+        var asepriteHeader = exporter.inspectAsepriteArrayBuffer(asepriteBuffer);
+        var pngSignature = new Uint8Array(asepriteBuffer.slice(0, 8));
+        var filename = fileHandler.createOutputFilename("sample.png", {
+          outputWidth: 48,
+          outputHeight: 32,
+          samplingMode: "center",
+          outputFormat: "aseprite"
+        });
+        var whiteCanvas = exporter.createWhiteBackgroundCanvas(result.canvas);
+
+        assert(pngBlob.size > 0 && pngBlob.type === "image/png", "PNG blob failed");
+        assert(jpgBlob.size > 0 && jpgBlob.type === "image/jpeg", "JPG blob failed");
+        assert(!exporter.canvasHasTransparency(whiteCanvas), "JPG white background composite should be opaque");
+        assert(asepriteBlob.size > 0, "Aseprite blob empty");
+        assert(asepriteHeader.magic === constants.ASEPRITE_MAGIC, "Aseprite file magic mismatch");
+        assert(asepriteHeader.frameMagic === constants.ASEPRITE_FRAME_MAGIC, "Aseprite frame magic mismatch");
+        assert(asepriteHeader.width === 32 && asepriteHeader.height === 32, "Aseprite dimensions mismatch");
+        assert(asepriteHeader.colorDepth === 32, "Aseprite color depth mismatch");
+        assert(!(pngSignature[0] === 0x89 && pngSignature[1] === 0x50 && pngSignature[2] === 0x4e && pngSignature[3] === 0x47), "Aseprite export is a PNG");
+        assert(filename === "sample_48x32_center.aseprite", "Filename rule failed: " + filename);
+
+        return [
+          {
+            name: "PNG export",
+            description: "Blob export using image/png.",
+            sourceCanvas: sourceCanvas,
+            resultCanvas: result.canvas,
+            pass: true,
+            note: "PNG blob is non-empty."
+          },
+          {
+            name: "JPG export",
+            description: "Blob export using image/jpeg with white compositing.",
+            sourceCanvas: sourceCanvas,
+            resultCanvas: whiteCanvas,
+            pass: true,
+            note: "JPG blob is non-empty and transparency is composited."
+          },
+          {
+            name: "Aseprite export",
+            description: "Binary header and frame magic validation.",
+            sourceCanvas: sourceCanvas,
+            resultCanvas: result.canvas,
+            pass: true,
+            note: "Aseprite binary has expected magic, dimensions, and color depth."
+          },
+          {
+            name: "Filename generation",
+            description: "Filename includes size, sampling mode, and extension.",
+            pass: true,
+            note: filename
+          }
+        ];
+      }
+
+      async function runTests() {
+        var allResults = [];
+        var failed = false;
+
+        results.textContent = "";
+        summary.textContent = "Running verification...";
+
+        try {
+          allResults = allResults.concat(await runLegacyCases());
+
+          var solid = factory.createSolidColorImage();
+          var split = factory.createLeftRightSplitImage();
+          var wide = factory.createWideImage();
+
+          allResults.push(await runConversionCase("16x16 median", solid, { outputWidth: 16, outputHeight: 16, samplingMode: "median" }));
+          allResults.push(await runConversionCase("24x24 median", solid, { outputWidth: 24, outputHeight: 24, samplingMode: "median" }));
+          allResults.push(await runConversionCase("32x32 median", solid, { outputWidth: 32, outputHeight: 32, samplingMode: "median" }));
+          allResults.push(await runConversionCase("48x48 median", solid, { outputWidth: 48, outputHeight: 48, samplingMode: "median" }));
+          allResults.push(await runConversionCase("64x64 median", solid, { outputWidth: 64, outputHeight: 64, samplingMode: "median" }));
+          allResults.push(await runConversionCase("48x32 median", split, { outputWidth: 48, outputHeight: 32, samplingMode: "median" }));
+          allResults.push(await runConversionCase("8x12 custom", solid, { outputWidth: 8, outputHeight: 12, samplingMode: "median" }));
+          allResults.push(await runConversionCase("32x32 average", split, { outputWidth: 32, outputHeight: 32, samplingMode: "average" }));
+          allResults.push(await runConversionCase("32x32 center", split, { outputWidth: 32, outputHeight: 32, samplingMode: "center" }));
+          allResults.push(await runConversionCase("64x64 average", solid, { outputWidth: 64, outputHeight: 64, samplingMode: "average" }));
+          allResults.push(await runConversionCase("48x32 center", wide, { outputWidth: 48, outputHeight: 32, samplingMode: "center" }));
+
+          allResults.push(runValidationCase("Reject width greater than source", 129, 32, 128, 128, false));
+          allResults.push(runValidationCase("Reject height greater than source", 32, 129, 128, 128, false));
+          allResults.push(runValidationCase("Reject width greater than 256", 257, 32, 512, 512, false));
+          allResults.push(runValidationCase("Reject height greater than 256", 32, 257, 512, 512, false));
+          allResults.push(runValidationCase("Accept custom 8x12", 8, 12, 20, 20, true));
+          allResults.push(runValidationCase("Reject preset larger than source", 24, 24, 20, 20, false));
+
+          allResults = allResults.concat(await runExportCases());
+        } catch (error) {
+          failed = true;
+          allResults.push({
+            name: "Verification failure",
+            description: "Unexpected error during test execution.",
+            pass: false,
+            note: error.message
+          });
+        }
+
+        allResults.forEach(function (result) {
+          results.appendChild(createCaseElement(result));
+        });
+
+        var passCount = allResults.filter(function (result) {
+          return result.pass;
+        }).length;
+
+        summary.textContent = passCount + " / " + allResults.length + " cases passed.";
+
+        if (failed) {
+          throw new Error("One or more tests failed.");
+        }
       }
 
       button.addEventListener("click", runTests);

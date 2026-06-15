@@ -46,12 +46,28 @@
     return context.getImageData(0, 0, width, height);
   }
 
-  function calculateTileBounds(tileX, tileY, imageWidth, imageHeight) {
-    var outputSize = constants.OUTPUT_SIZE;
-    var xStart = Math.floor(tileX * imageWidth / outputSize);
-    var xEnd = Math.floor((tileX + 1) * imageWidth / outputSize);
-    var yStart = Math.floor(tileY * imageHeight / outputSize);
-    var yEnd = Math.floor((tileY + 1) * imageHeight / outputSize);
+  function normalizeConversionOptions(options) {
+    var safeOptions = options || {};
+    var outputWidth = Number(safeOptions.outputWidth) || constants.DEFAULT_OUTPUT_WIDTH;
+    var outputHeight = Number(safeOptions.outputHeight) || constants.DEFAULT_OUTPUT_HEIGHT;
+    var samplingMode = constants.SAMPLING_MODES.indexOf(safeOptions.samplingMode) === -1
+      ? constants.DEFAULT_SAMPLING_MODE
+      : safeOptions.samplingMode;
+
+    return {
+      outputWidth: outputWidth,
+      outputHeight: outputHeight,
+      samplingMode: samplingMode
+    };
+  }
+
+  function calculateTileBounds(tileX, tileY, imageWidth, imageHeight, outputWidth, outputHeight) {
+    var safeOutputWidth = outputWidth || constants.DEFAULT_OUTPUT_WIDTH;
+    var safeOutputHeight = outputHeight || constants.DEFAULT_OUTPUT_HEIGHT;
+    var xStart = Math.floor(tileX * imageWidth / safeOutputWidth);
+    var xEnd = Math.floor((tileX + 1) * imageWidth / safeOutputWidth);
+    var yStart = Math.floor(tileY * imageHeight / safeOutputHeight);
+    var yEnd = Math.floor((tileY + 1) * imageHeight / safeOutputHeight);
 
     var safeXEnd = Math.max(xEnd, xStart + 1);
     var safeYEnd = Math.max(yEnd, yStart + 1);
@@ -85,6 +101,18 @@
     return Math.round((sorted[middle - 1] + sorted[middle]) / 2);
   }
 
+  function calculateAverage(values) {
+    if (!values.length) {
+      return 0;
+    }
+
+    var sum = values.reduce(function (total, value) {
+      return total + value;
+    }, 0);
+
+    return Math.round(sum / values.length);
+  }
+
   function isTransparentPixel(alpha) {
     return alpha < constants.TRANSPARENT_ALPHA_THRESHOLD;
   }
@@ -97,59 +125,141 @@
     return opaquePixelCount / totalPixelCount < constants.MIN_OPAQUE_RATIO;
   }
 
-  function calculateTileMedianColor(imageData, tileBounds) {
+  function collectTileChannels(imageData, tileBounds) {
     var data = imageData.data;
     var width = imageData.width;
-    var redValues = [];
-    var greenValues = [];
-    var blueValues = [];
-    var alphaValues = [];
-    var totalPixelCount = 0;
-    var opaquePixelCount = 0;
+    var channels = {
+      redValues: [],
+      greenValues: [],
+      blueValues: [],
+      alphaValues: [],
+      totalPixelCount: 0,
+      opaquePixelCount: 0
+    };
 
     for (var y = tileBounds.yStart; y < tileBounds.yEnd; y += 1) {
       for (var x = tileBounds.xStart; x < tileBounds.xEnd; x += 1) {
         var index = (y * width + x) * 4;
         var alpha = data[index + 3];
-        totalPixelCount += 1;
+        channels.totalPixelCount += 1;
 
         if (!isTransparentPixel(alpha)) {
-          redValues.push(data[index]);
-          greenValues.push(data[index + 1]);
-          blueValues.push(data[index + 2]);
-          alphaValues.push(alpha);
-          opaquePixelCount += 1;
+          channels.redValues.push(data[index]);
+          channels.greenValues.push(data[index + 1]);
+          channels.blueValues.push(data[index + 2]);
+          channels.alphaValues.push(alpha);
+          channels.opaquePixelCount += 1;
         }
       }
     }
 
-    if (shouldTileBeTransparent(totalPixelCount, opaquePixelCount)) {
+    return channels;
+  }
+
+  function getPixelColor(imageData, x, y) {
+    var clampedX = Math.max(0, Math.min(x, imageData.width - 1));
+    var clampedY = Math.max(0, Math.min(y, imageData.height - 1));
+    var index = (clampedY * imageData.width + clampedX) * 4;
+
+    return [
+      imageData.data[index],
+      imageData.data[index + 1],
+      imageData.data[index + 2],
+      imageData.data[index + 3]
+    ];
+  }
+
+  function calculateTileMedianColor(imageData, tileBounds) {
+    var channels = collectTileChannels(imageData, tileBounds);
+
+    if (shouldTileBeTransparent(channels.totalPixelCount, channels.opaquePixelCount)) {
       return [0, 0, 0, 0];
     }
 
     return [
-      calculateMedian(redValues),
-      calculateMedian(greenValues),
-      calculateMedian(blueValues),
-      calculateMedian(alphaValues)
+      calculateMedian(channels.redValues),
+      calculateMedian(channels.greenValues),
+      calculateMedian(channels.blueValues),
+      calculateMedian(channels.alphaValues)
     ];
   }
 
-  function convertImageToPixelIcon(image) {
+  function calculateTileAverageColor(imageData, tileBounds) {
+    var channels = collectTileChannels(imageData, tileBounds);
+
+    if (shouldTileBeTransparent(channels.totalPixelCount, channels.opaquePixelCount)) {
+      return [0, 0, 0, 0];
+    }
+
+    return [
+      calculateAverage(channels.redValues),
+      calculateAverage(channels.greenValues),
+      calculateAverage(channels.blueValues),
+      calculateAverage(channels.alphaValues)
+    ];
+  }
+
+  function calculateTileCenterColor(imageData, tileBounds) {
+    var centerX = Math.floor((tileBounds.xStart + tileBounds.xEnd - 1) / 2);
+    var centerY = Math.floor((tileBounds.yStart + tileBounds.yEnd - 1) / 2);
+    var color = getPixelColor(imageData, centerX, centerY);
+
+    if (isTransparentPixel(color[3])) {
+      return [0, 0, 0, 0];
+    }
+
+    return color;
+  }
+
+  function calculateTileRepresentativeColor(imageData, tileBounds, samplingMode) {
+    if (samplingMode === "average") {
+      return calculateTileAverageColor(imageData, tileBounds);
+    }
+
+    if (samplingMode === "center") {
+      return calculateTileCenterColor(imageData, tileBounds);
+    }
+
+    return calculateTileMedianColor(imageData, tileBounds);
+  }
+
+  function imageDataHasTransparency(imageData) {
+    var data = imageData.data;
+
+    for (var index = 3; index < data.length; index += 4) {
+      if (data[index] < 255) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function convertImageToPixelIcon(image, options) {
     var sourceImageData = createSourceImageData(image);
-    var outputSize = constants.OUTPUT_SIZE;
+    var conversionOptions = normalizeConversionOptions(options);
+    var outputWidth = conversionOptions.outputWidth;
+    var outputHeight = conversionOptions.outputHeight;
+    var samplingMode = conversionOptions.samplingMode;
     var outputCanvas = document.createElement("canvas");
-    outputCanvas.width = outputSize;
-    outputCanvas.height = outputSize;
+    outputCanvas.width = outputWidth;
+    outputCanvas.height = outputHeight;
 
     var outputContext = outputCanvas.getContext("2d");
-    var outputImageData = outputContext.createImageData(outputSize, outputSize);
+    var outputImageData = outputContext.createImageData(outputWidth, outputHeight);
 
-    for (var tileY = 0; tileY < outputSize; tileY += 1) {
-      for (var tileX = 0; tileX < outputSize; tileX += 1) {
-        var bounds = calculateTileBounds(tileX, tileY, sourceImageData.width, sourceImageData.height);
-        var color = calculateTileMedianColor(sourceImageData, bounds);
-        var outputIndex = (tileY * outputSize + tileX) * 4;
+    for (var tileY = 0; tileY < outputHeight; tileY += 1) {
+      for (var tileX = 0; tileX < outputWidth; tileX += 1) {
+        var bounds = calculateTileBounds(
+          tileX,
+          tileY,
+          sourceImageData.width,
+          sourceImageData.height,
+          outputWidth,
+          outputHeight
+        );
+        var color = calculateTileRepresentativeColor(sourceImageData, bounds, samplingMode);
+        var outputIndex = (tileY * outputWidth + tileX) * 4;
 
         outputImageData.data[outputIndex] = color[0];
         outputImageData.data[outputIndex + 1] = color[1];
@@ -165,7 +275,10 @@
       width: outputCanvas.width,
       height: outputCanvas.height,
       sourceWidth: sourceImageData.width,
-      sourceHeight: sourceImageData.height
+      sourceHeight: sourceImageData.height,
+      samplingMode: samplingMode,
+      sourceHasTransparency: imageDataHasTransparency(sourceImageData),
+      resultHasTransparency: imageDataHasTransparency(outputImageData)
     };
   }
 
@@ -174,8 +287,13 @@
     convertImageToPixelIcon: convertImageToPixelIcon,
     calculateTileBounds: calculateTileBounds,
     calculateTileMedianColor: calculateTileMedianColor,
+    calculateTileAverageColor: calculateTileAverageColor,
+    calculateTileCenterColor: calculateTileCenterColor,
+    calculateTileRepresentativeColor: calculateTileRepresentativeColor,
     calculateMedian: calculateMedian,
+    calculateAverage: calculateAverage,
     isTransparentPixel: isTransparentPixel,
-    shouldTileBeTransparent: shouldTileBeTransparent
+    shouldTileBeTransparent: shouldTileBeTransparent,
+    imageDataHasTransparency: imageDataHasTransparency
   };
 })();

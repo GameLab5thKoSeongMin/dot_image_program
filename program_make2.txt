@@ -1,0 +1,1020 @@
+You are working on an already existing project.
+
+This is an extension and migration task for an already completed project.
+
+Do not recreate the project from scratch.
+Do not replace the existing project with a new structure unless absolutely necessary.
+Do not throw away working functionality.
+Do not over-refactor or redesign the project more than needed.
+
+First, read the existing repository and understand the current implementation before making changes.
+
+You must begin by reading and inspecting at least the following files:
+
+* `AGENTS.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+* `index.html`
+* `src/constants.js`
+* `src/fileHandler.js`
+* `src/imageProcessor.js`
+* `src/uiController.js`
+* `src/app.js`
+* `tests/test-cases.html`
+* `tests/testImageFactory.js`
+
+You must preserve all existing working behavior unless a change is explicitly required for this extension.
+
+The existing 32×32 median conversion must remain the default behavior.
+
+The current app already supports:
+
+* PNG/JPG/JPEG input
+* drag and drop
+* 32×32 tile median conversion
+* transparent PNG handling
+* preview
+* PNG download
+* tests
+* English Codex-facing documents
+* Korean user-facing review documents
+
+Do not break these features.
+
+---
+
+# Language Policy
+
+All Codex-facing documents and technical documents must be written in English.
+
+Codex-facing English documents:
+
+* `AGENTS.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+
+User-facing review documents must be written in Korean.
+
+User-facing Korean documents:
+
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+
+Code identifiers, file names, folder names, function names, constants, and API names must remain in English.
+
+The actual app UI text may be in Korean.
+
+When writing Korean user-facing documents, do not translate code identifiers, constants, file names, or function names.
+
+---
+
+# Main Goal of This Extension
+
+Extend the current fixed 32×32 median-based pixel icon generator into a more flexible pixel icon generator while preserving the existing implementation and behavior.
+
+This extension must add:
+
+1. Variable output size (`width × height`) support
+2. Preset output sizes
+3. Custom output width and height input
+4. Additional sampling modes besides median
+5. Output size validation
+6. GUI warning banner / warning area
+7. Output format selection
+8. PNG / JPG / `.aseprite` export
+9. Updated download filename rules
+10. Updated tests
+11. Updated English and Korean documents
+
+Do not convert the app into a fundamentally different tool.
+Do not add unnecessary frameworks.
+Keep using Vanilla HTML / CSS / JavaScript.
+Do not use ES Module `import/export`.
+
+---
+
+# Critical Preservation Rules
+
+This is an extension of a completed app.
+
+Do not:
+
+* recreate the repository
+* introduce React, Vite, Webpack, or other build systems
+* switch to ES Modules
+* remove the existing tests
+* remove existing Korean user-facing documents
+* replace the existing four-section GUI with an unrelated layout
+* simplify the image conversion into a resize shortcut
+* rename PNG output as `.aseprite`
+
+The existing default behavior must remain:
+
+* output size: `32×32`
+* sampling mode: `median`
+* output format: `png`
+
+---
+
+# New Functional Requirements
+
+## 1. Variable Output Size
+
+The app must no longer be restricted to only `32×32`.
+
+Support the following preset sizes:
+
+* 16×16
+* 24×24
+* 32×32
+* 48×48
+* 64×64
+
+Also support custom output width and height input.
+
+The output size must be defined by:
+
+* `outputWidth`
+* `outputHeight`
+
+Do not keep the conversion logic hard-coded to a single `OUTPUT_SIZE` value.
+
+Refactor the image conversion flow so that it supports arbitrary `outputWidth` and `outputHeight`.
+
+However, preserve the default conversion settings as:
+
+* `outputWidth = 32`
+* `outputHeight = 32`
+* `samplingMode = "median"`
+* `outputFormat = "png"`
+
+That means when the user opens the app and does nothing special, the app should still behave like the original 32×32 median PNG version.
+
+---
+
+## 2. Output Size Validation
+
+Validate output size before conversion.
+
+### Required validation rules
+
+* Width and height must be integers.
+* Width and height must be greater than or equal to 1.
+* Width and height must not exceed the original image width and height.
+* Width and height must not exceed `256`.
+* The effective maximum for width is `min(originalImageWidth, 256)`.
+* The effective maximum for height is `min(originalImageHeight, 256)`.
+
+Examples:
+
+If the input image is `300×200`:
+
+* Allowed: `32×32`, `64×64`, `128×64`, `256×200`, `48×32`
+* Rejected: `300×201`, `257×100`, `400×200`, `512×512`
+
+If the input image is `20×20`:
+
+* Allowed: `16×16`, `20×20`, `8×12`
+* Rejected: `24×24`, `32×32`, `21×20`
+
+If the input image is smaller than a preset size, that preset must either:
+
+* be disabled, or
+* produce a validation warning and block conversion
+
+Choose the clearer UX, but validation must be obvious and conversion must not proceed with invalid output size.
+
+Add a dedicated validation helper such as:
+
+* `validateOutputSize(outputWidth, outputHeight, imageWidth, imageHeight)`
+
+---
+
+## 3. Sampling Mode Expansion
+
+The current app uses median sampling.
+
+Preserve that mode and add the following additional sampling modes:
+
+* `median`
+* `average`
+* `center`
+
+### Mode descriptions
+
+#### median
+
+Current existing behavior.
+
+For each tile, compute the representative color using the median of each RGBA channel.
+
+#### average
+
+For each tile, compute the representative color using the arithmetic mean of the RGBA channels.
+
+Use opaque pixels according to the same transparency handling rules used by the median mode.
+
+#### center
+
+For each tile, use the tile’s center pixel as the representative color.
+
+If the exact center is fractional, choose a stable nearest pixel inside the tile.
+
+Add a general dispatcher such as:
+
+* `calculateTileRepresentativeColor(imageData, tileBounds, samplingMode)`
+
+Recommended supporting functions:
+
+* `calculateTileMedianColor(...)`
+* `calculateTileAverageColor(...)`
+* `calculateTileCenterColor(...)`
+
+Do not remove or degrade the existing median implementation.
+
+---
+
+## 4. Preserve Transparent PNG Handling
+
+Transparent PNG support already exists and must remain correct.
+
+Preserve the current transparency behavior as much as possible.
+
+Continue using threshold-based transparency handling.
+
+Keep constants such as:
+
+* transparency threshold
+* minimum opaque ratio
+
+If needed, update `constants.js` to support the new extension, but do not remove the existing transparency logic.
+
+For `average` and `center` modes:
+
+* transparency handling must remain consistent
+* invalid alpha handling must not produce obviously broken results
+
+If a tile has no valid opaque pixels and is considered transparent, the output should remain transparent.
+
+---
+
+## 5. Output Format Selection
+
+Add an output format selector.
+
+The user must be able to choose one of the following output formats:
+
+* `png`
+* `jpg`
+* `aseprite`
+
+Default output format:
+
+* `png`
+
+### PNG export
+
+PNG export must preserve transparency.
+
+Use the existing canvas export flow if it is already working.
+
+Recommended MIME type:
+
+* `image/png`
+
+### JPG export
+
+JPG export must produce a valid `.jpg` or `.jpeg` file.
+
+JPG does not support transparency.
+
+Therefore, when JPG is selected:
+
+* composite transparent pixels over a background color before export
+* default JPG background color should be white
+* show a warning if the image contains transparent pixels and JPG is selected
+* do not silently preserve alpha because JPG cannot preserve alpha
+
+Recommended warning text in Korean UI:
+
+* `JPG는 투명도를 지원하지 않아 흰 배경으로 합성됩니다.`
+
+Recommended MIME type:
+
+* `image/jpeg`
+
+Recommended quality:
+
+* `0.92`
+
+If adding a background color option is simple, add it.
+If it would complicate the extension too much, keep the default white background and document the limitation.
+
+### Aseprite export
+
+Add `.aseprite` export support.
+
+This must be a real `.aseprite` file writer, not a PNG file renamed with a `.aseprite` extension.
+
+The `.aseprite` file should be generated from the converted output image, not from the original image.
+
+Minimum target:
+
+* single frame
+* single normal image layer
+* RGBA color mode
+* canvas width = `outputWidth`
+* canvas height = `outputHeight`
+* pixel data based on the converted result canvas
+* preserve alpha where possible
+* file extension: `.aseprite`
+
+Implement this in a focused module if needed, such as:
+
+* `src/asepriteExporter.js`
+
+If a new script file is added, load it in `index.html` before `app.js`.
+
+Example script order:
+
+```html
+<script src="./src/constants.js"></script>
+<script src="./src/fileHandler.js"></script>
+<script src="./src/imageProcessor.js"></script>
+<script src="./src/asepriteExporter.js"></script>
+<script src="./src/uiController.js"></script>
+<script src="./src/app.js"></script>
+```
+
+The Aseprite exporter should use a binary writer based on `ArrayBuffer`, `DataView`, or byte arrays.
+
+Do not use external libraries unless absolutely necessary.
+
+If external libraries are considered, document the reason first in `PLANS.md`, but prefer no dependency.
+
+The exporter should follow the official Aseprite `.ase/.aseprite` file format specification.
+
+The implementation must not pretend to support `.aseprite` if it only downloads a renamed PNG.
+
+If full Aseprite compatibility cannot be verified in the environment:
+
+* still implement a spec-based minimal writer
+* add structural validation tests for the generated binary
+* clearly document that external validation in the Aseprite desktop app is still recommended
+* do not falsely claim that manual Aseprite desktop validation was completed
+
+If the Aseprite executable or CLI is available in the environment, use it to validate that the exported `.aseprite` file opens correctly.
+
+If Aseprite is not available, add a manual validation note in:
+
+* `README.md`
+* `USER_GUIDE_KO.md`
+* `TEST_SUMMARY_KO.md`
+
+### Aseprite export validation
+
+Add a structural validation helper if practical, such as:
+
+* `validateAsepriteBinary(arrayBuffer, expectedWidth, expectedHeight)`
+
+Validation should check at least:
+
+* file magic number
+* frame count
+* width
+* height
+* color depth is RGBA / 32 bpp
+* at least one layer chunk exists
+* at least one cel chunk exists
+* generated file is not empty
+* generated file extension is `.aseprite`
+
+---
+
+## 6. GUI Changes
+
+Preserve the existing four-section layout as much as possible.
+
+Do not redesign the entire app unnecessarily.
+
+Add the new controls in a way that fits the existing GUI.
+
+### Required new UI elements
+
+Add controls for:
+
+* preset size buttons
+* custom width input
+* custom height input
+* sampling mode selection
+* output format selection
+* original image size display
+* selected output size display if useful
+
+Recommended placement:
+
+* Keep image input in the lower-left area
+* Add conversion options in the lower-right area, together with file info / download area
+
+### Warning banner / alert area
+
+Add an in-app warning UI near the upper center area of the GUI.
+
+The user specifically wants a warning area in the upper central region of the GUI that shows:
+
+* a warning icon
+* warning text / message content
+
+This must be an in-app custom warning component, not a browser `alert()` popup.
+
+Recommended behavior:
+
+* visually placed near the top center of the app
+* visible when validation or error states occur
+* supports warning icon + text
+* can be dismissed automatically after a few seconds and/or manually closed
+* should be reusable for validation errors and warnings
+* should not block the entire UI like a browser modal unless necessary
+
+Use this warning area for messages such as:
+
+* output width exceeds original image width
+* output height exceeds original image height
+* output size exceeds 256
+* invalid number input
+* unsupported file type
+* corrupted image load failure
+* JPG transparency warning
+* Aseprite export limitation warning if external validation is not available
+
+Example Korean UI warning text:
+
+* `출력 너비는 원본 이미지 너비보다 클 수 없습니다.`
+* `출력 높이는 원본 이미지 높이보다 클 수 없습니다.`
+* `출력 크기는 최대 256×256까지만 지원합니다.`
+* `유효한 숫자를 입력해주세요.`
+* `JPG는 투명도를 지원하지 않아 흰 배경으로 합성됩니다.`
+* `.aseprite 파일은 단일 프레임, 단일 레이어로 내보냅니다.`
+
+### UI text
+
+The UI itself may be written in Korean.
+
+Examples:
+
+* `원본 이미지 미리보기`
+* `생성된 아이콘 미리보기`
+* `출력 크기`
+* `너비`
+* `높이`
+* `샘플링 방식`
+* `출력 형식`
+* `PNG`
+* `JPG`
+* `Aseprite`
+* `다운로드`
+
+---
+
+## 7. Download Filename Rules
+
+Update the download filename format to include:
+
+* output width
+* output height
+* sampling mode
+* output format extension
+
+Recommended filename format:
+
+* `original_filename_32x32_median.png`
+* `original_filename_64x64_average.jpg`
+* `original_filename_48x32_center.aseprite`
+
+If the original filename is unavailable, use a sensible fallback such as:
+
+* `pixel_icon_32x32_median.png`
+* `pixel_icon_32x32_median.jpg`
+* `pixel_icon_32x32_median.aseprite`
+
+Implement the filename generation in a dedicated helper such as:
+
+* `createOutputFilename(originalFilename, outputWidth, outputHeight, samplingMode, outputFormat)`
+
+Do not include the source image extension twice.
+
+For example:
+
+* input: `slime.png`
+* output: `slime_32x32_median.png`
+* not: `slime.png_32x32_median.png`
+
+---
+
+# Technical Migration Requirements
+
+## 1. Refactor the conversion API carefully
+
+The conversion entry point should evolve from a fixed-size structure into an option-based structure.
+
+Recommended direction:
+
+```js
+convertImageToPixelIcon(image, options)
+```
+
+Where `options` includes:
+
+* `outputWidth`
+* `outputHeight`
+* `samplingMode`
+
+Also add a helper such as:
+
+* `normalizeConversionOptions(options, imageWidth, imageHeight)`
+
+Do not make unsafe breaking changes without checking how the current UI calls the converter.
+
+If necessary, keep backward compatibility in the internal API while updating the main app flow.
+
+---
+
+## 2. Generalize tile boundary calculation
+
+Current logic is based on 32×32 output.
+
+Generalize it for arbitrary output width and height.
+
+Tile bounds should use:
+
+* input image width / height
+* output width / height
+
+Recommended logic:
+
+```js
+const xStart = Math.floor(tileX * imageWidth / outputWidth);
+const xEnd = Math.floor((tileX + 1) * imageWidth / outputWidth);
+const yStart = Math.floor(tileY * imageHeight / outputHeight);
+const yEnd = Math.floor((tileY + 1) * imageHeight / outputHeight);
+```
+
+If bounds collapse, ensure at least one pixel is sampled.
+
+Clamp bounds safely within the source image.
+
+Preserve stability for:
+
+* small images
+* large images
+* wide images
+* tall images
+* images smaller than default preset sizes
+
+---
+
+## 3. Do not over-refactor project structure
+
+Keep the existing repository layout unless a change is clearly necessary.
+
+Do not:
+
+* replace the project with a new framework
+* introduce build tooling unless absolutely necessary
+* rewrite working files from scratch if a focused extension is enough
+* remove tests that already pass
+* break the English/Korean documentation split
+* move image processing logic into UI code
+* move DOM manipulation logic into image processing code
+
+---
+
+# Recommended Functions and Responsibilities
+
+Maintain responsibility separation.
+
+## `src/constants.js`
+
+Update or add constants such as:
+
+* preset sizes
+* max output size
+* sampling mode values
+* output format values
+* warning display duration if needed
+* JPG quality
+* JPG default background color
+
+Possible examples:
+
+```js
+MAX_OUTPUT_WIDTH = 256
+MAX_OUTPUT_HEIGHT = 256
+OUTPUT_SIZE_PRESETS
+SAMPLING_MODES
+OUTPUT_FORMATS
+JPG_QUALITY
+DEFAULT_JPG_BACKGROUND_COLOR
+```
+
+## `src/fileHandler.js`
+
+Keep file validation and filename generation logic here.
+
+Add or update:
+
+* `createOutputFilename(...)`
+
+## `src/imageProcessor.js`
+
+Keep all image conversion logic here.
+
+Add or update:
+
+* `normalizeConversionOptions(...)`
+* `validateOutputSize(...)`
+* `convertImageToPixelIcon(image, options)`
+* `calculateTileBounds(...)`
+* `calculateTileRepresentativeColor(...)`
+* `calculateTileMedianColor(...)`
+* `calculateTileAverageColor(...)`
+* `calculateTileCenterColor(...)`
+* `createOpaqueCanvasForJpgExport(...)` or similar helper if appropriate
+
+Do not move DOM logic into this file.
+
+## `src/asepriteExporter.js`
+
+Add this file only if needed.
+
+This file should focus only on `.aseprite` binary export.
+
+Possible functions:
+
+* `createAsepriteFileFromCanvas(canvas, options)`
+* `writeAsepriteHeader(...)`
+* `writeAsepriteFrame(...)`
+* `writeAsepriteLayerChunk(...)`
+* `writeAsepriteCelChunk(...)`
+* `validateAsepriteBinary(...)`
+
+Do not place UI logic here.
+
+Do not place general image conversion logic here unless strictly needed for export.
+
+## `src/uiController.js`
+
+Keep UI logic here.
+
+Add or update:
+
+* conversion option controls
+* output format controls
+* warning banner rendering / state
+* display of original image size
+* display of validation messages
+* mode selector handling
+* preset button state
+* size input validation display
+* output format state display
+
+Add helper(s) such as:
+
+* `showWarning(message, type)`
+* `clearWarning()`
+* `setOutputSizeControls(...)`
+* `updateOriginalImageInfo(...)`
+* `updateOutputFormatControls(...)`
+
+Do not move image processing logic into this file.
+
+## `src/app.js`
+
+Connect the new UI options to the conversion and export pipeline.
+
+Responsibilities:
+
+* listen to width / height / preset / mode / output format changes
+* validate before conversion
+* block invalid conversion
+* call image conversion with options
+* update previews and download state
+* trigger warning UI messages as needed
+* export selected format on download
+
+---
+
+# Testing Requirements for This Extension
+
+This extension must update the existing tests and add new ones.
+
+Update:
+
+* `TEST_PLAN.md` in English
+* `TEST_SUMMARY_KO.md` in Korean
+* `DEVELOPMENT_REPORT_KO.md` in Korean
+* `tests/test-cases.html`
+* `tests/testImageFactory.js` if useful
+
+## Add test coverage for output size
+
+* 16×16 median conversion
+* 24×24 median conversion
+* 32×32 median conversion
+* 48×48 median conversion
+* 64×64 median conversion
+* 48×32 median conversion
+* 8×12 custom conversion
+* width greater than original image width is rejected
+* height greater than original image height is rejected
+* width greater than 256 is rejected
+* height greater than 256 is rejected
+* preset larger than original image is disabled or blocked
+
+## Add test coverage for sampling modes
+
+* 32×32 median conversion
+* 32×32 average conversion
+* 32×32 center conversion
+* 64×64 average conversion
+* 48×32 center conversion
+
+## Add test coverage for output formats
+
+* PNG export works
+* PNG export preserves transparency
+* JPG export works
+* JPG export uses `.jpg` extension
+* JPG export composites transparency over white background
+* JPG transparency warning appears when needed
+* `.aseprite` export produces a non-empty binary file
+* `.aseprite` export uses `.aseprite` extension
+* `.aseprite` binary has correct dimensions
+* `.aseprite` binary has expected magic/header values
+* `.aseprite` export is not a renamed PNG
+* filename includes width, height, sampling mode, and correct extension
+
+## Existing behavior regression tests
+
+* original 32×32 median PNG still works by default
+* transparent PNG still works
+* PNG/JPG/JPEG input still works
+* drag and drop still works
+* invalid file type still shows warning
+* corrupted image still shows warning
+* preview still works
+* download still works
+
+## Warning UI tests
+
+* invalid width shows warning banner
+* invalid height shows warning banner
+* oversized >256 shows warning banner
+* invalid preset shows warning banner or disabled state
+* JPG transparency warning appears
+* warning banner can be cleared / hidden correctly
+* warning banner uses icon + content text
+* browser `alert()` is not used as the main warning UI
+
+## Test page requirement
+
+Extend `tests/test-cases.html` so it can verify:
+
+* variable sizes
+* multiple sampling modes
+* validation behavior
+* PNG export
+* JPG export
+* `.aseprite` structural export if practical
+* warning / alert behavior if practical
+* filename generation if practical
+
+Do not remove the existing test page functionality.
+
+---
+
+# Documentation Update Requirements
+
+You must update documentation to reflect the extension.
+
+## Codex-facing English docs to update
+
+* `AGENTS.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+
+## User-facing Korean docs to update
+
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+
+## Documentation rules
+
+* English docs must remain the primary technical reference.
+* Korean docs must remain user-facing summaries.
+* Do not claim that new features are complete unless implemented and tested.
+* Update docs incrementally during the loop.
+* If you change project assumptions, update `AGENTS.md` and `DESIGN_SPEC.md`.
+
+Because the project goal is no longer only a fixed 32×32 PNG generator, update the English docs so they correctly describe:
+
+* variable output size support
+* default 32×32 median behavior
+* size constraints
+* sampling modes
+* output formats
+* PNG / JPG / `.aseprite` export
+* JPG transparency limitation
+* `.aseprite` export scope and validation status
+* warning UI
+
+Also update the Korean docs so the user can easily review:
+
+* what changed
+* how to use the new options
+* what was tested
+* `.aseprite` export caveats
+* what still remains risky
+
+---
+
+# Development Loop for This Extension
+
+Use the following loop throughout this extension:
+
+Audit current implementation → plan extension → implement one stage → test → fix → refactor carefully → update English docs → update Korean docs → continue
+
+Do not skip the audit step.
+
+---
+
+# Recommended Step Plan
+
+## E0. Audit current implementation
+
+* Read all relevant files.
+* Understand current 32×32 median flow.
+* Identify where `OUTPUT_SIZE = 32` is hard-coded.
+* Identify where download filename is generated.
+* Identify current UI control structure.
+* Identify current canvas export flow.
+* Identify current warning/error display flow.
+* Record findings in `PLANS.md`.
+* Summarize audit in `DEVELOPMENT_REPORT_KO.md`.
+
+## E1. Generalize conversion options
+
+* Introduce `outputWidth`, `outputHeight`, `samplingMode`, and `outputFormat`.
+* Preserve default 32×32 median PNG behavior.
+* Update constants and option normalization.
+
+## E2. Generalize image processing
+
+* Replace fixed-size assumptions with variable width/height logic.
+* Update tile boundary calculation.
+* Preserve transparent PNG behavior.
+
+## E3. Add new sampling modes
+
+* Implement `average`.
+* Implement `center`.
+* Keep `median` as default.
+* Add shared representative color dispatching.
+
+## E4. Add output format pipeline
+
+* Add output format selector.
+* Keep PNG export working.
+* Add JPG export with white background compositing.
+* Add JPG transparency warning.
+* Add `.aseprite` export pipeline.
+* Ensure `.aseprite` is a real binary export, not a renamed PNG.
+
+## E5. Add UI controls and warning banner
+
+* Add preset buttons.
+* Add width/height inputs.
+* Add sampling mode selector.
+* Add output format selector.
+* Add original image size display.
+* Add upper-center warning banner with warning icon and message.
+* Add invalid state handling.
+
+## E6. Add validation blocking
+
+* Prevent invalid output size.
+* Prevent output width/height larger than source image.
+* Prevent output width/height larger than 256.
+* Ensure warning UI is triggered appropriately.
+* Ensure invalid preset behavior is clear.
+
+## E7. Update filename generation and download flow
+
+* Include size, mode, and format in filenames.
+* Ensure current PNG download behavior still works.
+* Ensure JPG download works.
+* Ensure `.aseprite` download works or clearly records validation limitations.
+
+## E8. Expand tests
+
+* Update `tests/test-cases.html`.
+* Add variable size checks.
+* Add sampling mode checks.
+* Add output format checks.
+* Add validation checks.
+* Add warning UI checks.
+* Add regression checks.
+
+## E9. Refactor carefully and finalize docs
+
+* Clean up without overhauling the architecture.
+* Update English docs.
+* Update Korean docs.
+* Perform final self-evaluation.
+
+---
+
+# Completion Criteria
+
+The extension is complete only if all of the following are satisfied:
+
+* [ ] Existing 32×32 median PNG behavior still works by default.
+* [ ] Variable output width and height are supported.
+* [ ] Preset output sizes are supported.
+* [ ] Custom output size is supported.
+* [ ] Output width larger than original image width is blocked.
+* [ ] Output height larger than original image height is blocked.
+* [ ] Output width and height above 256 are blocked.
+* [ ] `median` mode works.
+* [ ] `average` mode works.
+* [ ] `center` mode works.
+* [ ] Transparent PNG handling still works.
+* [ ] PNG export works.
+* [ ] JPG export works.
+* [ ] JPG transparency limitation is handled with white background compositing and warning.
+* [ ] `.aseprite` export is implemented as a real binary file, not a renamed PNG.
+* [ ] `.aseprite` structural validation exists or Aseprite app/CLI validation is documented.
+* [ ] The warning banner / warning area appears near the upper center of the GUI.
+* [ ] Warning banner includes icon and content text.
+* [ ] Browser `alert()` is not used as the main warning UI.
+* [ ] Download filename includes width, height, sampling mode, and extension.
+* [ ] Existing input / preview / download flow still works.
+* [ ] Existing tests are preserved or improved.
+* [ ] New tests for size, mode, format, validation, and warning UI are added.
+* [ ] English technical docs are updated correctly.
+* [ ] Korean user-facing docs are updated correctly.
+* [ ] The project was extended without unnecessary recreation or overhauling.
+
+---
+
+# Final Execution Instruction
+
+Start by auditing the existing project.
+
+Do not start coding immediately without understanding the current structure.
+
+Then implement the extension incrementally.
+
+At every meaningful stage:
+
+1. update `PLANS.md` in English
+2. update `DEVELOPMENT_REPORT_KO.md` in Korean
+3. update `TEST_PLAN.md` in English when test requirements change
+4. update `TEST_SUMMARY_KO.md` in Korean when tests are executed
+5. verify behavior before moving on
+
+Preserve working behavior.
+
+Make focused extensions.
+
+Avoid unnecessary project recreation.
+
+Avoid unnecessary structure changes.
+
+Keep the implementation grounded in the existing repository rules.
+
+Finally, deliver an extended pixel icon generator that preserves the original app and adds:
+
+* variable output size
+* new sampling modes
+* output size validation
+* upper-center warning banner UI
+* PNG / JPG / `.aseprite` output format selection
+* JPG transparency handling
+* real `.aseprite` export or clearly documented validation limitations
+* updated download naming
+* updated tests and documentation

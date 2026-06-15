@@ -1,53 +1,84 @@
 # Design Specification
 
 ## 1. Program Goal
-The program converts a user-provided image into a 32x32 pixel icon that can be previewed and downloaded as a PNG.
+The program converts a user-provided image into a pixel icon with selectable output size, sampling mode, and export format.
+
+The default remains 32x32 median PNG output.
 
 ## 2. Core Conversion Method
 The program does not simply resize the image.
 
-The original image is divided into 32 columns and 32 rows. Each tile is converted into one output pixel using the median color of pixels inside that tile.
+The original image is divided into `outputWidth` columns and `outputHeight` rows. Each tile is converted into one output pixel using the selected representative color method.
 
-## 3. Image Processing Rules
+## 3. Conversion Options
+- `outputWidth`: integer output width.
+- `outputHeight`: integer output height.
+- `samplingMode`: `median`, `average`, or `center`.
+- `outputFormat`: `png`, `jpg`, or `aseprite`.
+
+## 4. Image Processing Rules
 - Load PNG/JPG/JPEG files through the browser File API.
-- Draw the source image onto a temporary canvas at its natural dimensions.
-- Read the source canvas using `getImageData`.
-- Divide the source image into 32x32 tile bounds.
-- Calculate RGBA medians for each tile.
-- Write the calculated RGBA values into a new 32x32 `ImageData`.
-- Render the output `ImageData` into a 32x32 canvas.
-- Export the result as PNG.
+- Draw the source image onto a temporary canvas at natural dimensions only to read pixels.
+- Read the source canvas with `getImageData`.
+- Divide the source image into outputWidth by outputHeight tile bounds.
+- Calculate each output pixel using the selected sampling mode.
+- Write the result into a new output `ImageData`.
+- Render that `ImageData` into an output canvas.
 
-## 4. Transparency Rules
+## 5. Sampling Modes
+- `median`: Collect non-transparent tile pixels and use channel medians.
+- `average`: Collect non-transparent tile pixels and use channel averages.
+- `center`: Use the center source pixel from the tile.
+
+Median remains the default mode.
+
+## 6. Transparency Rules
 - Pixels with alpha below `TRANSPARENT_ALPHA_THRESHOLD` are treated as transparent.
-- If a tile has no opaque pixels, the output pixel is `(0, 0, 0, 0)`.
-- If the tile opaque-pixel ratio is below `MIN_OPAQUE_RATIO`, the output pixel is `(0, 0, 0, 0)`.
-- For visible tiles, RGB and alpha medians are calculated from opaque pixels only.
-- Threshold values are managed in `src/constants.js`.
+- If a median/average tile has no opaque pixels, the output pixel is transparent.
+- If a median/average tile's opaque pixel ratio is below `MIN_OPAQUE_RATIO`, the output pixel is transparent.
+- PNG and Aseprite preserve output alpha.
+- JPG composites the output over white and shows a warning if transparency exists.
 
-## 5. GUI Layout
-The app uses a four-section layout.
+## 7. Output Size Validation
+Output width and height must:
+- be integers,
+- be at least 1,
+- not exceed source image dimensions,
+- not exceed 256.
+
+Preset buttons larger than the current source image are disabled.
+
+## 8. Export Formats
+- PNG uses `canvas.toBlob("image/png")`.
+- JPG draws the result onto a white-background canvas and uses `canvas.toBlob("image/jpeg")`.
+- `.aseprite` uses a binary writer to create an Aseprite file with:
+  - 128-byte header,
+  - one frame,
+  - one layer chunk,
+  - one raw RGBA cel chunk.
+
+## 9. GUI Layout
+The app keeps the four-section layout.
 
 - Top-left: input image preview
-- Top-right: generated 32x32 result preview
-- Bottom-left: image input area
-- Bottom-right: download and file information area
+- Top-right: generated result preview
+- Bottom-left: image input and conversion options
+- Bottom-right: output metadata and download
 
-The top row is taller than the bottom row so image comparison is the primary screen focus.
+An upper-center warning banner displays validation and JPG transparency warnings. Browser `alert()` is not used as the main warning UI.
 
-## 6. Module Responsibilities
-- `app.js`: Initializes the app, connects event listeners, handles the file-to-result flow, and triggers download.
-- `imageProcessor.js`: Loads images, calculates tile bounds, samples image data, computes median colors, and creates the 32x32 output canvas.
-- `fileHandler.js`: Validates selected files, reads files as data URLs, and creates safe output filenames.
-- `uiController.js`: Updates previews, messages, file information, drag state, and download button state.
-- `constants.js`: Stores output size, transparency thresholds, supported types, default filename, and UI timing constants.
+## 10. Module Responsibilities
+- `app.js`: Connects events, current source state, validation, conversion, export, and download.
+- `imageProcessor.js`: Loads images and performs tile-based conversion.
+- `fileHandler.js`: Validates files and output size, normalizes options, generates filenames.
+- `exporter.js`: Creates PNG/JPG/Aseprite export blobs.
+- `uiController.js`: Handles DOM state, controls, previews, warning banner, and output metadata.
+- `constants.js`: Stores presets, defaults, limits, formats, thresholds, and Aseprite constants.
 
-## 7. Future Extensions
-- 16x16 / 64x64 output options
-- Average / median / dominant color mode selection
+## 11. Future Extensions
+- Web Worker conversion for large images
 - Palette limit
-- Background removal option
-- Dithering option
-- Preview zoom control
-- UI control for transparency thresholds
-- Web Worker conversion for very large images
+- Dithering
+- Batch conversion
+- Aseprite CLI validation
+- Multiple frames or layers in Aseprite export

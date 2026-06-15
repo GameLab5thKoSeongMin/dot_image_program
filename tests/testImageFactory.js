@@ -169,6 +169,17 @@
   }
 
   window.PixelIconTestImageFactory = {
+    createCanvas: createCanvas,
+    createSolidColorImage: createSolidColorImage,
+    createSmallImage: createSmallImage,
+    createLeftRightSplitImage: createLeftRightSplitImage,
+    createTopBottomSplitImage: createTopBottomSplitImage,
+    createTransparentShapeImage: createTransparentShapeImage,
+    createFullyTransparentImage: createFullyTransparentImage,
+    createLowAlphaImage: createLowAlphaImage,
+    createWideImage: createWideImage,
+    createTallImage: createTallImage,
+    createLargeImage: createLargeImage,
     createTestImages: createTestImages
   };
 })();

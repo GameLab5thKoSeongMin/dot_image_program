@@ -2,12 +2,45 @@
   "use strict";
 
   window.PixelIconConstants = {
-    OUTPUT_SIZE: 32,
+    DEFAULT_OUTPUT_WIDTH: 32,
+    DEFAULT_OUTPUT_HEIGHT: 32,
+    LEGACY_OUTPUT_SIZE: 32,
+    MAX_OUTPUT_DIMENSION: 256,
+    PRESET_OUTPUT_SIZES: [
+      { width: 16, height: 16, label: "16x16" },
+      { width: 24, height: 24, label: "24x24" },
+      { width: 32, height: 32, label: "32x32" },
+      { width: 48, height: 48, label: "48x48" },
+      { width: 64, height: 64, label: "64x64" }
+    ],
+    SAMPLING_MODES: ["median", "average", "center"],
+    DEFAULT_SAMPLING_MODE: "median",
+    OUTPUT_FORMATS: ["png", "jpg", "aseprite"],
+    DEFAULT_OUTPUT_FORMAT: "png",
+    FORMAT_LABELS: {
+      png: "PNG",
+      jpg: "JPG",
+      aseprite: "Aseprite"
+    },
+    FORMAT_EXTENSIONS: {
+      png: "png",
+      jpg: "jpg",
+      aseprite: "aseprite"
+    },
+    FORMAT_MIME_TYPES: {
+      png: "image/png",
+      jpg: "image/jpeg",
+      aseprite: "application/octet-stream"
+    },
     TRANSPARENT_ALPHA_THRESHOLD: 16,
     MIN_OPAQUE_RATIO: 0.1,
     SUPPORTED_MIME_TYPES: ["image/png", "image/jpeg"],
     SUPPORTED_EXTENSIONS: [".png", ".jpg", ".jpeg"],
-    DEFAULT_OUTPUT_FILENAME: "pixel_icon_32x32.png",
-    ERROR_DISPLAY_DURATION_MS: 0
+    DEFAULT_OUTPUT_FILENAME: "pixel_icon_32x32_median.png",
+    JPG_BACKGROUND_COLOR: [255, 255, 255, 255],
+    ASEPRITE_MAGIC: 0xA5E0,
+    ASEPRITE_FRAME_MAGIC: 0xF1FA,
+    ASEPRITE_LAYER_CHUNK_TYPE: 0x2004,
+    ASEPRITE_CEL_CHUNK_TYPE: 0x2005
   };
 })();
