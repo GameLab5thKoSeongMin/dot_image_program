@@ -1,0 +1,1589 @@
+You are going to develop a complete program called “32×32 Pixel Icon Generator” from start to finish.
+
+This task does not need to be completed quickly.
+
+The user will keep Codex running for a long time, so prioritize correctness, stability, structural completeness, testing, and documentation over speed.
+
+However, do not introduce unnecessary frameworks or overly complex architecture.
+Keep the structure simple, robust, and appropriate for the size of this tool.
+
+---
+
+# Language Policy
+
+The implementation instructions, engineering documents, planning documents, code comments, file names, function names, constants, and technical documentation should be written in English.
+
+All Codex-facing documents must be written in English.
+
+Codex-facing documents include:
+
+* `AGENTS.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+
+The user-facing review documents must be written in Korean so the user can easily review progress and results.
+
+User-facing Korean documents include:
+
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+
+Korean documents are for user review only.
+Do not use Korean documents as the primary planning source.
+Use English documents such as `AGENTS.md`, `PLANS.md`, `DESIGN_SPEC.md`, and `TEST_PLAN.md` as the main development references.
+
+Code identifiers, file names, function names, folder names, constants, and technical API names must remain in English.
+
+The actual app UI text may be written in Korean because the user will interact with the tool.
+
+When writing Korean user-facing documents, do not translate file names, function names, constants, or code identifiers. Keep those technical names as-is.
+
+---
+
+# Core Goal
+
+The goal of this program is to let the user input a PNG or JPG image, divide that input image into a 32-column × 32-row grid, calculate the representative color of each tile using the median value, and generate a final 32×32 pixel icon image.
+
+This is important.
+
+This program must not simply resize the image to `32×32`.
+
+It must divide the original image into 32 columns and 32 rows, then compress each tile into one output pixel by calculating the median color value of the pixels inside that tile.
+
+Do not finish the implementation using only a simple resize operation such as:
+
+```js
+ctx.drawImage(image, 0, 0, 32, 32);
+```
+
+That approach is just image resizing and does not satisfy the requirement.
+
+The required approach is tile-based median color sampling.
+
+---
+
+# Development Workflow
+
+Do not try to finish everything in one pass.
+
+Repeat the following loop:
+
+Plan → Design → Implement → Self-evaluate → Fix → Update documentation → Plan the next step
+
+After each step, update the relevant documents so that the user can understand the current development direction and progress.
+
+Documentation must be written together with implementation, but only record what has actually been implemented.
+
+Long documentation is acceptable, but guessing or falsely reporting completed work is forbidden.
+
+Follow these rules:
+
+* Only document what was actually implemented.
+* Do not claim that unfinished work is complete.
+* Do not mark untested items as Pass.
+* Do not hide failed tests.
+* If the structure changes, record the reason for the change.
+* Explain the algorithm based on the actual code.
+* Final documentation should be clear enough for the user or another developer to continue the project later.
+* Keep Codex-facing documents in English.
+* Keep user-facing review documents in Korean.
+
+---
+
+# Priority Order
+
+Prioritize the work in this order:
+
+1. Correct behavior that satisfies the requirements
+2. Accuracy of the tile median algorithm
+3. Stable transparent PNG handling
+4. Stable handling of small images, large images, and unusual aspect ratios
+5. GUI usability
+6. Correctness of the downloaded result
+7. Clean responsibility separation in code
+8. Test records
+9. User-facing Korean progress summaries
+10. Final documentation completeness
+
+---
+
+# 0. Initial Project Structure and Documentation
+
+Before implementing features, create the initial project directory structure and required documentation files.
+
+This project starts as a small local web app, but the structure should remain clean enough for future expansion.
+
+Use the following initial directory structure:
+
+```txt
+pixel-icon-generator/
+├─ AGENTS.md
+├─ PLANS.md
+├─ README.md
+├─ DESIGN_SPEC.md
+├─ TEST_PLAN.md
+├─ CHANGELOG.md
+├─ USER_GUIDE_KO.md
+├─ DEVELOPMENT_REPORT_KO.md
+├─ TEST_SUMMARY_KO.md
+├─ index.html
+├─ src/
+│  ├─ app.js
+│  ├─ imageProcessor.js
+│  ├─ fileHandler.js
+│  ├─ uiController.js
+│  └─ constants.js
+├─ styles/
+│  └─ style.css
+├─ tests/
+│  ├─ test-cases.html
+│  └─ testImageFactory.js
+└─ assets/
+   └─ .gitkeep
+```
+
+If a better structure becomes necessary during implementation, you may modify it.
+
+If you modify the structure, record the reason in both:
+
+* `PLANS.md`
+* `DEVELOPMENT_REPORT_KO.md`
+
+---
+
+# 0-1. Execution Method
+
+This project must be easy for the user to run.
+
+For the initial version, do not use ES Module `import/export`.
+
+Do not write code like this:
+
+```js
+export const OUTPUT_SIZE = 32;
+import { OUTPUT_SIZE } from "./constants.js";
+```
+
+Instead, load scripts in order from `index.html` using normal script tags.
+
+```html
+<script src="./src/constants.js"></script>
+<script src="./src/fileHandler.js"></script>
+<script src="./src/imageProcessor.js"></script>
+<script src="./src/uiController.js"></script>
+<script src="./src/app.js"></script>
+```
+
+Minimize global namespace usage, but prioritize easy execution.
+
+Example:
+
+```js
+window.PixelIconConstants = {
+  OUTPUT_SIZE: 32,
+  TRANSPARENT_ALPHA_THRESHOLD: 16,
+  MIN_OPAQUE_RATIO: 0.1,
+  SUPPORTED_MIME_TYPES: ["image/png", "image/jpeg"],
+  DEFAULT_OUTPUT_FILENAME: "pixel_icon_32x32.png"
+};
+```
+
+The final result should run by opening `index.html` directly in a browser whenever possible.
+
+If a local server is necessary, explain the execution method in both:
+
+* `README.md` in English
+* `USER_GUIDE_KO.md` in Korean
+
+Example:
+
+```bash
+python -m http.server 8000
+```
+
+The test page `tests/test-cases.html` must also avoid ES Modules in the initial version.
+If it loads source files, use normal script tags with correct relative paths such as:
+
+```html
+<script src="../src/constants.js"></script>
+<script src="../src/imageProcessor.js"></script>
+<script src="./testImageFactory.js"></script>
+```
+
+---
+
+# 0-2. Required Markdown Documents
+
+The project must include the following Markdown documents.
+
+---
+
+## 1. `AGENTS.md`
+
+This is a Codex-facing engineering instruction document.
+
+Write this document in English.
+
+It must include the following sections:
+
+```md
+# AGENTS.md
+
+## Project Goal
+Build a local 32×32 pixel icon generator.
+
+The app must convert an input PNG/JPG/JPEG image into a 32×32 pixel icon using tile-based median color sampling.
+
+This must not be implemented as a simple image resize.
+
+## Repository Layout
+- `index.html`: Main HTML entry.
+- `styles/style.css`: Layout and visual styling.
+- `src/constants.js`: Global constants.
+- `src/fileHandler.js`: File validation and filename handling.
+- `src/imageProcessor.js`: Image loading, tile sampling, median color calculation, transparency handling.
+- `src/uiController.js`: DOM updates and UI state.
+- `src/app.js`: App entry point and event flow.
+- `tests/test-cases.html`: Manual and visual test runner.
+- `tests/testImageFactory.js`: Test image generation helpers.
+- `README.md`: English technical usage guide.
+- `DESIGN_SPEC.md`: English feature and GUI design.
+- `TEST_PLAN.md`: English test checklist and result criteria.
+- `PLANS.md`: English current execution plan and step status.
+- `CHANGELOG.md`: English version history.
+- `USER_GUIDE_KO.md`: Korean user guide.
+- `DEVELOPMENT_REPORT_KO.md`: Korean user-facing development report.
+- `TEST_SUMMARY_KO.md`: Korean user-facing test summary.
+
+## Engineering Rules
+- Keep the app dependency-free unless absolutely necessary.
+- Prefer Vanilla HTML/CSS/JavaScript.
+- Do not use ES Module `import/export` in the initial version.
+- The app should run by opening `index.html` directly in a browser when possible.
+- Keep functions small and responsibility-focused.
+- Do not mix image processing logic with DOM manipulation.
+- Do not implement the converter as a simple `drawImage(image, 0, 0, 32, 32)` resize.
+- Use tile-based median color sampling.
+- Preserve transparent PNG behavior as much as possible.
+- Use constants for output size and transparency thresholds.
+- Keep Codex-facing documents in English.
+- Keep user-facing review documents in Korean.
+
+## Required Verification
+Before considering the task complete:
+- Test PNG input.
+- Test JPG/JPEG input.
+- Test transparent PNG input.
+- Test drag and drop.
+- Test invalid file type.
+- Test download.
+- Confirm downloaded PNG is exactly 32×32.
+- Confirm the algorithm uses tile median sampling, not simple resize.
+- Confirm small images do not crash the converter.
+- Confirm very large images generate a result.
+
+## Documentation Rules
+After each development step, update `PLANS.md`.
+
+After meaningful milestones, update `DEVELOPMENT_REPORT_KO.md` for the user in Korean.
+
+Keep `README.md`, `DESIGN_SPEC.md`, `TEST_PLAN.md`, and `CHANGELOG.md` in English.
+
+Keep `USER_GUIDE_KO.md`, `DEVELOPMENT_REPORT_KO.md`, and `TEST_SUMMARY_KO.md` in Korean.
+
+Documentation should be accurate and grounded in implemented behavior.
+
+Do not mark untested behavior as verified.
+```
+
+---
+
+## 2. `PLANS.md`
+
+This is a Codex-facing long-running work plan.
+
+Write this document in English.
+
+It must include the following sections:
+
+```md
+# PLANS.md
+
+## 1. Current Objective
+Describe the current objective.
+
+## 2. Current Step
+Describe the current active step.
+
+## 3. Step Checklist
+- [ ] Step 0. Initial directory structure and documentation
+- [ ] Step 1. Basic GUI layout
+- [ ] Step 2. Image input
+- [ ] Step 3. 32×32 conversion algorithm
+- [ ] Step 4. Result preview and download
+- [ ] Step 5. Self testing and fixes
+- [ ] Step 6. Documentation cleanup
+- [ ] Step 7. Refactoring and structure review
+- [ ] Step 8. Algorithm verification test images
+- [ ] Step 9. Manual test checklist execution
+- [ ] Step 10. Final self evaluation
+
+## 4. Decisions
+Record important development decisions.
+
+## 5. Risks
+Record remaining risks.
+
+## 6. Next Actions
+Record the next actions.
+```
+
+---
+
+## 3. `README.md`
+
+This is the English technical usage guide.
+
+Write this document in English.
+
+It must include the following sections:
+
+```md
+# 32×32 Pixel Icon Generator
+
+## 1. Overview
+Explain what this program does.
+
+## 2. Main Features
+- PNG/JPG image input
+- Drag-and-drop support
+- 32×32 tile-based median color conversion
+- Transparent PNG handling
+- Result image preview
+- PNG download
+
+## 3. How to Run
+Explain how to run the app locally.
+
+Examples:
+- Open `index.html` directly in a browser.
+- If a local server is needed, provide the command.
+
+## 4. How to Use
+1. Upload an image.
+2. Check the original preview.
+3. Check the generated 32×32 icon.
+4. Save the PNG using the download button.
+
+## 5. Supported File Types
+- PNG
+- JPG
+- JPEG
+
+## 6. Output Specification
+- Size: 32×32 px
+- Format: PNG
+- Transparent background support
+
+## 7. Testing
+Explain how to use the test page or manual test process.
+
+## 8. Known Limitations
+Describe current limitations and possible improvements.
+```
+
+---
+
+## 4. `DESIGN_SPEC.md`
+
+This is a Codex-facing design document.
+
+Write this document in English.
+
+It must include the following sections:
+
+```md
+# Design Specification
+
+## 1. Program Goal
+Explain that the goal is to convert an input image into a 32×32 pixel icon.
+
+## 2. Core Conversion Method
+Clearly state that the program does not simply resize the image.
+
+The original image must be divided into 32 columns and 32 rows.
+
+Each tile must be converted into one output pixel using the median color of the tile.
+
+## 3. Image Processing Rules
+- Divide input image into 32×32 tiles.
+- Calculate RGBA median for each tile.
+- Apply transparent pixel handling rules.
+- Output image must be a 32×32 PNG.
+
+## 4. Transparency Rules
+- Pixels below the alpha threshold are treated as transparent.
+- If the opaque pixel ratio in a tile is too low, the output pixel becomes transparent.
+- Threshold values are managed in `constants.js`.
+
+## 5. GUI Layout
+Use a four-section layout.
+
+- Top-left: input image preview
+- Top-right: generated result preview
+- Bottom-left: image input area
+- Bottom-right: download and file information area
+
+## 6. Module Responsibilities
+Explain the responsibility of each file:
+- `app.js`
+- `imageProcessor.js`
+- `fileHandler.js`
+- `uiController.js`
+- `constants.js`
+
+## 7. Future Extensions
+Possible future features:
+- 16×16 / 64×64 output options
+- average / median / dominant color mode selection
+- palette limit
+- background removal option
+- dithering option
+- preview zoom control
+- UI control for transparency thresholds
+```
+
+---
+
+## 5. `TEST_PLAN.md`
+
+This is a Codex-facing test plan.
+
+Write this document in English.
+
+It must include the following sections:
+
+```md
+# Test Plan
+
+## 1. Test Goal
+Verify that the program works according to the requirements.
+
+## 2. Functional Tests
+
+### Image Input Tests
+- [ ] PNG file input
+- [ ] JPG file input
+- [ ] JPEG file input
+- [ ] Invalid file type input
+- [ ] Drag-and-drop input
+- [ ] File select button input
+- [ ] Corrupted image file input
+
+### Image Conversion Tests
+- [ ] Result image is exactly 32×32.
+- [ ] Original image is divided into 32×32 tiles.
+- [ ] Median color is applied.
+- [ ] Transparent PNG is handled correctly.
+- [ ] Conversion uses tile median, not simple resize.
+- [ ] Image smaller than 32×32 is handled without error.
+- [ ] Large image generates a result.
+- [ ] Very wide image is handled.
+- [ ] Very tall image is handled.
+
+### GUI Tests
+- [ ] Four-section layout is visible.
+- [ ] Top-left original preview works.
+- [ ] Top-right result preview works.
+- [ ] Bottom-left input area works.
+- [ ] Bottom-right download area works.
+- [ ] Result image is enlarged with pixelated rendering.
+
+### Download Tests
+- [ ] PNG download works.
+- [ ] Downloaded file is 32×32.
+- [ ] Download filename is correct.
+- [ ] Download button is disabled before image input.
+
+## 3. Edge Case Tests
+- [ ] Non-image file input
+- [ ] Very small image input
+- [ ] Very large image input
+- [ ] Fully transparent image input
+- [ ] Download button before file input
+- [ ] Corrupted image input
+
+## 4. Result Recording Format
+
+Record each test result in this format:
+
+- [x] PNG file input
+  - Result: Pass
+  - Note: PNG image loaded and previewed correctly.
+
+- [ ] Very large image input
+  - Result: Fail
+  - Issue: UI freezes during conversion.
+  - Fix Plan: Consider loading state or optimization.
+```
+
+---
+
+## 6. `CHANGELOG.md`
+
+This is a Codex-facing version history.
+
+Write this document in English.
+
+It must include the following sections:
+
+```md
+# Changelog
+
+## [0.1.0] - Initial Complete Version
+
+### Added
+- Initial project structure
+- Basic GUI layout
+- Image input
+- Drag-and-drop input
+- 32×32 tile median conversion
+- Transparent PNG handling
+- Result preview
+- PNG download
+- Test page or test image generation tool
+- Documentation files
+
+### Changed
+- Record changed items here.
+
+### Fixed
+- Record fixed bugs here.
+
+### Known Issues
+- Record unresolved issues here.
+```
+
+---
+
+## 7. `USER_GUIDE_KO.md`
+
+This is a Korean user-facing guide.
+
+Write this document in Korean.
+
+It must include the following sections:
+
+```md
+# 사용자 가이드
+
+## 1. 프로그램 개요
+이 프로그램이 무엇을 하는지 설명한다.
+
+## 2. 실행 방법
+`index.html` 직접 실행 방법 또는 로컬 서버 실행 방법을 설명한다.
+
+## 3. 사용 방법
+이미지 업로드, 미리보기 확인, 결과 확인, 다운로드 흐름을 설명한다.
+
+## 4. 지원 파일 형식
+PNG, JPG, JPEG 지원 여부를 설명한다.
+
+## 5. 결과물 사양
+32×32 PNG 결과물이 생성된다는 점을 설명한다.
+
+## 6. 주의사항
+현재 제한사항이나 사용자가 알아야 할 내용을 설명한다.
+```
+
+---
+
+## 8. `DEVELOPMENT_REPORT_KO.md`
+
+This is a Korean user-facing development progress report.
+
+Write this document in Korean.
+
+Update it after meaningful milestones and after each completed step.
+
+It must include the following sections:
+
+```md
+# 개발 진행 보고서
+
+## 1. 현재 진행 단계
+현재 Step 번호와 이름을 적는다.
+
+## 2. 이번 단계에서 구현한 내용
+이번 단계에서 실제로 구현한 기능을 적는다.
+
+## 3. 현재 프로젝트 구조
+현재 디렉토리 구조를 적는다.
+
+## 4. 현재까지 완성된 기능
+완료된 기능을 체크리스트로 적는다.
+
+## 5. 발견한 문제
+개발 중 발견한 문제를 적는다.
+
+## 6. 수정한 문제
+해결한 문제와 해결 방법을 적는다.
+
+## 7. 요구사항 충족 여부 평가
+현재 구현이 요구사항을 얼마나 만족하는지 평가한다.
+
+## 8. 다음 단계 계획
+다음에 구현할 내용을 적는다.
+
+## 9. 테스트 결과 요약
+직접 실행하거나 확인한 테스트 결과를 요약한다.
+```
+
+---
+
+## 9. `TEST_SUMMARY_KO.md`
+
+This is a Korean user-facing test summary.
+
+Write this document in Korean.
+
+It must include the following sections:
+
+```md
+# 테스트 요약
+
+## 1. 테스트 목적
+무엇을 검증했는지 설명한다.
+
+## 2. 주요 테스트 결과
+핵심 테스트 결과를 Pass / Fail 중심으로 요약한다.
+
+## 3. 실패한 테스트
+실패한 테스트가 있다면 원인과 수정 계획을 적는다.
+
+## 4. 알고리즘 검증 요약
+tile median 방식이 실제로 사용되었는지 설명한다.
+
+## 5. 다운로드 결과 검증
+다운로드된 PNG가 32×32인지 확인한 결과를 적는다.
+
+## 6. 남은 리스크
+아직 남아 있는 리스크를 적는다.
+```
+
+---
+
+# 0-3. Responsibility of Each Source File
+
+Use the following responsibilities for the initial implementation.
+
+---
+
+## `index.html`
+
+This file defines the base HTML structure of the app.
+
+It must include:
+
+* Top-left original image preview area
+* Top-right generated image preview area
+* Bottom-left image input area
+* Bottom-right download and file information area
+
+`index.html` must load scripts in this order:
+
+```html
+<script src="./src/constants.js"></script>
+<script src="./src/fileHandler.js"></script>
+<script src="./src/imageProcessor.js"></script>
+<script src="./src/uiController.js"></script>
+<script src="./src/app.js"></script>
+```
+
+---
+
+## `styles/style.css`
+
+This file handles the GUI styling.
+
+It must include styles for:
+
+* Four-section layout
+* Top 70%, bottom 30% ratio
+* Left 50%, right 50% ratio
+* Drag-and-drop hover state
+* Image preview style
+* Pixelated result image rendering
+* Basic responsive layout
+
+---
+
+## `src/constants.js`
+
+This file manages constants used across the program.
+
+Do not use ES Modules.
+
+Example:
+
+```js
+window.PixelIconConstants = {
+  OUTPUT_SIZE: 32,
+  TRANSPARENT_ALPHA_THRESHOLD: 16,
+  MIN_OPAQUE_RATIO: 0.1,
+  SUPPORTED_MIME_TYPES: ["image/png", "image/jpeg"],
+  DEFAULT_OUTPUT_FILENAME: "pixel_icon_32x32.png"
+};
+```
+
+---
+
+## `src/fileHandler.js`
+
+This file handles file input and validation.
+
+Example functions:
+
+```js
+validateImageFile(file)
+readFileAsDataURL(file)
+createOutputFilename(originalFilename)
+```
+
+Wrap its functions in a namespace such as `window.PixelIconFileHandler`.
+
+---
+
+## `src/imageProcessor.js`
+
+This file handles the image conversion algorithm.
+
+Example functions:
+
+```js
+loadImageFromDataURL(dataURL)
+convertImageToPixelIcon(image)
+calculateTileBounds(tileX, tileY, imageWidth, imageHeight)
+calculateTileMedianColor(imageData, tileBounds)
+calculateMedian(values)
+isTransparentPixel(alpha)
+shouldTileBeTransparent(tilePixels)
+```
+
+This file contains the core algorithm and must not be mixed with UI code.
+
+Wrap its functions in a namespace such as `window.PixelIconImageProcessor`.
+
+---
+
+## `src/uiController.js`
+
+This file handles screen updates and user interaction.
+
+Example functions:
+
+```js
+initUI()
+showOriginalPreview(dataURL)
+showResultPreview(canvas)
+showError(message)
+clearError()
+setDownloadEnabled(enabled)
+updateFileInfo(fileInfo)
+```
+
+Wrap its functions in a namespace such as `window.PixelIconUIController`.
+
+---
+
+## `src/app.js`
+
+This is the app entry point.
+
+Responsibilities:
+
+* Register event listeners
+* Control the file input flow
+* Call image conversion functions
+* Call UI update functions
+* Connect download behavior
+
+---
+
+## `tests/test-cases.html`
+
+This page is for manual and visual testing.
+
+Include these features if needed:
+
+* Test image generation buttons
+* Generated test image preview
+* Converter result preview
+* Result canvas size check
+* Algorithm verification log
+
+This page must also avoid ES Modules in the initial version.
+
+---
+
+## `tests/testImageFactory.js`
+
+This file generates test images using canvas.
+
+If possible, generate the following test images:
+
+* Solid color image
+* Left-right split color image
+* Top-bottom split color image
+* Transparent background with opaque shape
+* Fully transparent image
+* Semi-transparent area image
+* Very wide image
+* Very tall image
+* Image smaller than 32×32
+
+---
+
+# 0-4. Step 0 Completion Criteria
+
+Step 0 is complete only if all of the following are satisfied:
+
+* [ ] Initial directory structure exists.
+* [ ] `AGENTS.md` exists and is written in English.
+* [ ] `PLANS.md` exists and is written in English.
+* [ ] `README.md` exists and is written in English.
+* [ ] `DESIGN_SPEC.md` exists and is written in English.
+* [ ] `TEST_PLAN.md` exists and is written in English.
+* [ ] `CHANGELOG.md` exists and is written in English.
+* [ ] `USER_GUIDE_KO.md` exists and is written in Korean.
+* [ ] `DEVELOPMENT_REPORT_KO.md` exists and is written in Korean.
+* [ ] `TEST_SUMMARY_KO.md` exists and is written in Korean.
+* [ ] Each document contains its basic table of contents and purpose.
+* [ ] `src/` folder exists.
+* [ ] `styles/` folder exists.
+* [ ] `tests/` folder exists.
+* [ ] Source file responsibilities are recorded in the documents.
+* [ ] Step 0 result is recorded in `PLANS.md`.
+* [ ] Step 0 result is summarized in `DEVELOPMENT_REPORT_KO.md`.
+
+After finishing Step 0, do not immediately move on without first recording the current structure and next plan in:
+
+* `PLANS.md` in English
+* `DEVELOPMENT_REPORT_KO.md` in Korean
+
+---
+
+# 1. Final Program Goal
+
+The user must be able to upload an image or input it using drag and drop.
+
+The input image must be shown in the top-left preview area.
+
+The program must divide the input image into a 32×32 grid.
+
+Each grid cell, meaning each tile, must be analyzed and converted into one representative pixel using the median RGB or RGBA value.
+
+Transparent PNG backgrounds must be preserved.
+
+A final 32×32 pixel image must be generated from the representative tile colors.
+
+The generated image must be shown in the top-right preview area with enlargement.
+
+The bottom-right area must show the generated file information and download button.
+
+The user must be able to download the generated 32×32 PNG file.
+
+---
+
+# 2. Tech Stack
+
+Use as few external dependencies as possible.
+
+Priority:
+
+1. Vanilla HTML / CSS / JavaScript local web app
+2. React, Vite, or similar tools only if truly necessary
+3. Avoid excessive frameworks because simple execution is important
+
+For the initial version, use Vanilla HTML / CSS / JavaScript.
+
+For the initial version, do not use external libraries.
+
+---
+
+# 3. Functional Requirements
+
+---
+
+## 3-1. Image Input
+
+The user must be able to input PNG or JPG files.
+
+Support the following input methods:
+
+1. File select button
+2. Drag and drop
+
+Supported extensions:
+
+* `.png`
+* `.jpg`
+* `.jpeg`
+
+Supported MIME types:
+
+* `image/png`
+* `image/jpeg`
+
+If an unsupported file is provided, show an error message to the user.
+
+If the image is corrupted or cannot be loaded by the browser, the app must not freeze or crash. It must show an error message.
+
+---
+
+## 3-2. 32×32 Tiling
+
+Divide the input image into 32 columns and 32 rows.
+
+This produces 1024 tiles.
+
+Divide the original image width into 32 parts and the original image height into 32 parts.
+
+Each tile corresponds to one pixel in the final 32×32 image.
+
+Examples:
+
+* Top-left tile of the original image → output pixel at `(0, 0)`
+* Bottom-right tile of the original image → output pixel at `(31, 31)`
+
+If tile boundaries are fractional, still make sure the whole image area is covered.
+
+---
+
+## 3-3. Tile Boundary Calculation Rules
+
+The 32×32 conversion algorithm should calculate tile boundaries like this:
+
+```js
+const xStart = Math.floor(tileX * imageWidth / OUTPUT_SIZE);
+const xEnd = Math.floor((tileX + 1) * imageWidth / OUTPUT_SIZE);
+const yStart = Math.floor(tileY * imageHeight / OUTPUT_SIZE);
+const yEnd = Math.floor((tileY + 1) * imageHeight / OUTPUT_SIZE);
+```
+
+If the original image is very small or tile boundaries overlap, causing an empty tile, adjust the bounds so that at least one pixel is sampled.
+
+Example:
+
+```js
+const safeXEnd = Math.max(xEnd, xStart + 1);
+const safeYEnd = Math.max(yEnd, yStart + 1);
+```
+
+Also clamp the bounds so they do not exceed the image area.
+
+```js
+const clampedXStart = Math.max(0, Math.min(xStart, imageWidth - 1));
+const clampedYStart = Math.max(0, Math.min(yStart, imageHeight - 1));
+const clampedXEnd = Math.max(clampedXStart + 1, Math.min(safeXEnd, imageWidth));
+const clampedYEnd = Math.max(clampedYStart + 1, Math.min(safeYEnd, imageHeight));
+```
+
+This rule must allow stable handling of:
+
+* 100×100 images
+* 1920×1080 images
+* 17×17 images
+* Images smaller than 32×32
+* Images with extreme aspect ratios
+
+---
+
+## 3-4. Tile Representative Color Calculation
+
+Collect the pixels inside each tile.
+
+Calculate the median value for each channel.
+
+Basic calculation:
+
+* R channel median
+* G channel median
+* B channel median
+* A channel median
+
+Final pixel color:
+
+```txt
+(medianR, medianG, medianB, medianA)
+```
+
+For transparent PNG handling, apply these rules:
+
+1. If most pixels in a tile are transparent, the output pixel must also be transparent.
+2. Pixels with very low alpha may be excluded from color median calculation.
+3. The transparency threshold must be managed as a constant in `constants.js`.
+4. Default: pixels with `alpha < 16` are considered transparent.
+5. If the opaque pixel ratio inside a tile is too low, the output pixel becomes fully transparent.
+6. The default minimum opaque pixel ratio is `0.1`.
+7. For tiles that are not considered transparent, RGB median must be calculated using opaque pixels.
+8. For tiles that are not considered transparent, alpha median must also be calculated using opaque pixels.
+9. If a tile has no opaque pixels, the output pixel must be `(0, 0, 0, 0)`.
+
+These threshold values must be separated into variables so they can be adjusted later.
+
+---
+
+## 3-5. Result Image Generation
+
+Create a 32×32 canvas or image data.
+
+Apply each tile’s representative color to the corresponding one of the 1024 output pixels.
+
+Generate the result as PNG.
+
+Because an actual 32×32 image is too small to preview clearly, show an enlarged preview on screen.
+
+Use CSS to preserve the pixel art look:
+
+```css
+image-rendering: pixelated;
+image-rendering: crisp-edges;
+```
+
+---
+
+## 3-6. Download
+
+The generated result image must be downloadable as a PNG file.
+
+Default filename:
+
+```txt
+pixel_icon_32x32.png
+```
+
+If the original filename exists, use this format:
+
+```txt
+original_filename_32x32.png
+```
+
+Implement download using canvas `toBlob` or `toDataURL`.
+
+Disable the download button when no result image exists.
+
+---
+
+# 4. GUI Requirements
+
+Design the GUI as a four-section layout.
+
+The top section must be taller than the bottom section.
+
+Overall layout:
+
+```txt
+┌───────────────────────┬────────────────────────┐
+│ Top-left               │ Top-right              │
+│ Input image preview    │ Generated preview       │
+├───────────────────────┼────────────────────────┤
+│ Bottom-left            │ Bottom-right            │
+│ Image input area       │ File info / download    │
+└───────────────────────┴────────────────────────┘
+```
+
+Approximate ratio:
+
+* Top: about 70% of total height
+* Bottom: about 30% of total height
+* Left: 50% of total width
+* Right: 50% of total width
+
+Exact resolution can be chosen freely.
+
+The GUI must satisfy at least these conditions:
+
+1. Input image and result image can be compared on one screen.
+2. Drag-and-drop area is clear.
+3. Download button is clear.
+4. Error messages are visible to the user.
+5. Basic responsive layout is considered.
+
+---
+
+# 5. GUI Detail Design
+
+---
+
+## 5-1. Bottom-left
+
+The bottom-left area shows the image input section.
+
+Include:
+
+* Drag-and-drop box
+* File select button
+* Supported file format notice
+* Error message area
+
+When the user drags an image over the area, show a visible hover state.
+
+---
+
+## 5-2. Top-left
+
+The top-left area shows the input original image.
+
+Before an image is provided, show a placeholder.
+
+Example UI text:
+
+```txt
+입력 이미지 미리보기
+```
+
+If the image is large, fit it inside the area.
+
+Preserve the original aspect ratio.
+
+---
+
+## 5-3. Top-right
+
+The top-right area shows the generated 32×32 pixel icon.
+
+Before generation, show a placeholder.
+
+Example UI text:
+
+```txt
+생성된 32×32 아이콘 미리보기
+```
+
+Show the result enlarged.
+
+Use pixelated rendering so pixel edges do not become blurry.
+
+---
+
+## 5-4. Bottom-right
+
+The bottom-right area shows generated file information.
+
+Include:
+
+* Result filename
+* Image size: 32×32
+* File type: PNG
+* Download button
+
+Disable the download button if no result image exists.
+
+---
+
+# 6. Development Steps
+
+---
+
+## Step 0. Initial Directory Structure and Documentation
+
+Create the project folder, base source files, and required Markdown documents first.
+
+Completion criteria:
+
+* Initial directory structure is created.
+* Required `.md` documents are created.
+* Each document has a basic table of contents.
+* Each source file responsibility is defined.
+* Step 0 result is recorded in `PLANS.md`.
+* Step 0 result is summarized in `DEVELOPMENT_REPORT_KO.md`.
+
+---
+
+## Step 1. Basic GUI Layout
+
+Implement the four-section GUI first.
+
+No actual image processing is required in this step.
+
+Completion criteria:
+
+* Four-section layout is visible.
+* Top section is taller than bottom section.
+* Each section clearly shows its purpose.
+* Responsive layout does not break badly.
+* `PLANS.md` is updated in English.
+* `DEVELOPMENT_REPORT_KO.md` is updated in Korean.
+
+---
+
+## Step 2. Image Input
+
+Implement file select and drag-and-drop input.
+
+Completion criteria:
+
+* PNG, JPG, and JPEG files can be input.
+* Input image is displayed in the top-left area.
+* Invalid file types are rejected.
+* Error messages are displayed.
+* Drag hover state is displayed.
+* Corrupted image load failure shows an error message.
+* `PLANS.md` is updated in English.
+* `DEVELOPMENT_REPORT_KO.md` is updated in Korean.
+
+---
+
+## Step 3. 32×32 Conversion Algorithm
+
+Implement the algorithm that divides the input image into 32×32 tiles and calculates the median color of each tile.
+
+Completion criteria:
+
+* Result canvas or image data is created as exactly 32×32.
+* Each tile’s representative color is calculated using median.
+* Transparent PNG backgrounds are handled properly.
+* Implementation uses tile median, not simple resize.
+* Small and large images are handled stably.
+* Converted image is shown enlarged in the top-right area.
+* `PLANS.md` is updated in English.
+* `DEVELOPMENT_REPORT_KO.md` is updated in Korean.
+
+---
+
+## Step 4. Result Preview and Download
+
+Implement result display and PNG download.
+
+Completion criteria:
+
+* Pressing the download button saves a PNG file.
+* Filename is either `pixel_icon_32x32.png` or based on the original filename.
+* Download button is disabled when no result image exists.
+* Generated file information is displayed in the bottom-right area.
+* `PLANS.md` is updated in English.
+* `DEVELOPMENT_REPORT_KO.md` is updated in Korean.
+
+---
+
+## Step 5. Self Testing and Fixes
+
+Test according to `TEST_PLAN.md` and fix issues.
+
+Test these cases directly:
+
+1. JPG input
+2. PNG input
+3. JPEG input
+4. Transparent PNG input
+5. Very small image input
+6. Very large image input
+7. Invalid file type input
+8. Drag-and-drop input
+9. File select button input
+10. Download result
+11. Confirm result image is actually 32×32
+12. Confirm result generation is tile median, not simple resize
+
+Record test results in:
+
+* `TEST_PLAN.md` in English
+* `TEST_SUMMARY_KO.md` in Korean
+* `DEVELOPMENT_REPORT_KO.md` in Korean
+
+If issues are found, fix them and test again.
+
+---
+
+## Step 6. Documentation Cleanup
+
+Clean up all documents before project completion.
+
+Completion criteria:
+
+* `README.md` explains how to run and use the program in English.
+* `USER_GUIDE_KO.md` explains how to run and use the program in Korean.
+* `DESIGN_SPEC.md` explains the final structure and algorithm in English.
+* `TEST_PLAN.md` records test results in English.
+* `TEST_SUMMARY_KO.md` summarizes test results in Korean.
+* `CHANGELOG.md` records final changes in English.
+* `PLANS.md` clearly shows completed and remaining steps in English.
+* `DEVELOPMENT_REPORT_KO.md` summarizes current completion status in Korean.
+
+---
+
+## Step 7. Refactoring and Structure Review
+
+After the whole program works, review the code structure without changing behavior.
+
+Review criteria:
+
+* Is DOM manipulation mixed into `imageProcessor.js`?
+* Is image processing logic mixed into `uiController.js`?
+* Does `app.js` have too many responsibilities?
+* Are constants separated into `constants.js`?
+* Is there duplicated code?
+* Do function names clearly describe their roles?
+* Is error handling sufficient?
+* Is download state management clear?
+
+Completion criteria:
+
+* Code readability is improved without breaking behavior.
+* Refactoring details are recorded in `PLANS.md`.
+* Refactoring summary is recorded in `DEVELOPMENT_REPORT_KO.md`.
+* Core features are tested again after refactoring.
+
+---
+
+## Step 8. Algorithm Verification Test Images
+
+Create test images to verify that the tile median algorithm works correctly.
+
+If possible, create these test images:
+
+1. Solid color image larger than 32×32
+2. Image smaller than 32×32
+3. Image split clearly into left and right colors
+4. Image split clearly into top and bottom colors
+5. Transparent background with an opaque shape
+6. Fully transparent PNG
+7. Image with low-alpha semi-transparent area
+8. Very wide image
+9. Very tall image
+
+Do not mix test image generation code into the main app.
+
+Use `tests/test-cases.html` and `tests/testImageFactory.js` if needed.
+
+Record verification results in:
+
+* `TEST_PLAN.md` in English
+* `TEST_SUMMARY_KO.md` in Korean
+* `DEVELOPMENT_REPORT_KO.md` in Korean
+
+---
+
+## Step 9. Manual Test Checklist Execution
+
+Actually perform the checklist in `TEST_PLAN.md`.
+
+Do not merely check items.
+
+Record each test in `TEST_PLAN.md` in this format:
+
+```md
+- [x] PNG file input
+  - Result: Pass
+  - Note: PNG image loaded and previewed correctly.
+
+- [ ] Very large image input
+  - Result: Fail
+  - Issue: UI freezes during conversion.
+  - Fix Plan: Consider loading state or optimization.
+```
+
+Also summarize the results in Korean in `TEST_SUMMARY_KO.md`.
+
+If a test fails, analyze the cause and fix it.
+
+After fixing, run the same test again and update the result.
+
+---
+
+## Step 10. Final Self Evaluation
+
+After all implementation and testing are complete, perform a final self-evaluation.
+
+Append the following section to `PLANS.md` in English:
+
+```md
+# Final Self Evaluation
+
+## 1. Requirement Satisfaction
+Evaluate whether each requirement has been satisfied.
+
+## 2. Algorithm Accuracy
+Explain whether tile median sampling is actually used.
+
+## 3. Why This Is Not Simple Resize
+Explain which code proves that the implementation is not a simple resize.
+
+## 4. Transparent PNG Handling
+Explain how transparent background, semi-transparent pixels, and fully transparent images are handled.
+
+## 5. GUI Usability
+Evaluate whether the input, preview, and download flow is easy to use.
+
+## 6. Remaining Limitations
+Record current limitations.
+
+## 7. Future Improvements
+Record useful future features.
+```
+
+Also write the following final self-evaluation section in Korean in `DEVELOPMENT_REPORT_KO.md`:
+
+```md
+# 최종 자체 평가
+
+## 1. 요구사항 충족 여부
+각 요구사항을 만족했는지 평가한다.
+
+## 2. 알고리즘 정확성
+tile median 방식이 실제로 사용되었는지 설명한다.
+
+## 3. 단순 resize가 아닌 이유
+코드상 어떤 부분이 단순 resize가 아니라 tile median 변환인지 설명한다.
+
+## 4. 투명 PNG 처리 평가
+투명 배경, 반투명 픽셀, 완전 투명 이미지가 어떻게 처리되는지 설명한다.
+
+## 5. GUI 사용성 평가
+입력, 미리보기, 다운로드 흐름이 사용하기 쉬운지 평가한다.
+
+## 6. 남은 한계
+현재 버전에서 아직 부족한 점을 적는다.
+
+## 7. 추후 개선 방향
+다음 버전에 추가하면 좋은 기능을 적는다.
+```
+
+---
+
+# 7. Code Quality Requirements
+
+Write readable code.
+
+Add comments for important functions.
+
+Each file must stay within its own responsibility.
+
+Separate at least the following functions:
+
+* File validation function
+* Image loading function
+* 32×32 conversion function
+* Tile boundary calculation function
+* Median calculation function
+* Transparency handling function
+* Result preview update function
+* Download function
+* Error message display function
+
+Separate magic numbers into constants.
+
+Example:
+
+```js
+OUTPUT_SIZE = 32
+TRANSPARENT_ALPHA_THRESHOLD = 16
+MIN_OPAQUE_RATIO = 0.1
+```
+
+`imageProcessor.js` must contain only image conversion algorithm logic.
+
+`uiController.js` must contain only DOM manipulation and screen update logic.
+
+`fileHandler.js` must contain only file validation and filename generation logic.
+
+`app.js` must act as the entry point that connects the overall flow.
+
+---
+
+# 8. Algorithm Implementation Notes
+
+The core of this program is the 32×32 conversion algorithm.
+
+The algorithm must work as follows:
+
+1. Draw the original image onto a temporary canvas at original size.
+2. Get the pixel data of the original image.
+3. Divide the original image into 32 columns and 32 rows.
+4. Collect pixels for each tile.
+5. For each tile, calculate median values for R, G, B, and A channels.
+6. Put the calculated median value into the corresponding output pixel.
+7. Create a final 32×32 canvas.
+8. Use the result canvas for preview and download.
+
+Images whose dimensions are not evenly divisible by 32 must still be handled.
+
+Examples:
+
+* A 100×100 image must still be processed into 32×32.
+* A 1920×1080 image must still be processed into 32×32.
+* A 17×17 image, smaller than 32×32, must still be handled as stably as possible.
+
+---
+
+# 9. Additional Testing and Verification Requirements
+
+Before marking the project complete, verify the following:
+
+1. Result canvas width is exactly 32.
+2. Result canvas height is exactly 32.
+3. Downloaded PNG is actually 32×32.
+4. The code does not finish conversion using only simple `drawImage(image, 0, 0, 32, 32)`.
+5. The code directly iterates through `imageData` and calculates tile medians.
+6. Transparent pixel threshold is defined as a constant.
+7. Download button is disabled before file input.
+8. Invalid file type does not break the app.
+9. Very small image input does not cause empty-tile errors.
+10. Very large image input produces a result.
+
+---
+
+# 10. Completion Criteria
+
+The program is complete only if all of the following are satisfied:
+
+* [ ] User can input PNG/JPG/JPEG images.
+* [ ] Drag-and-drop input works.
+* [ ] Input image is visible in the top-left area.
+* [ ] Input image is divided into 32×32 tiles.
+* [ ] Final 32×32 image is generated using each tile’s median color.
+* [ ] The implementation is tile median, not simple resize.
+* [ ] Transparent PNG background is preserved.
+* [ ] Small and large images are handled.
+* [ ] Generated image is visible in the top-right area.
+* [ ] Result image is shown enlarged with pixelated rendering.
+* [ ] Result image can be downloaded as a PNG file.
+* [ ] GUI uses a four-section layout.
+* [ ] Top section is taller than bottom section.
+* [ ] Algorithm verification test images or a test page exists.
+* [ ] `AGENTS.md` documents project rules in English.
+* [ ] `PLANS.md` documents progress plan and completion state in English.
+* [ ] `README.md` explains how to run the program in English.
+* [ ] `DESIGN_SPEC.md` records design details in English.
+* [ ] `TEST_PLAN.md` records test criteria and results in English.
+* [ ] `CHANGELOG.md` records changes in English.
+* [ ] `USER_GUIDE_KO.md` explains how to run the program in Korean.
+* [ ] `DEVELOPMENT_REPORT_KO.md` records development progress, test results, and remaining issues in Korean.
+* [ ] `TEST_SUMMARY_KO.md` records test results in Korean.
+
+---
+
+# 11. Final Execution Instruction
+
+Before starting implementation, first analyze the requirements and create an implementation plan.
+
+Then create the actual files and write the code.
+
+After each step, do the following:
+
+1. Check current implementation status.
+2. Evaluate whether requirements are satisfied.
+3. Fix missing or insufficient parts.
+4. Update Codex-facing English documents.
+5. Update user-facing Korean review documents.
+6. Update `PLANS.md`.
+7. Write the next step plan.
+
+If a problem occurs, do not ignore it. Record the cause and solution in the documents.
+
+Finally, complete a 32×32 pixel icon generator that the user can run immediately.
