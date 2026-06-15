@@ -3,20 +3,21 @@
 ## Project Goal
 Build and maintain a local pixel icon generator.
 
-The app converts PNG/JPG/JPEG input images into small pixel icons using tile-based representative color sampling. The default behavior must remain `32x32`, `median`, and `png`.
+The app converts PNG/JPG/JPEG input images into small pixel icons using tile-based representative color sampling. The default behavior must remain `32x32`, `median`, `png`, and palette limit `off`.
 
 The converter must not be simplified into a resize shortcut.
 
 ## Repository Layout
 - `index.html`: Main HTML entry and four-section app layout.
 - `styles/style.css`: Layout, controls, preview, warning banner, and responsive styling.
-- `src/constants.js`: Global constants for sizes, modes, formats, thresholds, and Aseprite identifiers.
-- `src/fileHandler.js`: File validation, output size validation, option normalization, filename handling.
+- `src/constants.js`: Global constants for sizes, modes, formats, palette limits, thresholds, and Aseprite identifiers.
+- `src/fileHandler.js`: File validation, output size validation, palette option validation, option normalization, filename handling.
 - `src/imageProcessor.js`: Image loading, tile bounds, median/average/center sampling, transparency handling.
+- `src/paletteQuantizer.js`: Palette limit post-processing using median cut quantization.
 - `src/exporter.js`: PNG/JPG/Aseprite export helpers.
-- `src/uiController.js`: DOM updates, option controls, warning banner, preview and download state.
+- `src/uiController.js`: DOM updates, option controls, palette summaries, warning banner, preview and download state.
 - `src/app.js`: App entry point and event flow.
-- `tests/test-cases.html`: Manual and visual test runner for conversion, validation, and export.
+- `tests/test-cases.html`: Manual and visual test runner for conversion, validation, palette, and export.
 - `tests/testImageFactory.js`: Test image generation helpers.
 - `README.md`: English technical usage guide.
 - `DESIGN_SPEC.md`: English feature and GUI design.
@@ -35,8 +36,8 @@ The converter must not be simplified into a resize shortcut.
 - Keep functions small and responsibility-focused.
 - Do not mix image processing logic with DOM manipulation.
 - Do not implement conversion as a simple `drawImage(image, 0, 0, width, height)` resize.
-- Preserve the default 32x32 median PNG behavior.
-- Support variable output size through tile sampling.
+- Preserve the default 32x32 median PNG palette-off behavior.
+- Apply palette limit as post-processing after tile conversion.
 - Preserve transparent PNG behavior for PNG/Aseprite export.
 - Composite JPG export over a white background and warn the user when transparency is present.
 - Keep Codex-facing documents in English.
@@ -47,15 +48,17 @@ Before considering this project complete:
 - Test PNG/JPG/JPEG input.
 - Test drag and drop.
 - Test invalid and corrupted files.
-- Test default 32x32 median PNG output.
+- Test default 32x32 median PNG palette-off output.
 - Test preset and custom output sizes.
 - Test output size validation against source dimensions and max 256.
 - Test `median`, `average`, and `center` sampling modes.
-- Test PNG, JPG, and `.aseprite` export.
-- Confirm `.aseprite` export is not a renamed PNG.
-- Confirm JPG transparency warning and white background compositing.
+- Test palette modes: `off`, `auto`, numeric, and `custom`.
+- Test custom palette validation below 2 and above 256.
+- Confirm visible RGB color count after palette limit is at most the effective palette count.
+- Confirm transparent pixels remain transparent after palette quantization.
+- Test PNG, JPG, and `.aseprite` export after palette limiting.
 - Confirm warning banner is used instead of browser `alert()`.
-- Confirm downloaded filenames include width, height, sampling mode, and extension.
+- Confirm downloaded filenames include palette suffix only when palette mode is not `off`.
 - Confirm tests and documentation are updated.
 
 ## Documentation Rules

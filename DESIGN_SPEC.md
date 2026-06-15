@@ -1,63 +1,66 @@
 # Design Specification
 
 ## 1. Program Goal
-The program converts a user-provided image into a pixel icon with selectable output size, sampling mode, and export format.
+The program converts a user-provided image into a pixel icon with selectable output size, sampling mode, palette limit, and export format.
 
-The default remains 32x32 median PNG output.
+The default remains 32x32 median PNG output with palette limit off.
 
-## 2. Core Conversion Method
+## 2. Core Pipeline
 The program does not simply resize the image.
 
-The original image is divided into `outputWidth` columns and `outputHeight` rows. Each tile is converted into one output pixel using the selected representative color method.
+```txt
+input image
+-> tile conversion using median / average / center
+-> optional palette limit using median cut
+-> preview
+-> PNG / JPG / Aseprite export
+```
 
 ## 3. Conversion Options
 - `outputWidth`: integer output width.
 - `outputHeight`: integer output height.
 - `samplingMode`: `median`, `average`, or `center`.
 - `outputFormat`: `png`, `jpg`, or `aseprite`.
+- `paletteMode`: `off`, `auto`, numeric mode, or `custom`.
+- `customPaletteCount`: integer 2 to 256 when custom mode is selected.
 
 ## 4. Image Processing Rules
-- Load PNG/JPG/JPEG files through the browser File API.
-- Draw the source image onto a temporary canvas at natural dimensions only to read pixels.
+- Draw the source image onto a temporary canvas only to read pixels.
 - Read the source canvas with `getImageData`.
-- Divide the source image into outputWidth by outputHeight tile bounds.
+- Divide the source into outputWidth by outputHeight tile bounds.
 - Calculate each output pixel using the selected sampling mode.
-- Write the result into a new output `ImageData`.
-- Render that `ImageData` into an output canvas.
+- Write the result into output `ImageData`.
+- Apply palette limit post-processing only when palette mode is not `off`.
 
-## 5. Sampling Modes
-- `median`: Collect non-transparent tile pixels and use channel medians.
-- `average`: Collect non-transparent tile pixels and use channel averages.
-- `center`: Use the center source pixel from the tile.
+## 5. Palette Quantization
+Palette limiting is implemented in `src/paletteQuantizer.js`.
 
-Median remains the default mode.
+Rules:
+- Use median cut quantization.
+- Extract visible pixels only.
+- Do not count pixels whose alpha is below `TRANSPARENT_ALPHA_THRESHOLD`.
+- Build a limited RGB palette.
+- Map visible pixels to nearest palette RGB values.
+- Preserve alpha values.
+- Keep transparent pixels transparent.
+- If visible color count is 0, return a transparent result unchanged.
+- If effective palette count is greater than or equal to the visible RGB color count, return the result unchanged.
 
-## 6. Transparency Rules
-- Pixels with alpha below `TRANSPARENT_ALPHA_THRESHOLD` are treated as transparent.
-- If a median/average tile has no opaque pixels, the output pixel is transparent.
-- If a median/average tile's opaque pixel ratio is below `MIN_OPAQUE_RATIO`, the output pixel is transparent.
+## 6. Auto Palette Rules
+Use the larger of output width and height:
+- `<= 16`: 4 colors
+- `<= 24`: 8 colors
+- `<= 32`: 16 colors
+- `<= 48`: 16 colors
+- `<= 64`: 32 colors
+- `> 64`: 32 colors
+
+## 7. Transparency Rules
 - PNG and Aseprite preserve output alpha.
-- JPG composites the output over white and shows a warning if transparency exists.
+- JPG composites the palette-limited RGBA result onto white.
+- JPG may contain white background in addition to palette-limited visible colors because JPG cannot store transparency.
 
-## 7. Output Size Validation
-Output width and height must:
-- be integers,
-- be at least 1,
-- not exceed source image dimensions,
-- not exceed 256.
-
-Preset buttons larger than the current source image are disabled.
-
-## 8. Export Formats
-- PNG uses `canvas.toBlob("image/png")`.
-- JPG draws the result onto a white-background canvas and uses `canvas.toBlob("image/jpeg")`.
-- `.aseprite` uses a binary writer to create an Aseprite file with:
-  - 128-byte header,
-  - one frame,
-  - one layer chunk,
-  - one raw RGBA cel chunk.
-
-## 9. GUI Layout
+## 8. GUI Layout
 The app keeps the four-section layout.
 
 - Top-left: input image preview
@@ -65,20 +68,23 @@ The app keeps the four-section layout.
 - Bottom-left: image input and conversion options
 - Bottom-right: output metadata and download
 
-An upper-center warning banner displays validation and JPG transparency warnings. Browser `alert()` is not used as the main warning UI.
+Palette controls are in the existing options area. The output metadata panel shows palette mode and visible color count summary.
 
-## 10. Module Responsibilities
-- `app.js`: Connects events, current source state, validation, conversion, export, and download.
+The upper-center warning banner is reused for invalid palette count and other warnings. Browser `alert()` is not used as the main warning UI.
+
+## 9. Module Responsibilities
+- `app.js`: Connects events, current source state, validation, conversion, palette limiting, export, and download.
 - `imageProcessor.js`: Loads images and performs tile-based conversion.
-- `fileHandler.js`: Validates files and output size, normalizes options, generates filenames.
+- `paletteQuantizer.js`: Performs visible color counting, median cut palette generation, nearest-color mapping, and transparency-preserving palette application.
+- `fileHandler.js`: Validates files, output size, palette options, and filenames.
 - `exporter.js`: Creates PNG/JPG/Aseprite export blobs.
-- `uiController.js`: Handles DOM state, controls, previews, warning banner, and output metadata.
-- `constants.js`: Stores presets, defaults, limits, formats, thresholds, and Aseprite constants.
+- `uiController.js`: Handles DOM state, controls, palette summary, previews, warning banner, and output metadata.
+- `constants.js`: Stores presets, defaults, limits, palette rules, formats, thresholds, and Aseprite constants.
 
-## 11. Future Extensions
-- Web Worker conversion for large images
-- Palette limit
+## 10. Future Extensions
 - Dithering
-- Batch conversion
+- External palette import
+- Palette swatches
+- Web Worker quantization
 - Aseprite CLI validation
-- Multiple frames or layers in Aseprite export
+- Indexed-color Aseprite export

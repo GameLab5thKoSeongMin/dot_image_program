@@ -1,190 +1,151 @@
 # Test Plan
 
 ## 1. Test Goal
-Verify that the extended pixel icon generator preserves existing 32x32 median PNG behavior and correctly adds variable sizes, sampling modes, validation, warning UI, and PNG/JPG/Aseprite export.
+Verify that the pixel icon generator preserves existing behavior and correctly adds palette color limiting.
 
-## 2. Functional Tests
-
-### Existing Behavior Regression
-- [x] PNG input works.
+## 2. Regression Tests
+- [x] Default `32x32`, `median`, `png`, palette `off` still works.
   - Result: Pass
-  - Note: Verified in headless Edge with generated PNG `File` objects.
+  - Note: Headless Edge verified `palette_32x32_median.png`.
 
-- [x] JPG/JPEG input works.
+- [x] Existing input/preview/download flow still works.
   - Result: Pass
-  - Note: Existing MIME/extension validation remains in place.
+  - Note: Browser flow and test page passed.
 
-- [x] Drag-and-drop input works.
+- [x] Existing output format selection still works.
   - Result: Pass
-  - Note: Verified in the previous app pass and preserved in the current event flow.
+  - Note: PNG/JPG/Aseprite export remains functional.
 
-- [x] Default output remains 32x32 median PNG.
+- [x] Warning banner still works.
   - Result: Pass
-  - Note: Headless Edge produced `sample_32x32_median.png` with a 32x32 result.
+  - Note: Invalid palette values use the existing warning banner.
 
-- [x] Invalid file type is blocked.
+## 3. Palette Option Tests
+- [x] Palette mode `off` preserves current behavior.
   - Result: Pass
-  - Note: File validation rejects unsupported MIME types and extensions.
+  - Note: Test page confirms the original canvas is preserved.
 
-- [x] Corrupted image load failure is handled.
+- [x] Palette mode `auto` works.
   - Result: Pass
-  - Note: Image load errors are caught and shown through UI error/warning state.
+  - Note: Headless Edge verified filename suffix `_p16` for 32x32 auto.
 
-### Output Size Tests
-- [x] 16x16 median conversion
+- [x] Palette mode `4` works.
   - Result: Pass
-  - Note: Verified by `tests/test-cases.html`.
+  - Note: Test page verified visible color count is <= 4.
 
-- [x] 24x24 median conversion
+- [x] Palette mode `8` works.
   - Result: Pass
-  - Note: Verified by `tests/test-cases.html`.
+  - Note: Test page verified visible color count is <= 8.
 
-- [x] 32x32 median conversion
+- [x] Palette mode `16` works.
   - Result: Pass
-  - Note: Verified by app flow and test page.
+  - Note: Test page verified visible color count is <= 16.
 
-- [x] 48x48 median conversion
+- [x] Palette mode `32` works.
   - Result: Pass
-  - Note: Verified by `tests/test-cases.html`.
+  - Note: Test page verified visible color count is <= 32.
 
-- [x] 64x64 median conversion
+- [x] Palette mode `custom` works.
   - Result: Pass
-  - Note: Verified by `tests/test-cases.html`.
+  - Note: Headless Edge verified custom count 8 and filename `palette_32x32_average_p8.jpg`.
 
-- [x] 48x32 median conversion
+- [x] Custom palette count less than 2 is rejected.
   - Result: Pass
-  - Note: Verified by `tests/test-cases.html`.
+  - Note: Headless Edge verified warning and disabled download for value `1`.
 
-- [x] 8x12 custom conversion
+- [x] Custom palette count greater than 256 is rejected.
   - Result: Pass
-  - Note: Verified by `tests/test-cases.html`.
+  - Note: Headless Edge verified warning and disabled download for value `257`.
 
-- [x] Width greater than original image width is rejected.
+- [x] One-color image does not crash.
   - Result: Pass
-  - Note: Headless Edge and test page validation confirmed rejection.
+  - Note: Test page verified.
 
-- [x] Height greater than original image height is rejected.
+- [x] Fully transparent image does not crash.
   - Result: Pass
-  - Note: Verified by `tests/test-cases.html`.
+  - Note: Test page verified.
 
-- [x] Width greater than 256 is rejected.
+## 4. Auto Palette Tests
+- [x] 16x16 resolves to 4 colors.
   - Result: Pass
-  - Note: Verified by `tests/test-cases.html`.
 
-- [x] Height greater than 256 is rejected.
+- [x] 24x24 resolves to 8 colors.
   - Result: Pass
-  - Note: Verified by `tests/test-cases.html`.
 
-- [x] Preset larger than original image is disabled or blocked.
+- [x] 32x32 resolves to 16 colors.
   - Result: Pass
-  - Note: Headless Edge verified a 20x20 image disables 24x24 and keeps download blocked until 16x16 is selected.
 
-### Sampling Mode Tests
-- [x] 32x32 median conversion
+- [x] 48x32 resolves to 16 colors.
   - Result: Pass
-  - Note: Verified by app flow and test page.
 
-- [x] 32x32 average conversion
+- [x] 64x64 resolves to 32 colors.
   - Result: Pass
-  - Note: Verified by test page.
 
-- [x] 32x32 center conversion
+## 5. Palette Correctness Tests
+- [x] Visible RGB color count after palette limit is <= effective palette count.
   - Result: Pass
-  - Note: Verified by test page.
+  - Note: Test page verifies this for auto, numeric, and custom modes.
 
-- [x] 64x64 average conversion
+- [x] Transparent pixels are excluded from color count.
   - Result: Pass
-  - Note: Headless Edge verified 64x64 average output and test page coverage.
+  - Note: `countUniqueVisibleColors` ignores alpha below `TRANSPARENT_ALPHA_THRESHOLD`.
 
-- [x] 48x32 center conversion
+- [x] Palette limit does not turn transparent pixels opaque.
   - Result: Pass
-  - Note: Verified by test page.
+  - Note: Test page compares alpha before and after quantization.
 
-### Output Format Tests
-- [x] PNG export works.
+- [x] Palette limit handles fewer source colors than requested palette count.
   - Result: Pass
-  - Note: Test page verified non-empty `image/png` Blob.
+  - Note: One-color case passed.
 
-- [x] PNG export preserves transparency.
+## 6. Sampling Compatibility Tests
+- [x] `median` + palette limit works.
   - Result: Pass
-  - Note: PNG export uses the alpha-preserving output canvas.
 
-- [x] JPG export works.
+- [x] `average` + palette limit works.
   - Result: Pass
-  - Note: Headless Edge verified JPG download filename; test page verified non-empty `image/jpeg` Blob.
 
-- [x] JPG export uses `.jpg` extension.
+- [x] `center` + palette limit works.
   - Result: Pass
-  - Note: Headless Edge verified `sample_64x64_average.jpg`.
 
-- [x] JPG export composites transparency over white background.
+## 7. Export Compatibility Tests
+- [x] PNG export reflects palette-limited output.
   - Result: Pass
-  - Note: Test page verified the JPG composite canvas has no transparency.
+  - Note: Test page exports the palette-limited canvas.
 
-- [x] JPG transparency warning appears when needed.
+- [x] JPG export reflects palette-limited output.
   - Result: Pass
-  - Note: Headless Edge verified the warning for transparent PNG input after switching output format to JPG.
+  - Note: Headless Edge verified palette-limited JPG filename and download.
 
-- [x] `.aseprite` export produces a non-empty binary file.
+- [x] `.aseprite` export reflects palette-limited output.
   - Result: Pass
-  - Note: Test page verified non-empty Blob.
+  - Note: Test page validates Aseprite dimensions from the palette-limited canvas.
 
-- [x] `.aseprite` export uses `.aseprite` extension.
+- [x] Filename includes palette suffix when palette mode is not `off`.
   - Result: Pass
-  - Note: Headless Edge verified Aseprite download filename.
+  - Note: Verified examples include `_p16` and `_p8`.
 
-- [x] `.aseprite` binary has correct dimensions.
+## 8. UI / Warning Tests
+- [x] Invalid custom palette count shows warning banner.
   - Result: Pass
-  - Note: Test page inspected header width and height.
 
-- [x] `.aseprite` binary has expected magic/header values.
+- [x] Warning banner uses icon and message text.
   - Result: Pass
-  - Note: Test page verified file magic `0xA5E0`, frame magic `0xF1FA`, and 32 bpp color depth.
-
-- [x] `.aseprite` export is not a renamed PNG.
-  - Result: Pass
-  - Note: Test page verified the binary does not start with a PNG signature.
-
-- [x] Filename includes width, height, sampling mode, and extension.
-  - Result: Pass
-  - Note: Test page verified `sample_48x32_center.aseprite`.
-
-### Warning UI Tests
-- [x] Invalid width shows warning banner.
-  - Result: Pass
-  - Note: Headless Edge verified invalid width warning.
-
-- [x] Invalid height shows warning banner.
-  - Result: Pass
-  - Note: Same validation path as invalid width.
-
-- [x] Oversized >256 shows warning banner.
-  - Result: Pass
-  - Note: Validation helper blocks the value; test page verifies rejection.
-
-- [x] Invalid preset is disabled or blocked.
-  - Result: Pass
-  - Note: Headless Edge verified disabled preset for small source image.
 
 - [x] Warning banner can be cleared.
   - Result: Pass
-  - Note: Headless Edge verified `warningCloseButton` hides the banner.
-
-- [x] Warning banner uses icon and content text.
-  - Result: Pass
-  - Note: `warningBanner` contains `.warning-icon` and `#warningMessage`.
 
 - [x] Browser `alert()` is not used as the main warning UI.
   - Result: Pass
-  - Note: No `alert(` usage exists in app source.
+  - Note: Source search found no `alert(` usage.
 
-## 3. Test Page Result
+## 9. Test Page Result
 - [x] `tests/test-cases.html`
   - Result: Pass
-  - Note: Headless Edge reported `31 / 31 cases passed.`
+  - Note: Headless Edge reported `48 / 48 cases passed.`
 
-## 4. Verification Notes
-- Static syntax checks passed for all app JS files.
+## 10. Verification Notes
+- Static syntax checks passed for app JS files.
 - The implementation keeps normal script tags and does not use ES Modules.
 - The conversion code still directly reads and writes `ImageData`.
-- Aseprite export follows the documented little-endian header/frame/chunk structure and was structurally validated in browser tests.
+- Palette quantization is post-processing and does not replace tile conversion.

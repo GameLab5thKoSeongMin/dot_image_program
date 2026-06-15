@@ -89,6 +89,30 @@
             <option value="aseprite">Aseprite</option>
           </select>
         </label>
+
+        <fieldset class="control-group palette-group">
+          <legend>Palette limit</legend>
+          <label>
+            <span>Mode</span>
+            <select id="paletteModeSelect">
+              <option value="off" selected>off</option>
+              <option value="auto">auto</option>
+              <option value="4">4</option>
+              <option value="8">8</option>
+              <option value="16">16</option>
+              <option value="32">32</option>
+              <option value="64">64</option>
+              <option value="128">128</option>
+              <option value="256">256</option>
+              <option value="custom">custom</option>
+            </select>
+          </label>
+          <label>
+            <span>Custom</span>
+            <input id="customPaletteCountInput" type="number" min="2" max="256" step="1" value="16" inputmode="numeric" disabled>
+          </label>
+          <p id="paletteSummary" class="palette-summary">팔레트 제한: off</p>
+        </fieldset>
       </div>
 
       <p id="errorMessage" class="message error-message" role="alert" aria-live="polite"></p>
@@ -116,6 +140,10 @@
           <dt>파일 형식</dt>
           <dd id="outputFormatLabel">PNG</dd>
         </div>
+        <div>
+          <dt>팔레트</dt>
+          <dd id="outputPalette">off</dd>
+        </div>
       </dl>
       <button id="downloadButton" class="download-button" type="button" disabled>다운로드</button>
     </section>
@@ -124,6 +152,7 @@
   <script src="./src/constants.js"></script>
   <script src="./src/fileHandler.js"></script>
   <script src="./src/imageProcessor.js"></script>
+  <script src="./src/paletteQuantizer.js"></script>
   <script src="./src/exporter.js"></script>
   <script src="./src/uiController.js"></script>
   <script src="./src/app.js"></script>

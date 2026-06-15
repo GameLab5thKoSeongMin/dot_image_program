@@ -4,6 +4,7 @@
   var constants = window.PixelIconConstants;
   var fileHandler = window.PixelIconFileHandler;
   var imageProcessor = window.PixelIconImageProcessor;
+  var paletteQuantizer = window.PixelIconPaletteQuantizer;
   var exporter = window.PixelIconExporter;
   var ui = window.PixelIconUIController;
 
@@ -18,6 +19,7 @@
     outputFilename: "",
     outputFormat: constants.DEFAULT_OUTPUT_FORMAT,
     samplingMode: constants.DEFAULT_SAMPLING_MODE,
+    paletteInfo: null,
     isProcessing: false
   };
 
@@ -30,6 +32,7 @@
     state.resultCanvas = null;
     state.resultHasTransparency = false;
     state.outputFilename = "";
+    state.paletteInfo = null;
     ui.clearError();
     ui.hideWarning();
     ui.resetResult();
@@ -44,7 +47,9 @@
       outputWidth: selectedOptions.outputWidth,
       outputHeight: selectedOptions.outputHeight,
       samplingMode: samplingMode,
-      outputFormat: outputFormat
+      outputFormat: outputFormat,
+      paletteMode: fileHandler.normalizePaletteMode(selectedOptions.paletteMode),
+      customPaletteCount: selectedOptions.customPaletteCount
     };
   }
 
@@ -57,9 +62,17 @@
     );
   }
 
-  function updateResultWarning(outputFormat, resultHasTransparency) {
+  function updateResultWarning(outputFormat, resultHasTransparency, paletteInfo) {
     if (outputFormat === "jpg" && resultHasTransparency) {
       ui.showWarning("JPG는 투명도를 저장할 수 없어 흰색 배경으로 합성해서 내보냅니다.");
+      return;
+    }
+
+    if (paletteInfo &&
+      paletteInfo.paletteMode !== "off" &&
+      paletteInfo.beforeColorCount > 0 &&
+      paletteInfo.effectivePaletteCount >= paletteInfo.beforeColorCount) {
+      ui.showWarning("현재 이미지의 실제 색상 수보다 큰 값입니다. 결과가 거의 변하지 않을 수 있습니다.");
       return;
     }
 
@@ -72,6 +85,7 @@
     state.outputFilename = filename;
     state.outputFormat = options.outputFormat;
     state.samplingMode = options.samplingMode;
+    state.paletteInfo = result.paletteInfo || null;
 
     ui.showResultPreview(result.canvas);
     ui.updateFileInfo({
@@ -79,11 +93,13 @@
       outputWidth: result.width,
       outputHeight: result.height,
       samplingMode: options.samplingMode,
-      outputFormat: options.outputFormat
+      outputFormat: options.outputFormat,
+      paletteInfo: result.paletteInfo,
+      paletteText: result.paletteText
     });
     ui.setDownloadEnabled(true);
     ui.clearError();
-    updateResultWarning(options.outputFormat, result.resultHasTransparency);
+    updateResultWarning(options.outputFormat, result.resultHasTransparency, result.paletteInfo);
     ui.setStatus(result.width + "x" + result.height + " 아이콘 생성이 완료되었습니다.");
   }
 
@@ -107,17 +123,50 @@
       return;
     }
 
+    var paletteValidation = fileHandler.validatePaletteOptions(options.paletteMode, options.customPaletteCount);
+
+    if (!paletteValidation.valid) {
+      state.resultCanvas = null;
+      state.outputFilename = "";
+      state.paletteInfo = null;
+      ui.resetResult();
+      ui.showWarning(paletteValidation.message);
+      ui.setStatus("팔레트 색상 수를 확인하세요.");
+      return;
+    }
+
     var conversionOptions = {
       outputWidth: sizeValidation.width,
       outputHeight: sizeValidation.height,
       samplingMode: options.samplingMode
     };
     var result = imageProcessor.convertImageToPixelIcon(state.sourceImage, conversionOptions);
+    var paletteResult = paletteQuantizer.applyPaletteLimitToCanvas(result.canvas, {
+      paletteMode: paletteValidation.paletteMode,
+      customPaletteCount: paletteValidation.customPaletteCount
+    });
+    var paletteText = paletteResult.paletteMode === "off"
+      ? "off"
+      : paletteResult.paletteMode + " (" + paletteResult.effectivePaletteCount + " colors)";
+
+    result.canvas = paletteResult.canvas;
+    result.resultHasTransparency = exporter.canvasHasTransparency(result.canvas);
+    result.paletteInfo = {
+      paletteMode: paletteResult.paletteMode,
+      paletteApplied: paletteResult.paletteApplied,
+      effectivePaletteCount: paletteResult.effectivePaletteCount,
+      beforeColorCount: paletteResult.beforeColorCount,
+      afterColorCount: paletteResult.afterColorCount
+    };
+    result.paletteText = paletteText;
+
     var filename = fileHandler.createOutputFilename(state.currentFile && state.currentFile.name, {
       outputWidth: result.width,
       outputHeight: result.height,
       samplingMode: options.samplingMode,
-      outputFormat: options.outputFormat
+      outputFormat: options.outputFormat,
+      paletteMode: paletteResult.paletteMode,
+      paletteCount: paletteResult.effectivePaletteCount
     });
 
     updateResultState(result, {
@@ -168,6 +217,7 @@
       state.sourceHeight = 0;
       state.resultCanvas = null;
       state.outputFilename = "";
+      state.paletteInfo = null;
       ui.resetResult();
       ui.showError(error.message || "이미지 처리 중 오류가 발생했습니다.");
       ui.showWarning(error.message || "이미지 처리 중 오류가 발생했습니다.");
@@ -242,11 +292,17 @@
       elements.outputWidthInput,
       elements.outputHeightInput,
       elements.samplingModeSelect,
-      elements.outputFormatSelect
+      elements.outputFormatSelect,
+      elements.paletteModeSelect,
+      elements.customPaletteCountInput
     ].forEach(function (element) {
-      element.addEventListener("change", processCurrentImage);
+      element.addEventListener("change", function () {
+        ui.updatePaletteControls();
+        processCurrentImage();
+      });
       element.addEventListener("input", function () {
         ui.updatePresetSelection();
+        ui.updatePaletteControls();
       });
     });
 

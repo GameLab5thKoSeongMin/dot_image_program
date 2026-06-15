@@ -140,6 +140,7 @@
   <script src="../src/constants.js"></script>
   <script src="../src/fileHandler.js"></script>
   <script src="../src/imageProcessor.js"></script>
+  <script src="../src/paletteQuantizer.js"></script>
   <script src="../src/exporter.js"></script>
   <script src="./testImageFactory.js"></script>
   <script>
@@ -151,6 +152,7 @@
       var summary = document.getElementById("summary");
       var factory = window.PixelIconTestImageFactory;
       var processor = window.PixelIconImageProcessor;
+      var quantizer = window.PixelIconPaletteQuantizer;
       var fileHandler = window.PixelIconFileHandler;
       var exporter = window.PixelIconExporter;
       var constants = window.PixelIconConstants;
@@ -325,6 +327,111 @@
         ];
       }
 
+      function runAutoPaletteCase(name, width, height, expectedColors) {
+        var resolved = quantizer.resolveEffectivePaletteCount("auto", null, width, height);
+        assert(resolved === expectedColors, "Expected " + expectedColors + " colors, got " + resolved);
+
+        return {
+          name: name,
+          description: width + "x" + height + " auto palette",
+          pass: true,
+          note: "auto resolved to " + resolved + " colors."
+        };
+      }
+
+      async function runPaletteLimitCase(name, sourceCanvas, conversionOptions, paletteOptions, expectedMaxColors) {
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, conversionOptions);
+        var limited = quantizer.applyPaletteLimitToCanvas(converted.canvas, paletteOptions);
+        var expectedLimit = expectedMaxColors || limited.effectivePaletteCount;
+
+        if (paletteOptions.paletteMode === "off") {
+          assert(limited.canvas === converted.canvas, "Palette off should preserve the original canvas object");
+        } else {
+          assert(limited.afterColorCount <= expectedLimit, "Palette limit exceeded: " + limited.afterColorCount + " > " + expectedLimit);
+        }
+
+        return {
+          name: name,
+          description: conversionOptions.samplingMode + " + palette " + paletteOptions.paletteMode,
+          sourceCanvas: sourceCanvas,
+          resultCanvas: limited.canvas,
+          pass: true,
+          note: "visible colors " + limited.beforeColorCount + " -> " + limited.afterColorCount + "."
+        };
+      }
+
+      async function runPaletteTransparencyCase() {
+        var sourceCanvas = factory.createTransparentShapeImage();
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, {
+          outputWidth: 32,
+          outputHeight: 32,
+          samplingMode: "median"
+        });
+        var sourceContext = converted.canvas.getContext("2d", { willReadFrequently: true });
+        var sourceImageData = sourceContext.getImageData(0, 0, 32, 32);
+        var limited = quantizer.applyPaletteLimitToCanvas(converted.canvas, {
+          paletteMode: "4"
+        });
+        var limitedContext = limited.canvas.getContext("2d", { willReadFrequently: true });
+        var limitedImageData = limitedContext.getImageData(0, 0, 32, 32);
+
+        for (var index = 3; index < sourceImageData.data.length; index += 4) {
+          if (sourceImageData.data[index] < constants.TRANSPARENT_ALPHA_THRESHOLD) {
+            assert(limitedImageData.data[index] < constants.TRANSPARENT_ALPHA_THRESHOLD, "Transparent pixel became visible");
+          }
+        }
+
+        return {
+          name: "Palette transparency preservation",
+          description: "Transparent pixels remain transparent after quantization.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: limited.canvas,
+          pass: true,
+          note: "transparent pixels were preserved."
+        };
+      }
+
+      async function runPaletteExportCase() {
+        var sourceCanvas = factory.createLeftRightSplitImage();
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, {
+          outputWidth: 32,
+          outputHeight: 32,
+          samplingMode: "average"
+        });
+        var limited = quantizer.applyPaletteLimitToCanvas(converted.canvas, {
+          paletteMode: "4"
+        });
+        var pngBlob = await exporter.exportCanvas(limited.canvas, "png");
+        var jpgBlob = await exporter.exportCanvas(limited.canvas, "jpg");
+        var asepriteBuffer = exporter.createAsepriteArrayBuffer(limited.canvas);
+        var asepriteHeader = exporter.inspectAsepriteArrayBuffer(asepriteBuffer);
+        var filename = fileHandler.createOutputFilename("sample.png", {
+          outputWidth: 32,
+          outputHeight: 32,
+          samplingMode: "average",
+          outputFormat: "aseprite",
+          paletteMode: "4",
+          paletteCount: 4
+        });
+
+        assert(pngBlob.size > 0, "palette PNG export failed");
+        assert(jpgBlob.size > 0, "palette JPG export failed");
+        assert(asepriteHeader.width === 32 && asepriteHeader.height === 32, "palette Aseprite dimensions failed");
+        assert(filename === "sample_32x32_average_p4.aseprite", "palette filename failed: " + filename);
+
+        return {
+          name: "Palette export compatibility",
+          description: "PNG/JPG/Aseprite use the palette-limited canvas.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: limited.canvas,
+          pass: true,
+          note: "exports and filename suffix are valid."
+        };
+      }
+
       async function runTests() {
         var allResults = [];
         var failed = false;
@@ -359,6 +466,36 @@
           allResults.push(runValidationCase("Reject preset larger than source", 24, 24, 20, 20, false));
 
           allResults = allResults.concat(await runExportCases());
+
+          allResults.push(runAutoPaletteCase("Auto palette 16x16", 16, 16, 4));
+          allResults.push(runAutoPaletteCase("Auto palette 24x24", 24, 24, 8));
+          allResults.push(runAutoPaletteCase("Auto palette 32x32", 32, 32, 16));
+          allResults.push(runAutoPaletteCase("Auto palette 48x32", 48, 32, 16));
+          allResults.push(runAutoPaletteCase("Auto palette 64x64", 64, 64, 32));
+
+          allResults.push(await runPaletteLimitCase("Palette off regression", split, { outputWidth: 32, outputHeight: 32, samplingMode: "median" }, { paletteMode: "off" }));
+          allResults.push(await runPaletteLimitCase("Palette auto", split, { outputWidth: 32, outputHeight: 32, samplingMode: "median" }, { paletteMode: "auto" }, 16));
+          allResults.push(await runPaletteLimitCase("Palette 4", split, { outputWidth: 32, outputHeight: 32, samplingMode: "median" }, { paletteMode: "4" }, 4));
+          allResults.push(await runPaletteLimitCase("Palette 8", split, { outputWidth: 32, outputHeight: 32, samplingMode: "average" }, { paletteMode: "8" }, 8));
+          allResults.push(await runPaletteLimitCase("Palette 16", split, { outputWidth: 32, outputHeight: 32, samplingMode: "center" }, { paletteMode: "16" }, 16));
+          allResults.push(await runPaletteLimitCase("Palette 32", solid, { outputWidth: 64, outputHeight: 64, samplingMode: "average" }, { paletteMode: "32" }, 32));
+          allResults.push(await runPaletteLimitCase("Palette custom", split, { outputWidth: 48, outputHeight: 32, samplingMode: "center" }, { paletteMode: "custom", customPaletteCount: 8 }, 8));
+
+          var customLow = fileHandler.validatePaletteOptions("custom", "1");
+          var customHigh = fileHandler.validatePaletteOptions("custom", "257");
+          assert(!customLow.valid, "custom palette below 2 should fail");
+          assert(!customHigh.valid, "custom palette above 256 should fail");
+          allResults.push({
+            name: "Custom palette validation",
+            description: "Rejects values below 2 and above 256.",
+            pass: true,
+            note: "invalid custom counts are blocked."
+          });
+
+          allResults.push(await runPaletteLimitCase("One-color palette case", solid, { outputWidth: 32, outputHeight: 32, samplingMode: "median" }, { paletteMode: "16" }, 16));
+          allResults.push(await runPaletteLimitCase("Fully transparent palette case", factory.createFullyTransparentImage(), { outputWidth: 32, outputHeight: 32, samplingMode: "median" }, { paletteMode: "4" }, 4));
+          allResults.push(await runPaletteTransparencyCase());
+          allResults.push(await runPaletteExportCase());
         } catch (error) {
           failed = true;
           allResults.push({

@@ -125,6 +125,56 @@
     return outputFormat;
   }
 
+  function normalizePaletteMode(paletteMode) {
+    if (constants.PALETTE_LIMIT_MODES.indexOf(paletteMode) === -1) {
+      return constants.DEFAULT_PALETTE_MODE;
+    }
+    return paletteMode;
+  }
+
+  function validatePaletteOptions(paletteMode, customPaletteCount) {
+    var normalizedMode = normalizePaletteMode(paletteMode);
+    var count;
+
+    if (normalizedMode !== "custom") {
+      return {
+        valid: true,
+        message: "",
+        paletteMode: normalizedMode
+      };
+    }
+
+    count = toInteger(customPaletteCount);
+
+    if (!Number.isInteger(count)) {
+      return {
+        valid: false,
+        message: "유효한 색상 수를 입력해주세요."
+      };
+    }
+
+    if (count < constants.MIN_PALETTE_COLORS) {
+      return {
+        valid: false,
+        message: "색상 수는 2 이상이어야 합니다."
+      };
+    }
+
+    if (count > constants.MAX_PALETTE_COLORS) {
+      return {
+        valid: false,
+        message: "색상 수는 256 이하로 제한됩니다."
+      };
+    }
+
+    return {
+      valid: true,
+      message: "",
+      paletteMode: normalizedMode,
+      customPaletteCount: count
+    };
+  }
+
   function readFileAsDataURL(file) {
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
@@ -159,10 +209,15 @@
     var height = normalizedOptions.outputHeight || constants.DEFAULT_OUTPUT_HEIGHT;
     var samplingMode = normalizeSamplingMode(normalizedOptions.samplingMode);
     var outputFormat = normalizeOutputFormat(normalizedOptions.outputFormat);
+    var paletteMode = normalizePaletteMode(normalizedOptions.paletteMode);
+    var paletteCount = normalizedOptions.paletteCount;
     var extension = constants.FORMAT_EXTENSIONS[outputFormat];
     var baseName = originalFilename ? sanitizeBaseName(originalFilename) : "pixel_icon";
+    var paletteSuffix = paletteMode === constants.DEFAULT_PALETTE_MODE || !paletteCount
+      ? ""
+      : "_p" + paletteCount;
 
-    return baseName + "_" + width + "x" + height + "_" + samplingMode + "." + extension;
+    return baseName + "_" + width + "x" + height + "_" + samplingMode + paletteSuffix + "." + extension;
   }
 
   function getReadableFileSize(bytes) {
@@ -184,8 +239,10 @@
   window.PixelIconFileHandler = {
     validateImageFile: validateImageFile,
     validateOutputSize: validateOutputSize,
+    validatePaletteOptions: validatePaletteOptions,
     normalizeSamplingMode: normalizeSamplingMode,
     normalizeOutputFormat: normalizeOutputFormat,
+    normalizePaletteMode: normalizePaletteMode,
     readFileAsDataURL: readFileAsDataURL,
     createOutputFilename: createOutputFilename,
     getFileExtension: getFileExtension,

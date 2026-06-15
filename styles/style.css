@@ -215,7 +215,7 @@ label {
 
 .control-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(170px, 0.8fr) minmax(140px, 0.6fr) minmax(140px, 0.6fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(170px, 0.7fr) minmax(130px, 0.5fr) minmax(130px, 0.5fr) minmax(220px, 0.9fr);
   gap: 12px;
   margin: 0 16px 10px;
   align-items: end;
@@ -230,7 +230,8 @@ label {
 
 .control-group legend,
 .control-field > span,
-.size-group label span {
+.size-group label span,
+.palette-group label span {
   display: block;
   margin-bottom: 6px;
   color: var(--muted);
@@ -279,6 +280,8 @@ label {
 }
 
 .size-group input,
+.palette-group input,
+.palette-group select,
 .control-field select {
   width: 100%;
   min-height: 38px;
@@ -287,6 +290,24 @@ label {
   background: #ffffff;
   color: var(--text);
   padding: 0 10px;
+}
+
+.palette-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(82px, 0.7fr);
+  gap: 8px;
+}
+
+.palette-group legend,
+.palette-summary {
+  grid-column: 1 / -1;
+}
+
+.palette-summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .drop-zone.is-active,

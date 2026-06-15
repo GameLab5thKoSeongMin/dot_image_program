@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.3.0] - Palette Limit Extension
+
+### Added
+- Palette limit option group.
+- Palette modes: `off`, `auto`, `4`, `8`, `16`, `32`, `64`, `128`, `256`, `custom`.
+- Custom palette count validation from 2 to 256.
+- Auto palette recommendations based on output resolution.
+- `src/paletteQuantizer.js` with median cut quantization.
+- Visible RGB color counting that excludes transparent pixels.
+- Palette summary showing current, effective, and resulting visible color counts.
+- Filename palette suffix `_pN` when palette mode is not `off`.
+- Palette tests in `tests/test-cases.html`.
+
+### Changed
+- Conversion pipeline now applies optional palette post-processing after tile conversion and before preview/export.
+- PNG/JPG/Aseprite export now use the palette-limited canvas when palette mode is enabled.
+- Documentation now describes palette behavior, transparency handling, and JPG limitations.
+
+### Fixed
+- Invalid custom palette counts are blocked through the warning banner and disable download.
+
+### Known Issues
+- No dithering is included.
+- External palette import is not included.
+- Aseprite export remains RGBA, not indexed color.
+
 ## [0.2.0] - Flexible Output Extension
 
 ### Added
@@ -14,21 +40,11 @@
 - Aseprite binary export with one frame, one layer, and raw RGBA cel data.
 - Upper-center warning banner with icon and text.
 - Download filenames with width, height, sampling mode, and extension.
-- Expanded test page covering 31 conversion, validation, and export cases.
+- Expanded test page covering conversion, validation, and export cases.
 
 ### Changed
-- Conversion logic now uses `outputWidth` and `outputHeight` instead of a single hard-coded output size.
+- Conversion logic uses `outputWidth` and `outputHeight` instead of a single hard-coded output size.
 - Default output remains 32x32 median PNG.
-- Output preview supports non-square result dimensions without distortion.
-- Documentation now describes the flexible generator instead of only the initial 32x32 version.
-
-### Fixed
-- Presets larger than the loaded source image are disabled.
-- Invalid output sizes block conversion and disable download.
-
-### Known Issues
-- Aseprite export is structurally validated but was not opened in the Aseprite desktop app or CLI in this environment.
-- Very large images are processed synchronously on the main thread.
 
 ## [0.1.0] - Initial Complete Version
 
@@ -45,7 +61,3 @@
 - Test page with generated algorithm verification images
 - English Codex-facing documentation
 - Korean user-facing guide, development report, and test summary
-
-### Fixed
-- Empty-tile risk for images smaller than 32x32 was handled by clamped bounds with at least one sampled pixel.
-- Download button started disabled and was reset when a new file began processing.

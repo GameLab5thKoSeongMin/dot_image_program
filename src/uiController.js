@@ -28,11 +28,15 @@
       outputSize: requireElement("outputSize"),
       outputMode: requireElement("outputMode"),
       outputFormatLabel: requireElement("outputFormatLabel"),
+      outputPalette: requireElement("outputPalette"),
       downloadButton: requireElement("downloadButton"),
       outputWidthInput: requireElement("outputWidthInput"),
       outputHeightInput: requireElement("outputHeightInput"),
       samplingModeSelect: requireElement("samplingModeSelect"),
       outputFormatSelect: requireElement("outputFormatSelect"),
+      paletteModeSelect: requireElement("paletteModeSelect"),
+      customPaletteCountInput: requireElement("customPaletteCountInput"),
+      paletteSummary: requireElement("paletteSummary"),
       presetButtons: Array.prototype.slice.call(document.querySelectorAll(".preset-button")),
       warningBanner: requireElement("warningBanner"),
       warningMessage: requireElement("warningMessage"),
@@ -41,6 +45,7 @@
 
     setDownloadEnabled(false);
     updatePresetSelection();
+    updatePaletteControls();
     hideWarning();
     return elements;
   }
@@ -54,7 +59,9 @@
       outputWidth: elements.outputWidthInput.value,
       outputHeight: elements.outputHeightInput.value,
       samplingMode: elements.samplingModeSelect.value,
-      outputFormat: elements.outputFormatSelect.value
+      outputFormat: elements.outputFormatSelect.value,
+      paletteMode: elements.paletteModeSelect.value,
+      customPaletteCount: elements.customPaletteCountInput.value
     };
   }
 
@@ -98,6 +105,12 @@
     var maxHeight = Math.min(imageHeight || constants.MAX_OUTPUT_DIMENSION, constants.MAX_OUTPUT_DIMENSION);
     elements.outputWidthInput.max = maxWidth;
     elements.outputHeightInput.max = maxHeight;
+  }
+
+  function updatePaletteControls() {
+    var isCustom = elements.paletteModeSelect.value === "custom";
+    elements.customPaletteCountInput.disabled = !isCustom;
+    elements.customPaletteCountInput.closest("label").classList.toggle("is-disabled", !isCustom);
   }
 
   function showOriginalPreview(dataURL, width, height) {
@@ -178,6 +191,8 @@
         constants.DEFAULT_OUTPUT_WIDTH + "x" + constants.DEFAULT_OUTPUT_HEIGHT + " px";
       elements.outputMode.textContent = constants.DEFAULT_SAMPLING_MODE;
       elements.outputFormatLabel.textContent = constants.FORMAT_LABELS[constants.DEFAULT_OUTPUT_FORMAT];
+      elements.outputPalette.textContent = "off";
+      updatePaletteSummary(null);
       elements.resultMetaLabel.textContent =
         constants.DEFAULT_OUTPUT_WIDTH + "x" + constants.DEFAULT_OUTPUT_HEIGHT +
         " · " + constants.DEFAULT_SAMPLING_MODE + " · " +
@@ -189,10 +204,29 @@
     elements.outputSize.textContent = fileInfo.outputWidth + "x" + fileInfo.outputHeight + " px";
     elements.outputMode.textContent = fileInfo.samplingMode;
     elements.outputFormatLabel.textContent = constants.FORMAT_LABELS[fileInfo.outputFormat];
+    elements.outputPalette.textContent = fileInfo.paletteText || "off";
+    updatePaletteSummary(fileInfo.paletteInfo);
     elements.resultMetaLabel.textContent =
       fileInfo.outputWidth + "x" + fileInfo.outputHeight +
       " · " + fileInfo.samplingMode + " · " +
       constants.FORMAT_LABELS[fileInfo.outputFormat];
+  }
+
+  function updatePaletteSummary(paletteInfo) {
+    if (!paletteInfo || paletteInfo.paletteMode === "off") {
+      elements.paletteSummary.textContent = "팔레트 제한: off";
+      return;
+    }
+
+    var parts = [];
+    if (paletteInfo.paletteMode === "auto") {
+      parts.push("자동 추천 팔레트: " + paletteInfo.effectivePaletteCount + "색");
+    } else {
+      parts.push("제한 색상 수: " + paletteInfo.effectivePaletteCount);
+    }
+    parts.push("현재 색상 수: " + paletteInfo.beforeColorCount);
+    parts.push("적용 후 색상 수: " + paletteInfo.afterColorCount);
+    elements.paletteSummary.textContent = parts.join(" · ");
   }
 
   window.PixelIconUIController = {
@@ -203,6 +237,8 @@
     updatePresetSelection: updatePresetSelection,
     updatePresetAvailability: updatePresetAvailability,
     updateInputMaximums: updateInputMaximums,
+    updatePaletteControls: updatePaletteControls,
+    updatePaletteSummary: updatePaletteSummary,
     showOriginalPreview: showOriginalPreview,
     clearOriginalPreview: clearOriginalPreview,
     showResultPreview: showResultPreview,

@@ -17,6 +17,18 @@
     DEFAULT_SAMPLING_MODE: "median",
     OUTPUT_FORMATS: ["png", "jpg", "aseprite"],
     DEFAULT_OUTPUT_FORMAT: "png",
+    PALETTE_LIMIT_MODES: ["off", "auto", "4", "8", "16", "32", "64", "128", "256", "custom"],
+    DEFAULT_PALETTE_MODE: "off",
+    MIN_PALETTE_COLORS: 2,
+    MAX_PALETTE_COLORS: 256,
+    AUTO_PALETTE_RULES: [
+      { maxDimension: 16, colors: 4 },
+      { maxDimension: 24, colors: 8 },
+      { maxDimension: 32, colors: 16 },
+      { maxDimension: 48, colors: 16 },
+      { maxDimension: 64, colors: 32 },
+      { maxDimension: Infinity, colors: 32 }
+    ],
     FORMAT_LABELS: {
       png: "PNG",
       jpg: "JPG",

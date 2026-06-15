@@ -3,7 +3,7 @@
 ## 1. 프로그램 개요
 이 프로그램은 PNG, JPG, JPEG 이미지를 작은 픽셀 아이콘으로 변환하는 로컬 웹앱입니다.
 
-기본값은 기존과 동일하게 `32x32`, `median`, `PNG`입니다. 추가로 출력 크기, 샘플링 방식, 출력 형식을 선택할 수 있습니다.
+기본값은 `32x32`, `median`, `PNG`, palette limit `off`입니다.
 
 ## 2. 실행 방법
 `index.html` 파일을 브라우저에서 직접 열면 실행됩니다.
@@ -20,37 +20,58 @@ python -m http.server 8000
 3. preset 크기를 선택하거나 width/height를 직접 입력합니다.
 4. sampling 방식을 `median`, `average`, `center` 중에서 선택합니다.
 5. 출력 형식을 `PNG`, `JPG`, `Aseprite` 중에서 선택합니다.
-6. 우측 상단 미리보기를 확인합니다.
-7. 다운로드 버튼으로 결과 파일을 저장합니다.
+6. palette limit을 선택합니다. 기존 동작을 원하면 `off`로 둡니다.
+7. `custom`을 선택한 경우 2부터 256 사이의 색상 수를 입력합니다.
+8. 미리보기와 팔레트 요약을 확인합니다.
+9. 다운로드 버튼으로 결과 파일을 저장합니다.
 
-## 4. 출력 크기 규칙
-- width와 height는 정수여야 합니다.
-- width와 height는 1 이상이어야 합니다.
-- width와 height는 원본 이미지 크기를 초과할 수 없습니다.
-- width와 height는 256을 초과할 수 없습니다.
-- 원본 이미지보다 큰 preset은 비활성화됩니다.
-
-## 5. 샘플링 방식
-- `median`: 각 타일의 채널별 median 값을 사용합니다. 기본값입니다.
-- `average`: 각 타일의 평균 색상을 사용합니다.
-- `center`: 각 타일의 중앙 픽셀을 사용합니다.
-
-## 6. 출력 형식
-- PNG: 투명도를 보존합니다.
-- JPG: 투명도를 저장할 수 없으므로 흰색 배경으로 합성합니다. 투명 픽셀이 있으면 경고가 표시됩니다.
-- Aseprite: `.aseprite` 바이너리 파일을 생성합니다.
-
-## 7. 파일명 규칙
-다운로드 파일명에는 원본 이름, 출력 크기, sampling mode, 확장자가 포함됩니다.
-
-예시:
+## 4. Palette Limit
+palette limit은 tile conversion 이후에 적용되는 후처리입니다.
 
 ```txt
-sample_64x64_average.jpg
-sample_48x32_center.aseprite
+input image -> tile conversion -> palette limit -> preview/export
 ```
 
-## 8. 주의사항
-- 작은 원본 이미지는 32x32 기본 preset을 사용할 수 없을 수 있습니다. 예를 들어 20x20 이미지는 16x16처럼 원본보다 작은 출력 크기를 선택해야 합니다.
-- `.aseprite` 파일은 구조 검증을 통과했지만, 이 환경에서는 Aseprite 데스크톱 앱으로 직접 열어보지는 못했습니다.
-- 매우 큰 이미지는 처리 중 잠시 UI가 멈춘 것처럼 보일 수 있습니다.
+visible RGB 색상만 palette count에 포함합니다. 완전 투명 픽셀은 색상 수에 포함하지 않습니다. 반투명 visible 픽셀은 RGB만 제한하고 alpha는 최대한 유지합니다.
+
+## 5. Palette Mode
+- `off`: palette limit을 적용하지 않습니다. 기본값입니다.
+- `auto`: 출력 크기에 따라 추천 색상 수를 자동 적용합니다.
+- `4`, `8`, `16`, `32`, `64`, `128`, `256`: 지정한 색상 수로 제한합니다.
+- `custom`: 사용자가 직접 색상 수를 입력합니다.
+
+## 6. Auto 추천 규칙
+- 16x16 이하: 4색
+- 24x24 이하: 8색
+- 32x32 이하: 16색
+- 48x48 이하: 16색
+- 64x64 이하: 32색
+- 64x64보다 큼: 32색
+
+가로와 세로 중 더 큰 값을 기준으로 판단합니다.
+
+## 7. 출력 형식
+- PNG: 투명도를 보존합니다.
+- JPG: 투명도를 저장할 수 없으므로 흰색 배경으로 합성합니다.
+- Aseprite: `.aseprite` 바이너리 파일을 생성합니다.
+
+## 8. 파일명 규칙
+palette `off`:
+
+```txt
+sample_32x32_median.png
+```
+
+palette 적용:
+
+```txt
+sample_32x32_median_p16.png
+sample_64x64_average_p32.jpg
+sample_48x32_center_p8.aseprite
+```
+
+## 9. 주의사항
+- `custom` palette count는 2 이상 256 이하만 허용됩니다.
+- JPG는 투명도를 보존하지 못합니다.
+- dithering과 외부 palette import는 이번 버전에 포함되지 않았습니다.
+- `.aseprite`는 RGBA 방식으로 export합니다. indexed color 방식은 아닙니다.
