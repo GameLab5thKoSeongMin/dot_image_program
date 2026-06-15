@@ -1,22 +1,28 @@
 # 개발 진행 보고서
 
 ## 1. 현재 진행 단계
-`program_make3.txt` palette limit 확장 작업을 완료했습니다.
+`program_make4.txt`의 UI/UX 및 출력 크기 정책 개선 작업을 완료했습니다.
 
 ## 2. 이번 단계에서 구현한 내용
-- 기존 기능을 유지하면서 palette limit 기능을 추가했습니다.
-- palette 기본값을 `off`로 유지했습니다.
-- palette mode `off`, `auto`, `4`, `8`, `16`, `32`, `64`, `128`, `256`, `custom`을 추가했습니다.
-- `custom` 색상 수 검증을 추가했습니다.
-- auto palette 추천 규칙을 구현했습니다.
-- `src/paletteQuantizer.js`를 추가해 median cut quantization을 구현했습니다.
-- palette limit을 tile conversion 이후 preview/export 이전에 적용했습니다.
-- 투명 픽셀은 palette 생성에서 제외하고, transparent pixel은 transparent 상태를 유지하도록 했습니다.
-- palette 적용 전 visible color count, effective palette count, 적용 후 color count를 UI에 표시했습니다.
-- palette mode가 `off`가 아닐 때 파일명에 `_pN` suffix를 추가했습니다.
-- PNG/JPG/`.aseprite` export가 palette-limited canvas를 사용하도록 했습니다.
-- 테스트 페이지를 `48 / 48` 검증 항목으로 확장했습니다.
-- 영어/한국어 문서를 palette 기능 기준으로 갱신했습니다.
+- 기존 결합형 크기 preset UI를 Width와 Height 독립 선택 방식으로 바꿨습니다.
+- Width 옵션을 `16`, `32`, `64`, `Original`, `Custom`으로 정리했습니다.
+- Height 옵션을 `16`, `32`, `64`, `Original`, `Custom`으로 정리했습니다.
+- 기본값은 기존과 같은 `32x32`, `median`, `PNG`, palette limit `off`로 유지했습니다.
+- `Custom Width`와 `Custom Height` 입력칸은 해당 축에서 `Custom`을 선택할 때만 보이도록 변경했습니다.
+- 이미지 업로드 전에는 `Original` 옵션을 비활성화했습니다.
+- 이미지 업로드 후 Width `Original`은 원본 너비, Height `Original`은 원본 높이로 해석되도록 했습니다.
+- 원본 이미지 크기보다 큰 숫자 옵션은 비활성화되도록 했습니다.
+- 고정 `256x256` 제한을 제거했습니다.
+- 출력 크기 검증을 원본 이미지 크기 기준으로 변경했습니다.
+- 큰 출력 크기에서는 warning banner를 표시하고 자동 반복 변환을 피하도록 했습니다.
+- 큰 출력 크기는 `미리보기 갱신` 버튼으로 명시적으로 변환할 수 있게 했습니다.
+- 초기 상태와 reset 상태에서 broken image icon이 보이지 않도록 `<img>`를 숨기고 `src`를 제거하도록 했습니다.
+- preview image load 실패 시 placeholder를 복구하고 warning banner를 표시하도록 했습니다.
+- 결과 요약을 추가했습니다.
+- 결과 미리보기 zoom 옵션 `Fit`, `Actual`, `8x`, `16x`를 추가했습니다.
+- 투명도 확인이 쉽도록 preview checkerboard 배경을 유지했습니다.
+- 기존 palette limit, PNG/JPG/Aseprite export, drag-and-drop, warning banner, filename 규칙을 유지했습니다.
+- 테스트 페이지를 `61 / 61` 검증 항목으로 확장했습니다.
 
 ## 3. 현재 프로젝트 구조
 ```txt
@@ -31,9 +37,6 @@ dot_image_program/
 ├─ DEVELOPMENT_REPORT_KO.md
 ├─ TEST_SUMMARY_KO.md
 ├─ index.html
-├─ program_make1.txt
-├─ program_make2.txt
-├─ program_make3.txt
 ├─ src/
 │  ├─ app.js
 │  ├─ constants.js
@@ -44,79 +47,43 @@ dot_image_program/
 │  └─ uiController.js
 ├─ styles/
 │  └─ style.css
-├─ tests/
-│  ├─ test-cases.html
-│  └─ testImageFactory.js
-└─ assets/
-   └─ .gitkeep
+└─ tests/
+   ├─ test-cases.html
+   └─ testImageFactory.js
 ```
 
-## 4. 현재까지 완성된 기능
-- [x] 기존 32x32 median PNG palette off 기본 동작 유지
-- [x] palette off
-- [x] palette auto
-- [x] manual palette counts
-- [x] custom palette count
-- [x] custom count 2 미만 차단
-- [x] custom count 256 초과 차단
-- [x] median cut quantization
-- [x] visible RGB color count
-- [x] transparent pixel 보존
-- [x] PNG/JPG/Aseprite export에 palette-limited 결과 반영
-- [x] palette filename suffix
-- [x] warning banner 재사용
-- [x] 테스트/문서 갱신
+## 4. 주요 수정 파일
+- `index.html`: Width/Height 분리 UI, `미리보기 갱신` 버튼, result summary, zoom control, clean placeholder 구조를 반영했습니다.
+- `styles/style.css`: 새 size axis control, hidden custom input, preview checkerboard, zoom 표시, responsive layout을 반영했습니다.
+- `src/constants.js`: `SIZE_AXIS_OPTIONS`, 기본 축 옵션, performance warning threshold를 추가하고 고정 256 제한 상수를 제거했습니다.
+- `src/fileHandler.js`: output size validation을 원본 이미지 크기 기준으로 변경하고 performance warning helper를 추가했습니다.
+- `src/uiController.js`: 축별 버튼 상태, custom input 표시, source size 기반 disable 처리, placeholder 복구, zoom, summary 표시를 담당하도록 정리했습니다.
+- `src/app.js`: Width/Height 옵션 해석, Original 처리, large output 자동 변환 지연, `미리보기 갱신` 실행 흐름을 연결했습니다.
+- `tests/test-cases.html`: 새 UI/validation/placeholder/performance 테스트를 추가했습니다.
 
-## 5. 발견한 문제
-- palette 기능은 기존 preview/export 흐름에 끼워 넣어야 모든 출력 형식에 동일하게 반영됩니다.
-- transparent pixel을 palette color로 세면 불필요한 색상 수가 증가할 수 있습니다.
-
-## 6. 수정한 문제
-- `app.js`에서 tile conversion 직후 `paletteQuantizer.applyPaletteLimitToCanvas`를 호출하도록 했습니다.
-- `countUniqueVisibleColors`에서 alpha threshold 미만 픽셀을 제외했습니다.
-- 파일명 생성에 palette suffix `_pN`을 추가했습니다.
-- invalid custom palette count는 warning banner를 띄우고 download를 비활성화하도록 했습니다.
-
-## 7. 요구사항 충족 여부 평가
-`program_make3.txt`의 palette limit 요구사항을 충족했습니다. Default behavior는 유지되고, palette limit은 꺼둘 수 있으며, auto/manual/custom mode가 동작합니다.
-
-## 8. 테스트 결과 요약
+## 5. 검증 결과
 - JS 문법 검사를 통과했습니다.
-- ES Module `import/export` 미사용을 확인했습니다.
-- browser `alert()` 미사용을 확인했습니다.
-- 금지된 32x32 resize shortcut이 없음을 확인했습니다.
-- Headless Edge에서 기본 palette off 결과 `palette_32x32_median.png`를 확인했습니다.
-- Headless Edge에서 auto palette 결과 `palette_32x32_median_p16.png`를 확인했습니다.
-- Headless Edge에서 custom palette 8 결과 `palette_32x32_average_p8.jpg` 다운로드를 확인했습니다.
-- Headless Edge에서 custom palette count `1`, `257` 경고와 download 비활성화를 확인했습니다.
-- Headless Edge에서 모바일 390px layout overflow 없음과 4개 panel 표시를 확인했습니다.
-- `tests/test-cases.html`에서 `48 / 48 cases passed.` 결과를 확인했습니다.
+- ES Module `import/export`를 사용하지 않았습니다.
+- browser `alert()`를 사용하지 않았습니다.
+- 고정 `drawImage(image, 0, 0, 32, 32)` 변환 shortcut이 없음을 확인했습니다.
+- Local Edge에서 `tests/test-cases.html?autorun=1`을 실행해 `61 / 61 cases passed.`를 확인했습니다.
+- Local Edge에서 `index.html` 앱 흐름을 확인했습니다.
 
-## 9. 남은 리스크
+## 6. 앱 흐름 검증 요약
+- 초기 original/result preview `<img>`가 숨겨져 있고 `src`가 없음을 확인했습니다.
+- 초기 `Custom Width`, `Custom Height` 입력칸이 숨겨져 있음을 확인했습니다.
+- 이미지 업로드 전 `Original` 옵션이 비활성화되어 있음을 확인했습니다.
+- 생성한 `512x384` PNG를 로드했을 때 기본 결과가 `sample_32x32_median.png`로 생성됨을 확인했습니다.
+- Width/Height `Original` 선택 시 큰 출력 경고가 표시되고 자동 변환이 지연됨을 확인했습니다.
+- `미리보기 갱신` 버튼으로 `sample_512x384_median.png`가 생성됨을 확인했습니다.
+- palette `4` 선택 시 `sample_32x32_median_p4.png`가 생성됨을 확인했습니다.
+
+## 7. 요구사항 충족 평가
+`program_make4.txt`의 핵심 요구사항을 충족했습니다. 기존 기능을 제거하지 않고, 크기 선택 UX를 단순화했으며, 고정 256 제한을 제거하고, 원본 크기 출력과 큰 출력 경고를 추가했습니다. 초기/오류 상태의 broken image icon 문제도 방지했습니다.
+
+## 8. 남은 제한
+- Web Worker는 아직 포함하지 않았습니다.
 - dithering은 포함하지 않았습니다.
-- 외부 palette import는 포함하지 않았습니다.
-- `.aseprite` export는 RGBA mode이며 indexed color mode가 아닙니다.
-- 매우 큰 이미지는 여전히 메인 스레드에서 처리됩니다.
-
-# 최종 자체 평가
-
-## 1. 요구사항 충족 여부
-palette limit off/auto/manual/custom, validation, transparent pixel preservation, export compatibility, filename suffix, tests, docs를 구현했습니다.
-
-## 2. 알고리즘 정확성
-median cut 방식으로 visible pixels에서 palette를 만들고 nearest palette color로 RGB를 매핑합니다. alpha는 보존합니다.
-
-## 3. 기존 동작 보존
-palette mode 기본값은 `off`이며, 기존 32x32 median PNG 동작은 유지됩니다.
-
-## 4. 투명도 처리 평가
-transparent pixel은 palette 생성에서 제외되고, quantization 후에도 transparent 상태를 유지합니다. JPG export는 기존처럼 흰색 배경으로 합성합니다.
-
-## 5. GUI 사용성 평가
-palette controls는 기존 옵션 영역에 추가했고, palette summary는 output panel에 표시됩니다. 오류는 기존 warning banner를 재사용합니다.
-
-## 6. 남은 한계
-dithering, 외부 palette import, indexed `.aseprite` export는 이번 버전에 포함하지 않았습니다.
-
-## 7. 추후 개선 방향
-palette swatch preview, dithering, Web Worker quantization, external palette import, indexed-color Aseprite export를 추가할 수 있습니다.
+- external palette import는 포함하지 않았습니다.
+- `.aseprite` export는 RGBA 방식이며 indexed color 방식은 아닙니다.
+- 매우 큰 출력은 명시적 변환 후에도 브라우저 메인 스레드에서 처리됩니다.

@@ -1,0 +1,874 @@
+You are working on an already existing project.
+
+This is a focused UI/UX and output-size policy update task for an already completed project.
+
+Do not recreate the project from scratch.
+Do not replace the project with a new framework.
+Do not over-refactor or redesign the project more than necessary.
+Do not remove working features.
+Do not break current behavior.
+
+First, read the existing repository and understand the current implementation before making changes.
+
+You must begin by reading and inspecting at least the following:
+
+* `AGENTS.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+* `index.html`
+* `src/constants.js`
+* `src/fileHandler.js`
+* `src/imageProcessor.js`
+* `src/uiController.js`
+* `src/app.js`
+* `src/asepriteExporter.js` if it exists
+* `src/paletteQuantizer.js` if it exists
+* `tests/test-cases.html`
+* `tests/testImageFactory.js`
+
+You must preserve all existing working behavior unless a change is explicitly required for this task.
+
+The current app may already support:
+
+* PNG/JPG/JPEG input
+* drag and drop
+* variable output size
+* preset and custom output size
+* sampling modes: `median`, `average`, `center`
+* palette limit if implemented
+* output format selection: `png`, `jpg`, `.aseprite`
+* transparent PNG handling
+* preview
+* warning banner UI
+* PNG/JPG/Aseprite export
+* tests
+* English Codex-facing documents
+* Korean user-facing review documents
+
+Do not break these features.
+
+The existing default behavior must remain:
+
+* output width: `32`
+* output height: `32`
+* sampling mode: `median`
+* output format: `png`
+* palette limit: preserve the current default, usually `off`
+
+---
+
+# Language Policy
+
+All Codex-facing documents and technical documents must remain in English.
+
+Codex-facing English documents:
+
+* `AGENTS.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+
+User-facing review documents must remain in Korean.
+
+User-facing Korean documents:
+
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+
+Code identifiers, file names, folder names, function names, constants, and API names must remain in English.
+
+The app UI text may be in Korean.
+
+When writing Korean user-facing documents, do not translate code identifiers, constants, file names, or function names.
+
+---
+
+# Main Goal of This Task
+
+Improve the GUI and output-size selection UX while preserving the current image conversion/export functionality.
+
+This task must focus on:
+
+1. Simplifying the output size UI
+2. Replacing combined size presets with separate width and height selectors
+3. Hiding custom number inputs until `Custom` is selected
+4. Removing the hard `256×256` output size limit
+5. Allowing output size up to the original image dimensions
+6. Showing performance warnings for large output sizes instead of blocking them
+7. Fixing broken image placeholder icons in the initial/default state
+8. Improving preview UX where practical
+9. Updating tests and documentation
+
+Do not add AI generation, Google login, backend, authentication, cloud storage, or API integrations in this task.
+
+This is a local frontend app refinement task.
+
+---
+
+# Critical Preservation Rules
+
+Do not:
+
+* recreate the repository
+* introduce React, Vite, Webpack, or other build systems
+* switch to ES Modules
+* remove existing tests
+* remove existing Korean user-facing documents
+* remove existing English technical documents
+* replace the existing four-section layout with an unrelated layout
+* simplify the image conversion into a resize shortcut
+* break PNG/JPG/Aseprite export
+* break palette limit if it already exists
+* break the warning banner UI
+* break drag-and-drop input
+* break existing download filename behavior unless a small update is required for new size labels
+
+This task is a UI and size-policy refinement, not a full architecture rewrite.
+
+---
+
+# Required Change 1. Simplify Output Size Controls
+
+The current preset UI may show combined sizes such as:
+
+* `16×16`
+* `24×24`
+* `32×32`
+* `48×48`
+* `64×64`
+
+Replace this with separate width and height controls.
+
+New size control structure:
+
+```txt
+Width
+[16] [32] [64] [Original] [Custom]
+
+Height
+[16] [32] [64] [Original] [Custom]
+```
+
+Default:
+
+* Width: `32`
+* Height: `32`
+
+Remove or de-emphasize combined size presets such as `24×24` and `48×48`.
+
+Users can still create `24×24`, `48×48`, or any other valid size through `Custom`.
+
+The purpose is to make the UI cleaner and easier to understand.
+
+---
+
+# Required Change 2. Custom Inputs Hidden Until Needed
+
+Custom width input must be hidden until the user selects `Custom` for Width.
+
+Custom height input must be hidden until the user selects `Custom` for Height.
+
+Examples:
+
+When Width is `32`:
+
+```txt
+Width
+[16] [32] [64] [Original] [Custom]
+```
+
+When Width is `Custom`:
+
+```txt
+Width
+[16] [32] [64] [Original] [Custom]
+Custom Width: [ 48 ]
+```
+
+Same behavior for Height.
+
+Do not show custom numeric input fields all the time.
+
+If existing custom width/height inputs already exist, reuse them if practical, but change their visibility behavior.
+
+Do not delete working validation logic unless it must be adjusted for the new policy.
+
+---
+
+# Required Change 3. Add Original Size Option
+
+Add `Original` as an option for both Width and Height.
+
+Behavior:
+
+* Width `Original` means `outputWidth = originalImageWidth`
+* Height `Original` means `outputHeight = originalImageHeight`
+
+Examples:
+
+If the source image is `512×384`:
+
+* Width Original → `512`
+* Height Original → `384`
+
+This allows the app to act as a palette reduction / color simplification tool while preserving source resolution.
+
+This is useful when the user wants to apply palette limiting without reducing the image resolution.
+
+## Original option before image load
+
+Before a valid image is loaded:
+
+* `Original` width option must be disabled, or
+* selecting it must show a warning and not break the app
+
+Same for Height `Original`.
+
+Recommended behavior:
+
+* disable `Original` options until a valid image is loaded
+* show source image size after image load
+* then enable `Original`
+
+Example Korean warning text if needed:
+
+```txt
+이미지를 먼저 업로드해야 원본 크기를 선택할 수 있습니다.
+```
+
+---
+
+# Required Change 4. Disable Invalid Presets Based on Source Size
+
+After a valid image is loaded, preset options larger than the source image dimension should be disabled or blocked clearly.
+
+Examples:
+
+If the source image is `20×20`:
+
+* Width `16`: allowed
+* Width `32`: disabled or blocked
+* Width `64`: disabled or blocked
+* Height `16`: allowed
+* Height `32`: disabled or blocked
+* Height `64`: disabled or blocked
+
+If the source image is `40×20`:
+
+* Width `32`: allowed
+* Width `64`: disabled or blocked
+* Height `32`: disabled or blocked
+* Height `16`: allowed
+
+Use the existing warning banner if the user somehow attempts to select a blocked option.
+
+Example Korean warning texts:
+
+```txt
+선택한 너비가 원본 이미지 너비보다 큽니다.
+선택한 높이가 원본 이미지 높이보다 큽니다.
+```
+
+Choose either disabled buttons or warning-on-click, but the UX must be clear.
+
+---
+
+# Required Change 5. Remove Hard 256×256 Output Limit
+
+Remove the hard validation rule that blocks output width or height above `256`.
+
+The new hard validation rules are:
+
+* width must be an integer
+* height must be an integer
+* width must be `>= 1`
+* height must be `>= 1`
+* width must be `<= originalImageWidth`
+* height must be `<= originalImageHeight`
+
+Do not block output sizes merely because they exceed 256.
+
+However, large output sizes may be slow, so show performance warnings instead.
+
+---
+
+# Required Change 6. Performance Warnings for Large Output Sizes
+
+Use the existing warning banner UI for performance warnings.
+
+Do not use browser `alert()`.
+
+Suggested thresholds:
+
+```txt
+outputWidth * outputHeight > 65,536
+→ show a moderate performance warning
+
+outputWidth * outputHeight > 262,144
+→ show a stronger performance warning
+```
+
+Example Korean warning texts:
+
+```txt
+출력 해상도가 커서 변환 시간이 길어질 수 있습니다.
+매우 큰 출력 해상도입니다. 변환 중 브라우저가 잠시 멈춘 것처럼 보일 수 있습니다.
+```
+
+These warnings should not block conversion.
+
+Only invalid values should block conversion.
+
+Invalid examples:
+
+* width <= 0
+* height <= 0
+* width is not an integer
+* height is not an integer
+* width > originalImageWidth
+* height > originalImageHeight
+
+---
+
+# Required Change 7. Avoid Repeated Heavy Auto-Conversions
+
+If the current app automatically reconverts on every option change, review whether this causes performance problems for large output sizes.
+
+Recommended behavior:
+
+* Small sizes may auto-update if already implemented and stable.
+* For large output sizes, avoid repeated automatic reconversion.
+* Prefer an explicit `Apply` / `Convert` button behavior if needed.
+* If an explicit apply button already exists, reuse it.
+* If no apply button exists and auto-conversion is used, introduce debounce or block repeated heavy conversions for large outputs.
+
+If you add or improve an explicit button, use Korean UI text such as:
+
+```txt
+적용
+변환하기
+미리보기 갱신
+```
+
+Do not overcomplicate the flow.
+
+The key goal is to avoid UI lag when users select large output sizes such as Original width/height.
+
+---
+
+# Required Change 8. Fix Broken Image Icon in Default State
+
+There is currently a visual issue in the initial/default state where the browser shows a broken image icon in the preview area.
+
+Fix this.
+
+The app must not show a broken image icon before an image is loaded.
+
+Rules:
+
+* Do not render an `<img>` with an empty `src`.
+* Do not render an `<img>` with `src="#"`.
+* Do not render an `<img>` with a fake missing placeholder path.
+* Do not use an invalid image URL as a placeholder.
+* Hide the preview `<img>` until a valid image is loaded.
+* Show a clean placeholder instead.
+* Use a placeholder `<div>` or similar UI element instead of an empty broken image.
+* If an image load fails, hide the broken image and show a warning/error message.
+* Apply this both to the original preview and generated result preview if needed.
+* Handle `img.onerror` so broken image icons are not visible.
+
+Recommended placeholder UI text in Korean:
+
+```txt
+이미지를 업로드하면 여기에 원본 미리보기가 표시됩니다.
+변환 결과가 여기에 표시됩니다.
+```
+
+Implementation idea:
+
+* preview image elements can start with `display: none`
+* placeholder elements can start visible
+* when a valid image loads, show the image and hide the placeholder
+* when result conversion completes, show the result and hide the result placeholder
+* when reset or error occurs, hide the image and show the placeholder again
+* handle `img.onerror` by clearing or hiding the image element and restoring placeholder UI
+
+---
+
+# Recommended GUI/UX Improvements
+
+Apply these improvements if they can be done safely without overhauling the project.
+
+The priority order is:
+
+1. size UI cleanup
+2. 256 hard limit removal
+3. original-size support
+4. broken image icon fix
+5. result summary
+6. checkerboard preview background
+7. preview zoom controls
+
+Do not spend too much time on lower-priority improvements if they risk breaking existing behavior.
+
+---
+
+## 1. Group Controls into Clear Sections
+
+Keep the current layout, but make the option area easier to understand.
+
+Recommended section grouping:
+
+```txt
+Input
+- filename
+- original image size
+- transparency information if available
+
+Output Size
+- Width options
+- Height options
+- final output size summary
+
+Pixel Processing
+- sampling mode
+- palette limit if implemented
+
+Export
+- output format
+- download button
+```
+
+Use simple cards, panels, headings, or visual grouping.
+
+Do not redesign the entire app.
+
+---
+
+## 2. Add Result Summary
+
+Add a compact result summary near the preview or download area.
+
+Example:
+
+```txt
+32×32 · median · palette off · PNG
+64×64 · average · palette 16 · Aseprite
+Original 512×384 · median · palette 32 · PNG
+```
+
+The summary should reflect the current effective settings.
+
+If palette limit is not implemented yet, omit or mark it according to current state.
+
+---
+
+## 3. Add Checkerboard Background for Transparency Preview
+
+If practical, add a checkerboard background behind image previews so transparent PNG / Aseprite results are easier to inspect.
+
+Recommended:
+
+* enabled by default for preview panels
+* subtle checkerboard background
+* do not affect actual export result
+
+This is a preview-only visual improvement.
+
+---
+
+## 4. Add Preview Zoom Controls if Practical
+
+If practical, add simple preview zoom controls for the generated result.
+
+Recommended options:
+
+```txt
+Fit
+Actual
+8x
+16x
+```
+
+Do not spend too much time on this if it risks breaking the current preview system.
+
+---
+
+# Validation Behavior
+
+Update validation logic to match the new policy.
+
+Hard validation:
+
+* width must be an integer
+* height must be an integer
+* width must be at least 1
+* height must be at least 1
+* width must not exceed original image width
+* height must not exceed original image height
+
+No hard 256 limit.
+
+Warning behavior:
+
+* warn when output pixel count is large
+* warn when Original size is selected and output size is large
+* warn when conversion may take time
+
+Example Korean validation messages:
+
+```txt
+너비는 1 이상의 정수여야 합니다.
+높이는 1 이상의 정수여야 합니다.
+출력 너비는 원본 이미지 너비보다 클 수 없습니다.
+출력 높이는 원본 이미지 높이보다 클 수 없습니다.
+출력 해상도가 커서 변환 시간이 길어질 수 있습니다.
+```
+
+---
+
+# Technical Structure Requirements
+
+Maintain responsibility separation.
+
+## `src/constants.js`
+
+Update or add constants such as:
+
+* width/height size options
+* performance warning thresholds
+* default width and height option
+* size option names
+
+Possible examples:
+
+* `SIZE_AXIS_OPTIONS`
+* `DEFAULT_WIDTH_OPTION`
+* `DEFAULT_HEIGHT_OPTION`
+* `PERFORMANCE_WARNING_PIXEL_THRESHOLD`
+* `PERFORMANCE_STRONG_WARNING_PIXEL_THRESHOLD`
+
+Remove or deprecate constants that enforce the hard 256 output limit if they exist.
+
+Do not remove unrelated constants.
+
+## `src/imageProcessor.js`
+
+Update validation and conversion helpers only as needed.
+
+The conversion should already support variable width and height.
+
+Ensure it can handle output sizes up to the original image size.
+
+Do not introduce simple resize shortcuts.
+
+Do not break sampling modes or palette limit.
+
+## `src/uiController.js`
+
+Most of this task likely belongs here.
+
+Add or update:
+
+* separate width selector UI
+* separate height selector UI
+* custom input visibility logic
+* original image size display
+* disabled state for preset buttons larger than original dimension
+* disabled state for Original option before image load
+* clean preview placeholders
+* broken image icon prevention
+* result summary display
+* checkerboard preview background if practical
+* preview zoom controls if practical
+* performance warning display through existing warning banner
+
+Possible helpers:
+
+* `updateSizeAxisControls(...)`
+* `setCustomSizeInputVisibility(...)`
+* `updatePresetAvailability(...)`
+* `showPreviewPlaceholder(...)`
+* `hidePreviewPlaceholder(...)`
+* `setPreviewImageSource(...)`
+* `clearPreviewImage(...)`
+* `updateResultSummary(...)`
+* `showPerformanceWarningIfNeeded(...)`
+
+Do not move image conversion logic into this file.
+
+## `src/app.js`
+
+Connect the updated UI controls to the existing conversion pipeline.
+
+Responsibilities:
+
+* read width option and height option
+* resolve `Original` values after image load
+* resolve `Custom` values only when selected
+* validate resolved width and height
+* trigger performance warnings
+* avoid repeated heavy conversion when possible
+* keep preview/export state consistent
+* preserve existing default conversion behavior
+
+## `src/fileHandler.js`
+
+Usually no major change should be required.
+
+Only update filename behavior if size summary or naming logic depends on changed output size handling.
+
+---
+
+# Testing Requirements
+
+Update the existing tests and add new ones.
+
+Update:
+
+* `TEST_PLAN.md` in English
+* `TEST_SUMMARY_KO.md` in Korean
+* `DEVELOPMENT_REPORT_KO.md` in Korean
+* `tests/test-cases.html`
+* `tests/testImageFactory.js` if useful
+
+Add or update test coverage for:
+
+## Size UI behavior
+
+* default Width is `32`
+* default Height is `32`
+* Width options include `16`, `32`, `64`, `Original`, `Custom`
+* Height options include `16`, `32`, `64`, `Original`, `Custom`
+* custom width input is hidden until Width Custom is selected
+* custom height input is hidden until Height Custom is selected
+* selecting Width Original resolves to source image width
+* selecting Height Original resolves to source image height
+* Original option is disabled or safely blocked before image load
+* preset options larger than the source dimension are disabled or blocked
+
+## Validation
+
+* width greater than original image width is rejected
+* height greater than original image height is rejected
+* width `0` is rejected
+* height `0` is rejected
+* non-integer width is rejected
+* non-integer height is rejected
+* output width above 256 is allowed if source image is large enough
+* output height above 256 is allowed if source image is large enough
+* output size up to original image size is allowed
+
+## Performance warning
+
+* large output size shows warning banner
+* very large output size shows stronger warning banner
+* performance warning does not block conversion
+
+## Broken image icon fix
+
+* initial state does not show broken image icon
+* original preview shows placeholder before image load
+* result preview shows placeholder before conversion
+* failed image load hides preview image and shows warning/placeholder
+* resetting image returns preview to clean placeholder state
+* no `<img>` with empty `src`, `src="#"`, or missing placeholder path is visible in the default state
+
+## Regression
+
+* PNG/JPG/JPEG input still works
+* drag and drop still works
+* default `32×32`, `median`, `png` still works
+* sampling modes still work
+* palette limit still works if implemented
+* PNG export still works
+* JPG export still works
+* Aseprite export still works
+* warning banner still works
+* existing tests are preserved or improved
+
+---
+
+# Documentation Update Requirements
+
+Update the following English Codex-facing docs:
+
+* `AGENTS.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+
+Update the following Korean user-facing docs:
+
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+
+Documentation must reflect:
+
+* new width/height separate controls
+* custom inputs hidden until Custom is selected
+* Original width/height behavior
+* Original unavailable before image load
+* disabled or blocked presets larger than source image
+* removal of hard 256 output limit
+* new validation policy
+* large output performance warnings
+* clean preview placeholder behavior
+* broken image icon fix
+* any preview UX improvements that were actually implemented
+
+Do not claim that a UX improvement was implemented unless it actually was.
+
+---
+
+# Development Loop
+
+Use this loop throughout the task:
+
+Audit current implementation → plan UI/size policy update → implement one stage → test → fix → refactor carefully → update English docs → update Korean docs → continue
+
+Do not skip the audit step.
+
+---
+
+# Recommended Step Plan
+
+## U0. Audit current implementation
+
+* read all relevant files
+* inspect current size controls
+* inspect current validation rules
+* find hard 256 limit if it exists
+* inspect current preview image / placeholder handling
+* identify why the broken image icon appears
+* record findings in `PLANS.md`
+* summarize findings in `DEVELOPMENT_REPORT_KO.md`
+
+## U1. Update size policy
+
+* remove hard 256 limit
+* allow output size up to original image dimensions
+* keep invalid larger-than-original blocking
+* add large output performance warning thresholds
+
+## U2. Simplify size controls
+
+* replace combined presets with separate Width and Height controls
+* add `16`, `32`, `64`, `Original`, `Custom`
+* disable or block `Original` before image load
+* disable or block preset values larger than source dimension
+* hide custom inputs until Custom is selected
+* preserve default 32×32
+
+## U3. Fix preview placeholder / broken image icon
+
+* remove empty invalid image src behavior
+* hide image elements until valid content exists
+* show placeholder before upload/conversion
+* handle image load error cleanly
+
+## U4. Improve option panel UX
+
+* group controls into clearer sections
+* add result summary
+* add checkerboard preview background if safe
+* add preview zoom if safe and low risk
+
+## U5. Connect and validate
+
+* connect new controls to conversion pipeline
+* validate resolved width/height
+* trigger warning banner for large output sizes
+* avoid repeated heavy conversion if practical
+
+## U6. Expand tests
+
+* add size control tests
+* add validation tests
+* add broken image icon / placeholder tests
+* add regression tests
+
+## U7. Final cleanup and docs
+
+* refactor carefully without overhauling the project
+* update English docs
+* update Korean docs
+* perform final self-evaluation
+
+---
+
+# Completion Criteria
+
+The update is complete only if all of the following are satisfied:
+
+* [ ] Current features still work.
+* [ ] Default behavior remains `32×32`, `median`, `png`.
+* [ ] Existing palette behavior is preserved if palette limit exists.
+* [ ] Width and Height controls are separate.
+* [ ] Width options include `16`, `32`, `64`, `Original`, `Custom`.
+* [ ] Height options include `16`, `32`, `64`, `Original`, `Custom`.
+* [ ] Custom width input is hidden until Width Custom is selected.
+* [ ] Custom height input is hidden until Height Custom is selected.
+* [ ] Original width resolves to source image width.
+* [ ] Original height resolves to source image height.
+* [ ] Original option is disabled or safely blocked before image load.
+* [ ] Presets larger than the source dimension are disabled or safely blocked.
+* [ ] Hard 256 output limit is removed.
+* [ ] Output size up to original image dimensions is allowed.
+* [ ] Width larger than original image width is blocked.
+* [ ] Height larger than original image height is blocked.
+* [ ] Large output size triggers warning banner but does not block conversion.
+* [ ] Initial/default state no longer shows a broken image icon.
+* [ ] Original preview has a clean placeholder before image load.
+* [ ] Result preview has a clean placeholder before conversion.
+* [ ] Failed image load does not leave a broken image icon visible.
+* [ ] Result summary is shown if implemented.
+* [ ] Checkerboard preview background is added if implemented.
+* [ ] Preview zoom controls are added only if implemented safely.
+* [ ] Existing tests are preserved or improved.
+* [ ] New UI/size/placeholder tests are added.
+* [ ] English docs are updated correctly.
+* [ ] Korean docs are updated correctly.
+* [ ] The project was updated without unnecessary recreation or overhauling.
+
+---
+
+# Final Execution Instruction
+
+Start by auditing the existing project.
+
+Do not start coding immediately without understanding the current structure.
+
+Then implement the UI and output-size policy update incrementally.
+
+At every meaningful stage:
+
+1. update `PLANS.md` in English
+2. update `DEVELOPMENT_REPORT_KO.md` in Korean
+3. update `TEST_PLAN.md` in English when test requirements change
+4. update `TEST_SUMMARY_KO.md` in Korean when tests are executed
+5. verify behavior before moving on
+
+Preserve working behavior.
+
+Make focused UI and policy updates.
+
+Avoid unnecessary project recreation.
+
+Avoid unnecessary structure changes.
+
+Keep the implementation grounded in the existing repository rules.
+
+Finally, deliver the existing pixel icon generator with current functionality preserved, cleaner size controls, original-size output support, large-output warnings, and clean preview placeholders without broken image icons.

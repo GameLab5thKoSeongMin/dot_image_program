@@ -1,151 +1,127 @@
 # Test Plan
 
 ## 1. Test Goal
-Verify that the pixel icon generator preserves existing behavior and correctly adds palette color limiting.
+Verify that the pixel icon generator preserves existing behavior while adding the separated width/height UI, original-size output support, source-dimension validation, large-output warnings, and clean preview placeholders.
 
 ## 2. Regression Tests
 - [x] Default `32x32`, `median`, `png`, palette `off` still works.
   - Result: Pass
-  - Note: Headless Edge verified `palette_32x32_median.png`.
+  - Note: Browser app flow verified `sample_32x32_median.png`.
 
 - [x] Existing input/preview/download flow still works.
   - Result: Pass
-  - Note: Browser flow and test page passed.
+  - Note: Browser app flow generated a result and enabled download.
 
 - [x] Existing output format selection still works.
   - Result: Pass
-  - Note: PNG/JPG/Aseprite export remains functional.
+  - Note: Test page validates PNG/JPG/Aseprite export.
 
 - [x] Warning banner still works.
   - Result: Pass
-  - Note: Invalid palette values use the existing warning banner.
+  - Note: Large output and palette/JPG warnings use the existing banner.
 
-## 3. Palette Option Tests
+## 3. Size UI Tests
+- [x] Default Width option is `32`.
+- [x] Default Height option is `32`.
+- [x] Width options include `16`, `32`, `64`, `Original`, `Custom`.
+- [x] Height options include `16`, `32`, `64`, `Original`, `Custom`.
+- [x] Custom width input is hidden until Width `Custom` is selected.
+- [x] Custom height input is hidden until Height `Custom` is selected.
+- [x] Original options are disabled before image load.
+- [x] Original options are enabled after image load.
+- [x] Presets larger than source dimension are disabled.
+
+Result: Pass. Covered by `tests/test-cases.html` UI fixture tests and browser app flow.
+
+## 4. Output Size Validation Tests
+- [x] Width greater than source width is rejected.
+- [x] Height greater than source height is rejected.
+- [x] Width `0` is rejected.
+- [x] Height `0` is rejected.
+- [x] Non-integer width is rejected.
+- [x] Non-integer height is rejected.
+- [x] Width above 256 is accepted when source width is large enough.
+- [x] Height above 256 is accepted when source height is large enough.
+- [x] Output size equal to source dimensions is accepted.
+
+Result: Pass.
+
+## 5. Performance Warning Tests
+- [x] 256x256 does not warn because the policy is strictly greater than 65,536 pixels.
+- [x] 320x240 shows a moderate performance warning.
+- [x] 800x600 shows a strong performance warning.
+- [x] Large output warning does not block explicit conversion.
+
+Result: Pass. Browser app flow verified Original 512x384 warns, defers automatic conversion, and then converts after `미리보기 갱신`.
+
+## 6. Preview Placeholder Tests
+- [x] Initial original preview image is hidden and has no `src`.
+- [x] Initial result preview image is hidden and has no `src`.
+- [x] Original placeholder is visible before image load.
+- [x] Result placeholder is visible before conversion.
+- [x] Clearing preview removes `src`.
+- [x] Failed original preview load hides the image and restores placeholder state.
+- [x] Result zoom can apply `8x`.
+
+Result: Pass.
+
+## 7. Palette Option Tests
 - [x] Palette mode `off` preserves current behavior.
-  - Result: Pass
-  - Note: Test page confirms the original canvas is preserved.
-
 - [x] Palette mode `auto` works.
-  - Result: Pass
-  - Note: Headless Edge verified filename suffix `_p16` for 32x32 auto.
-
-- [x] Palette mode `4` works.
-  - Result: Pass
-  - Note: Test page verified visible color count is <= 4.
-
-- [x] Palette mode `8` works.
-  - Result: Pass
-  - Note: Test page verified visible color count is <= 8.
-
-- [x] Palette mode `16` works.
-  - Result: Pass
-  - Note: Test page verified visible color count is <= 16.
-
-- [x] Palette mode `32` works.
-  - Result: Pass
-  - Note: Test page verified visible color count is <= 32.
-
+- [x] Palette modes `4`, `8`, `16`, and `32` work.
 - [x] Palette mode `custom` works.
-  - Result: Pass
-  - Note: Headless Edge verified custom count 8 and filename `palette_32x32_average_p8.jpg`.
-
 - [x] Custom palette count less than 2 is rejected.
-  - Result: Pass
-  - Note: Headless Edge verified warning and disabled download for value `1`.
-
 - [x] Custom palette count greater than 256 is rejected.
-  - Result: Pass
-  - Note: Headless Edge verified warning and disabled download for value `257`.
-
 - [x] One-color image does not crash.
-  - Result: Pass
-  - Note: Test page verified.
-
 - [x] Fully transparent image does not crash.
-  - Result: Pass
-  - Note: Test page verified.
 
-## 4. Auto Palette Tests
-- [x] 16x16 resolves to 4 colors.
-  - Result: Pass
+Result: Pass.
 
-- [x] 24x24 resolves to 8 colors.
-  - Result: Pass
-
-- [x] 32x32 resolves to 16 colors.
-  - Result: Pass
-
-- [x] 48x32 resolves to 16 colors.
-  - Result: Pass
-
-- [x] 64x64 resolves to 32 colors.
-  - Result: Pass
-
-## 5. Palette Correctness Tests
+## 8. Palette Correctness Tests
 - [x] Visible RGB color count after palette limit is <= effective palette count.
-  - Result: Pass
-  - Note: Test page verifies this for auto, numeric, and custom modes.
-
 - [x] Transparent pixels are excluded from color count.
-  - Result: Pass
-  - Note: `countUniqueVisibleColors` ignores alpha below `TRANSPARENT_ALPHA_THRESHOLD`.
-
 - [x] Palette limit does not turn transparent pixels opaque.
-  - Result: Pass
-  - Note: Test page compares alpha before and after quantization.
-
 - [x] Palette limit handles fewer source colors than requested palette count.
-  - Result: Pass
-  - Note: One-color case passed.
 
-## 6. Sampling Compatibility Tests
+Result: Pass.
+
+## 9. Sampling Compatibility Tests
 - [x] `median` + palette limit works.
-  - Result: Pass
-
 - [x] `average` + palette limit works.
-  - Result: Pass
-
 - [x] `center` + palette limit works.
-  - Result: Pass
 
-## 7. Export Compatibility Tests
-- [x] PNG export reflects palette-limited output.
-  - Result: Pass
-  - Note: Test page exports the palette-limited canvas.
+Result: Pass.
 
-- [x] JPG export reflects palette-limited output.
-  - Result: Pass
-  - Note: Headless Edge verified palette-limited JPG filename and download.
-
-- [x] `.aseprite` export reflects palette-limited output.
-  - Result: Pass
-  - Note: Test page validates Aseprite dimensions from the palette-limited canvas.
-
+## 10. Export Compatibility Tests
+- [x] PNG export reflects the final canvas.
+- [x] JPG export reflects the final canvas with white background compositing.
+- [x] `.aseprite` export reflects the final canvas.
 - [x] Filename includes palette suffix when palette mode is not `off`.
-  - Result: Pass
-  - Note: Verified examples include `_p16` and `_p8`.
+- [x] Original-size filename uses resolved numeric dimensions.
 
-## 8. UI / Warning Tests
-- [x] Invalid custom palette count shows warning banner.
-  - Result: Pass
+Result: Pass.
 
-- [x] Warning banner uses icon and message text.
-  - Result: Pass
-
-- [x] Warning banner can be cleared.
-  - Result: Pass
-
-- [x] Browser `alert()` is not used as the main warning UI.
-  - Result: Pass
-  - Note: Source search found no `alert(` usage.
-
-## 9. Test Page Result
+## 11. Test Page Result
 - [x] `tests/test-cases.html`
   - Result: Pass
-  - Note: Headless Edge reported `48 / 48 cases passed.`
+  - Note: Local Edge reported `61 / 61 cases passed.`
 
-## 10. Verification Notes
+## 12. Browser App Flow Result
+- [x] `index.html`
+  - Result: Pass
+  - Notes:
+    - Initial preview images were hidden and had no `src`.
+    - Custom width/height inputs were hidden initially.
+    - `Original` options were disabled before image load.
+    - After loading a generated 512x384 PNG, default output was `sample_32x32_median.png`.
+    - Selecting Original width/height showed a performance warning and deferred automatic conversion.
+    - Pressing `미리보기 갱신` produced `sample_512x384_median.png`.
+    - Palette `4` produced `sample_32x32_median_p4.png`.
+
+## 13. Verification Notes
 - Static syntax checks passed for app JS files.
 - The implementation keeps normal script tags and does not use ES Modules.
+- Source search found no `alert(` usage.
+- Source search found no fixed `drawImage(image, 0, 0, 32, 32)` conversion shortcut.
 - The conversion code still directly reads and writes `ImageData`.
-- Palette quantization is post-processing and does not replace tile conversion.
+- Palette quantization remains post-processing and does not replace tile conversion.

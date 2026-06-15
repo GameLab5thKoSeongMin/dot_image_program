@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.4.0] - Size UI and Output Policy Update
+
+### Added
+- Separate Width and Height controls.
+- Width options: `16`, `32`, `64`, `Original`, `Custom`.
+- Height options: `16`, `32`, `64`, `Original`, `Custom`.
+- Hidden custom width and height inputs that appear only after `Custom` is selected.
+- `Original` width/height resolution after a valid image is loaded.
+- Disabled state for `Original` before image load.
+- Disabled state for numeric options larger than the source dimension.
+- Large-output performance warnings.
+- Explicit `미리보기 갱신` button for large output conversion.
+- Clean original/result preview placeholders without empty or fake image sources.
+- Preview image `error` handling that restores placeholder state.
+- Result summary text.
+- Result preview zoom options: `Fit`, `Actual`, `8x`, `16x`.
+- UI and validation tests for the new size policy.
+
+### Changed
+- Removed the fixed 256x256 output size limit.
+- Output validation now allows sizes up to original image dimensions.
+- Valid output above 256 is allowed when the source image is large enough.
+- Large valid output sizes warn instead of blocking conversion.
+- Automatic conversion is deferred for large output sizes to avoid repeated heavy work.
+- Option controls are grouped into Output Size, Pixel Processing, and Export.
+- Documentation now reflects the separated size controls, original-size behavior, performance warnings, and placeholder behavior.
+
+### Fixed
+- Default state no longer risks showing broken image icons.
+- Failed preview image loads no longer leave visible broken image elements.
+
 ## [0.3.0] - Palette Limit Extension
 
 ### Added

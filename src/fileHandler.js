@@ -63,41 +63,50 @@
   function validateOutputSize(outputWidth, outputHeight, imageWidth, imageHeight) {
     var width = toInteger(outputWidth);
     var height = toInteger(outputHeight);
-    var maxWidth = Math.min(imageWidth || 0, constants.MAX_OUTPUT_DIMENSION);
-    var maxHeight = Math.min(imageHeight || 0, constants.MAX_OUTPUT_DIMENSION);
+    var sourceWidth = toInteger(imageWidth);
+    var sourceHeight = toInteger(imageHeight);
+    var hasSourceWidth = Number.isInteger(sourceWidth) && sourceWidth > 0;
+    var hasSourceHeight = Number.isInteger(sourceHeight) && sourceHeight > 0;
 
-    if (!Number.isInteger(width) || !Number.isInteger(height)) {
+    if (!Number.isInteger(width)) {
       return {
         valid: false,
-        message: "출력 width와 height는 정수여야 합니다."
+        message: "출력 너비는 1 이상의 정수여야 합니다."
       };
     }
 
-    if (width < 1 || height < 1) {
+    if (!Number.isInteger(height)) {
       return {
         valid: false,
-        message: "출력 width와 height는 1 이상이어야 합니다."
+        message: "출력 높이는 1 이상의 정수여야 합니다."
       };
     }
 
-    if (width > constants.MAX_OUTPUT_DIMENSION || height > constants.MAX_OUTPUT_DIMENSION) {
+    if (width < 1) {
       return {
         valid: false,
-        message: "출력 width와 height는 256을 초과할 수 없습니다."
+        message: "출력 너비는 1 이상이어야 합니다."
       };
     }
 
-    if (imageWidth && width > imageWidth) {
+    if (height < 1) {
       return {
         valid: false,
-        message: "출력 width는 원본 이미지 width(" + imageWidth + ")를 초과할 수 없습니다."
+        message: "출력 높이는 1 이상이어야 합니다."
       };
     }
 
-    if (imageHeight && height > imageHeight) {
+    if (hasSourceWidth && width > sourceWidth) {
       return {
         valid: false,
-        message: "출력 height는 원본 이미지 height(" + imageHeight + ")를 초과할 수 없습니다."
+        message: "출력 너비가 원본 이미지 너비(" + sourceWidth + ")보다 큽니다."
+      };
+    }
+
+    if (hasSourceHeight && height > sourceHeight) {
+      return {
+        valid: false,
+        message: "출력 높이가 원본 이미지 높이(" + sourceHeight + ")보다 큽니다."
       };
     }
 
@@ -106,9 +115,39 @@
       message: "",
       width: width,
       height: height,
-      maxWidth: maxWidth,
-      maxHeight: maxHeight
+      maxWidth: hasSourceWidth ? sourceWidth : null,
+      maxHeight: hasSourceHeight ? sourceHeight : null
     };
+  }
+
+  function getOutputSizePerformanceWarning(outputWidth, outputHeight) {
+    var width = toInteger(outputWidth);
+    var height = toInteger(outputHeight);
+    var pixelCount;
+
+    if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
+      return null;
+    }
+
+    pixelCount = width * height;
+
+    if (pixelCount > constants.PERFORMANCE_STRONG_WARNING_PIXEL_THRESHOLD) {
+      return {
+        level: "strong",
+        pixelCount: pixelCount,
+        message: "매우 큰 출력 해상도입니다. 변환 중 브라우저가 잠시 멈춘 것처럼 보일 수 있습니다."
+      };
+    }
+
+    if (pixelCount > constants.PERFORMANCE_WARNING_PIXEL_THRESHOLD) {
+      return {
+        level: "moderate",
+        pixelCount: pixelCount,
+        message: "출력 해상도가 커서 변환 시간이 길어질 수 있습니다."
+      };
+    }
+
+    return null;
   }
 
   function normalizeSamplingMode(samplingMode) {
@@ -240,12 +279,14 @@
     validateImageFile: validateImageFile,
     validateOutputSize: validateOutputSize,
     validatePaletteOptions: validatePaletteOptions,
+    getOutputSizePerformanceWarning: getOutputSizePerformanceWarning,
     normalizeSamplingMode: normalizeSamplingMode,
     normalizeOutputFormat: normalizeOutputFormat,
     normalizePaletteMode: normalizePaletteMode,
     readFileAsDataURL: readFileAsDataURL,
     createOutputFilename: createOutputFilename,
     getFileExtension: getFileExtension,
-    getReadableFileSize: getReadableFileSize
+    getReadableFileSize: getReadableFileSize,
+    toInteger: toInteger
   };
 })();

@@ -38,14 +38,50 @@
     ui.resetResult();
   }
 
+  function resolveAxisSize(axis, selectedOption, customValue) {
+    var sourceDimension = axis === "width" ? state.sourceWidth : state.sourceHeight;
+
+    if (selectedOption === "original") {
+      if (!sourceDimension) {
+        return {
+          valid: false,
+          message: "이미지를 먼저 업로드해야 Original 크기를 선택할 수 있습니다."
+        };
+      }
+
+      return {
+        valid: true,
+        value: sourceDimension
+      };
+    }
+
+    if (selectedOption === "custom") {
+      return {
+        valid: true,
+        value: customValue
+      };
+    }
+
+    return {
+      valid: true,
+      value: selectedOption
+    };
+  }
+
   function getNormalizedOptions() {
     var selectedOptions = ui.getSelectedOptions();
+    var widthResult = resolveAxisSize("width", selectedOptions.widthOption, selectedOptions.customWidth);
+    var heightResult = resolveAxisSize("height", selectedOptions.heightOption, selectedOptions.customHeight);
     var outputFormat = fileHandler.normalizeOutputFormat(selectedOptions.outputFormat);
     var samplingMode = fileHandler.normalizeSamplingMode(selectedOptions.samplingMode);
 
     return {
-      outputWidth: selectedOptions.outputWidth,
-      outputHeight: selectedOptions.outputHeight,
+      widthOption: selectedOptions.widthOption,
+      heightOption: selectedOptions.heightOption,
+      outputWidth: widthResult.value,
+      outputHeight: heightResult.value,
+      widthResolveError: widthResult.valid ? "" : widthResult.message,
+      heightResolveError: heightResult.valid ? "" : heightResult.message,
       samplingMode: samplingMode,
       outputFormat: outputFormat,
       paletteMode: fileHandler.normalizePaletteMode(selectedOptions.paletteMode),
@@ -54,6 +90,20 @@
   }
 
   function validateCurrentOptions(options) {
+    if (options.widthResolveError) {
+      return {
+        valid: false,
+        message: options.widthResolveError
+      };
+    }
+
+    if (options.heightResolveError) {
+      return {
+        valid: false,
+        message: options.heightResolveError
+      };
+    }
+
     return fileHandler.validateOutputSize(
       options.outputWidth,
       options.outputHeight,
@@ -62,24 +112,47 @@
     );
   }
 
-  function updateResultWarning(outputFormat, resultHasTransparency, paletteInfo) {
+  function buildPaletteText(paletteResult) {
+    if (paletteResult.paletteMode === "off") {
+      return "off";
+    }
+
+    return paletteResult.paletteMode + " (" + paletteResult.effectivePaletteCount + " colors)";
+  }
+
+  function buildWarningMessage(outputFormat, resultHasTransparency, paletteInfo, performanceWarning) {
+    var messages = [];
+
+    if (performanceWarning) {
+      messages.push(performanceWarning.message);
+    }
+
     if (outputFormat === "jpg" && resultHasTransparency) {
-      ui.showWarning("JPG는 투명도를 저장할 수 없어 흰색 배경으로 합성해서 내보냅니다.");
-      return;
+      messages.push("JPG는 투명도를 저장할 수 없어 흰색 배경으로 합성해서 내보냅니다.");
     }
 
     if (paletteInfo &&
       paletteInfo.paletteMode !== "off" &&
       paletteInfo.beforeColorCount > 0 &&
       paletteInfo.effectivePaletteCount >= paletteInfo.beforeColorCount) {
-      ui.showWarning("현재 이미지의 실제 색상 수보다 큰 값입니다. 결과가 거의 변하지 않을 수 있습니다.");
+      messages.push("현재 이미지의 실제 색상 수보다 팔레트 제한값이 큽니다. 결과가 거의 변하지 않을 수 있습니다.");
+    }
+
+    return messages.join(" ");
+  }
+
+  function updateResultWarning(outputFormat, resultHasTransparency, paletteInfo, performanceWarning) {
+    var message = buildWarningMessage(outputFormat, resultHasTransparency, paletteInfo, performanceWarning);
+
+    if (message) {
+      ui.showWarning(message);
       return;
     }
 
     ui.hideWarning();
   }
 
-  function updateResultState(result, options, filename) {
+  function updateResultState(result, options, filename, performanceWarning) {
     state.resultCanvas = result.canvas;
     state.resultHasTransparency = result.resultHasTransparency;
     state.outputFilename = filename;
@@ -99,80 +172,103 @@
     });
     ui.setDownloadEnabled(true);
     ui.clearError();
-    updateResultWarning(options.outputFormat, result.resultHasTransparency, result.paletteInfo);
+    updateResultWarning(options.outputFormat, result.resultHasTransparency, result.paletteInfo, performanceWarning);
     ui.setStatus(result.width + "x" + result.height + " 아이콘 생성이 완료되었습니다.");
   }
 
-  function processCurrentImage() {
+  function resetResultWithWarning(message, status) {
+    state.resultCanvas = null;
+    state.outputFilename = "";
+    state.paletteInfo = null;
+    ui.resetResult();
+    ui.showWarning(message);
+    ui.setStatus(status);
+  }
+
+  function processCurrentImage(runOptions) {
+    var executionOptions = runOptions || {};
+
     if (!state.sourceImage) {
       ui.resetResult();
       return;
     }
 
+    ui.updateSizeControls(state.sourceWidth, state.sourceHeight);
+    ui.updatePaletteControls();
+
     var options = getNormalizedOptions();
     var sizeValidation = validateCurrentOptions(options);
 
-    ui.updatePresetSelection();
-
     if (!sizeValidation.valid) {
-      state.resultCanvas = null;
-      state.outputFilename = "";
-      ui.resetResult();
-      ui.showWarning(sizeValidation.message);
-      ui.setStatus("출력 크기 설정을 확인하세요.");
+      resetResultWithWarning(sizeValidation.message, "출력 크기 설정을 확인하세요.");
+      return;
+    }
+
+    var performanceWarning = fileHandler.getOutputSizePerformanceWarning(
+      sizeValidation.width,
+      sizeValidation.height
+    );
+
+    if (executionOptions.auto && performanceWarning) {
+      resetResultWithWarning(
+        performanceWarning.message + " 자동 반복 변환을 피하기 위해 미리보기 갱신 버튼을 눌러 변환하세요.",
+        "큰 출력 크기는 미리보기 갱신 버튼으로 변환합니다."
+      );
       return;
     }
 
     var paletteValidation = fileHandler.validatePaletteOptions(options.paletteMode, options.customPaletteCount);
 
     if (!paletteValidation.valid) {
-      state.resultCanvas = null;
-      state.outputFilename = "";
-      state.paletteInfo = null;
-      ui.resetResult();
-      ui.showWarning(paletteValidation.message);
-      ui.setStatus("팔레트 색상 수를 확인하세요.");
+      resetResultWithWarning(paletteValidation.message, "팔레트 색상 수를 확인하세요.");
       return;
     }
 
-    var conversionOptions = {
-      outputWidth: sizeValidation.width,
-      outputHeight: sizeValidation.height,
-      samplingMode: options.samplingMode
-    };
-    var result = imageProcessor.convertImageToPixelIcon(state.sourceImage, conversionOptions);
-    var paletteResult = paletteQuantizer.applyPaletteLimitToCanvas(result.canvas, {
-      paletteMode: paletteValidation.paletteMode,
-      customPaletteCount: paletteValidation.customPaletteCount
-    });
-    var paletteText = paletteResult.paletteMode === "off"
-      ? "off"
-      : paletteResult.paletteMode + " (" + paletteResult.effectivePaletteCount + " colors)";
+    try {
+      ui.setStatus("이미지를 변환하는 중입니다.");
 
-    result.canvas = paletteResult.canvas;
-    result.resultHasTransparency = exporter.canvasHasTransparency(result.canvas);
-    result.paletteInfo = {
-      paletteMode: paletteResult.paletteMode,
-      paletteApplied: paletteResult.paletteApplied,
-      effectivePaletteCount: paletteResult.effectivePaletteCount,
-      beforeColorCount: paletteResult.beforeColorCount,
-      afterColorCount: paletteResult.afterColorCount
-    };
-    result.paletteText = paletteText;
+      var conversionOptions = {
+        outputWidth: sizeValidation.width,
+        outputHeight: sizeValidation.height,
+        samplingMode: options.samplingMode
+      };
+      var result = imageProcessor.convertImageToPixelIcon(state.sourceImage, conversionOptions);
+      var paletteResult = paletteQuantizer.applyPaletteLimitToCanvas(result.canvas, {
+        paletteMode: paletteValidation.paletteMode,
+        customPaletteCount: paletteValidation.customPaletteCount
+      });
+      var paletteText = buildPaletteText(paletteResult);
 
-    var filename = fileHandler.createOutputFilename(state.currentFile && state.currentFile.name, {
-      outputWidth: result.width,
-      outputHeight: result.height,
-      samplingMode: options.samplingMode,
-      outputFormat: options.outputFormat,
-      paletteMode: paletteResult.paletteMode,
-      paletteCount: paletteResult.effectivePaletteCount
-    });
+      result.canvas = paletteResult.canvas;
+      result.resultHasTransparency = exporter.canvasHasTransparency(result.canvas);
+      result.paletteInfo = {
+        paletteMode: paletteResult.paletteMode,
+        paletteApplied: paletteResult.paletteApplied,
+        effectivePaletteCount: paletteResult.effectivePaletteCount,
+        beforeColorCount: paletteResult.beforeColorCount,
+        afterColorCount: paletteResult.afterColorCount
+      };
+      result.paletteText = paletteText;
 
-    updateResultState(result, {
-      outputFormat: options.outputFormat,
-      samplingMode: options.samplingMode
-    }, filename);
+      var filename = fileHandler.createOutputFilename(state.currentFile && state.currentFile.name, {
+        outputWidth: result.width,
+        outputHeight: result.height,
+        samplingMode: options.samplingMode,
+        outputFormat: options.outputFormat,
+        paletteMode: paletteResult.paletteMode,
+        paletteCount: paletteResult.effectivePaletteCount
+      });
+
+      updateResultState(result, {
+        outputFormat: options.outputFormat,
+        samplingMode: options.samplingMode
+      }, filename, performanceWarning);
+    } catch (error) {
+      resetResultWithWarning(
+        error.message || "이미지 변환 중 오류가 발생했습니다.",
+        "변환에 실패했습니다."
+      );
+    }
   }
 
   async function handleFile(file) {
@@ -208,7 +304,7 @@
       state.sourceHeight = image.naturalHeight || image.height;
 
       ui.showOriginalPreview(dataURL, state.sourceWidth, state.sourceHeight);
-      processCurrentImage();
+      processCurrentImage({ auto: true });
     } catch (error) {
       state.currentFile = null;
       state.sourceImage = null;
@@ -218,6 +314,7 @@
       state.resultCanvas = null;
       state.outputFilename = "";
       state.paletteInfo = null;
+      ui.clearOriginalPreview();
       ui.resetResult();
       ui.showError(error.message || "이미지 처리 중 오류가 발생했습니다.");
       ui.showWarning(error.message || "이미지 처리 중 오류가 발생했습니다.");
@@ -275,16 +372,24 @@
     });
   }
 
+  function handleOptionChange() {
+    ui.updateSizeControls(state.sourceWidth, state.sourceHeight);
+    ui.updatePaletteControls();
+
+    if (state.sourceImage) {
+      processCurrentImage({ auto: true });
+    }
+  }
+
   function bindOptions(elements) {
-    elements.presetButtons.forEach(function (button) {
+    elements.sizeAxisButtons.forEach(function (button) {
       button.addEventListener("click", function () {
         if (button.disabled) {
-          ui.showWarning("원본 이미지보다 큰 preset은 사용할 수 없습니다.");
           return;
         }
 
-        ui.setSelectedSize(button.getAttribute("data-width"), button.getAttribute("data-height"));
-        processCurrentImage();
+        ui.selectSizeOption(button.getAttribute("data-axis"), button.getAttribute("data-value"));
+        handleOptionChange();
       });
     });
 
@@ -296,14 +401,18 @@
       elements.paletteModeSelect,
       elements.customPaletteCountInput
     ].forEach(function (element) {
-      element.addEventListener("change", function () {
-        ui.updatePaletteControls();
-        processCurrentImage();
-      });
+      element.addEventListener("change", handleOptionChange);
       element.addEventListener("input", function () {
-        ui.updatePresetSelection();
         ui.updatePaletteControls();
       });
+    });
+
+    elements.convertButton.addEventListener("click", function () {
+      processCurrentImage({ auto: false });
+    });
+
+    elements.resultZoomSelect.addEventListener("change", function () {
+      ui.applyResultZoom();
     });
 
     elements.warningCloseButton.addEventListener("click", function () {
@@ -349,6 +458,8 @@
   window.PixelIconApp = {
     handleFile: handleFile,
     processCurrentImage: processCurrentImage,
+    getNormalizedOptions: getNormalizedOptions,
+    validateCurrentOptions: validateCurrentOptions,
     getState: function () {
       return state;
     }

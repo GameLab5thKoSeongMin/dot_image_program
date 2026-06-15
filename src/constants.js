@@ -5,14 +5,17 @@
     DEFAULT_OUTPUT_WIDTH: 32,
     DEFAULT_OUTPUT_HEIGHT: 32,
     LEGACY_OUTPUT_SIZE: 32,
-    MAX_OUTPUT_DIMENSION: 256,
-    PRESET_OUTPUT_SIZES: [
-      { width: 16, height: 16, label: "16x16" },
-      { width: 24, height: 24, label: "24x24" },
-      { width: 32, height: 32, label: "32x32" },
-      { width: 48, height: 48, label: "48x48" },
-      { width: 64, height: 64, label: "64x64" }
+    SIZE_AXIS_OPTIONS: [
+      { value: "16", label: "16", size: 16 },
+      { value: "32", label: "32", size: 32 },
+      { value: "64", label: "64", size: 64 },
+      { value: "original", label: "Original", size: null },
+      { value: "custom", label: "Custom", size: null }
     ],
+    DEFAULT_WIDTH_OPTION: "32",
+    DEFAULT_HEIGHT_OPTION: "32",
+    PERFORMANCE_WARNING_PIXEL_THRESHOLD: 65536,
+    PERFORMANCE_STRONG_WARNING_PIXEL_THRESHOLD: 262144,
     SAMPLING_MODES: ["median", "average", "center"],
     DEFAULT_SAMPLING_MODE: "median",
     OUTPUT_FORMATS: ["png", "jpg", "aseprite"],

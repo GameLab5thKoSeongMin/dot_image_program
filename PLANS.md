@@ -1,80 +1,85 @@
 # PLANS.md
 
 ## 1. Current Objective
-Extend the flexible pixel icon generator with palette color limiting while preserving all existing behavior.
+Refine the pixel icon generator GUI and output-size policy while preserving conversion, palette, and export behavior.
 
 ## 2. Current Step
-Palette limit extension E7 is complete: audit, implementation, tests, browser verification, and documentation updates are complete.
+UI/size policy update U7 is complete: audit, implementation, tests, browser verification, and documentation updates are complete.
 
-## 3. Palette Extension Checklist
-- [x] E0. Audit current implementation
-- [x] E1. Add palette option model
-- [x] E2. Implement palette quantization
-- [x] E3. Integrate palette limit into conversion pipeline
-- [x] E4. Add UI controls
-- [x] E5. Update export paths and filename suffixes
-- [x] E6. Expand tests
-- [x] E7. Final cleanup and documentation
+## 3. UI and Size Policy Checklist
+- [x] U0. Audit current implementation
+- [x] U1. Update size policy
+- [x] U2. Simplify size controls
+- [x] U3. Fix preview placeholder / broken image icon behavior
+- [x] U4. Improve option panel UX
+- [x] U5. Connect and validate
+- [x] U6. Expand tests
+- [x] U7. Final cleanup and documentation
 
 ## 4. Audit Findings
-- The final result canvas is created in `src/app.js` by calling `imageProcessor.convertImageToPixelIcon`.
-- Preview and export both use `state.resultCanvas`, so the correct insertion point is directly after tile conversion and before `updateResultState`.
-- `src/exporter.js` already exports whatever canvas is stored in `state.resultCanvas`, so PNG/JPG/Aseprite all inherit palette-limited pixels automatically.
-- `src/uiController.js` owns option controls and output metadata, so palette controls and summaries belong there.
-- Filename generation is centralized in `src/fileHandler.js`.
+- The previous UI used combined size presets (`16x16`, `24x24`, `32x32`, `48x48`, `64x64`) plus always-visible custom width/height inputs.
+- `src/fileHandler.js` enforced a fixed `MAX_OUTPUT_DIMENSION` of 256.
+- `src/uiController.js` already owned preview image state, warning banner state, metadata, palette summary, and option controls.
+- `src/app.js` already centralized option reading, validation, conversion, palette post-processing, filename creation, and download state.
+- Original and result preview images were intended to start hidden, but explicit `onerror` handling and a stricter no-empty-src policy were missing.
+- Palette limiting was already correctly placed after tile conversion and before preview/export.
 
 ## 5. Decisions
 - Keep Vanilla HTML/CSS/JavaScript and normal script tags.
-- Add `src/paletteQuantizer.js` to keep median cut quantization separate from UI and export code.
-- Keep default palette mode as `off`.
-- Use `medianCut` as the only palette algorithm in this extension.
-- Count visible RGB colors only; pixels with alpha below `TRANSPARENT_ALPHA_THRESHOLD` are excluded.
-- Preserve alpha values during RGB palette mapping.
-- Keep `.aseprite` export in RGBA mode.
-- Add filename suffix `_pN` only when palette mode is not `off`.
+- Replace combined size presets with independent Width and Height button groups.
+- Keep default Width `32` and Height `32`.
+- Remove `MAX_OUTPUT_DIMENSION` from hard validation.
+- Allow valid output sizes up to source image dimensions.
+- Disable `Original` before image load.
+- Disable numeric size buttons that exceed the loaded source dimension.
+- Keep custom inputs hidden until their axis is set to `Custom`.
+- Use performance warnings for large output sizes instead of hard blocking.
+- Defer automatic reconversion for large output sizes and require `미리보기 갱신`.
+- Keep palette and export behavior unchanged.
+- Add result summary and result zoom controls because they fit the existing preview flow without a layout rewrite.
 
 ## 6. Risks
-- Palette reduction is median cut without dithering; this is intentional for the current extension.
+- Very large output sizes still run on the main browser thread after explicit conversion.
+- The app warns and defers repeated auto-conversions, but it does not yet use a Web Worker.
 - `.aseprite` export remains structurally validated in-browser but was not opened in the Aseprite desktop app or CLI in this environment.
-- Very large images are still processed synchronously on the main browser thread.
 
 ## 7. Verification Log
 - JS syntax checks passed for updated app files.
 - Source search found no ES Module `import/export` statements in app JS.
 - Source search found no `alert(` usage.
 - Source search found no `drawImage(image, 0, 0, 32, 32)` shortcut.
-- Headless Edge opened `index.html` through `file://`.
-- Headless Edge verified default `palette_32x32_median.png` with palette `off`.
-- Headless Edge verified `auto` palette resolved to 16 colors for 32x32 and filename `palette_32x32_median_p16.png`.
-- Headless Edge verified custom palette 8 with JPG filename `palette_32x32_average_p8.jpg`.
-- Headless Edge verified invalid custom palette counts `1` and `257` show warnings and disable download.
-- Headless Edge verified the mobile 390px layout has no horizontal overflow and still shows four panels.
-- `tests/test-cases.html` reported `48 / 48 cases passed.`
+- Local Edge opened `tests/test-cases.html?autorun=1`.
+- Test page reported `61 / 61 cases passed.`
+- Local Edge opened `index.html`.
+- Browser app flow verified initial preview images are hidden and have no `src`.
+- Browser app flow verified custom width/height inputs start hidden.
+- Browser app flow verified `Original` width/height options are disabled before image load.
+- Browser app flow loaded a generated 512x384 PNG and verified default `sample_32x32_median.png`.
+- Browser app flow verified `Original` width/height warns and defers automatic conversion.
+- Browser app flow verified pressing `미리보기 갱신` produces `sample_512x384_median.png`.
+- Browser app flow verified palette `4` produces `sample_32x32_median_p4.png`.
 
 ## 8. Next Actions
-- Open `index.html` in a browser and try palette-limited output with real artwork.
+- Try real artwork with Original-size palette reduction.
 - Open generated `.aseprite` files in Aseprite if the desktop app is available.
 - Consider a Web Worker if large-image processing becomes a usability issue.
 
 # Final Self Evaluation
 
 ## 1. Requirement Satisfaction
-The palette limit extension preserves all current features and adds palette `off`, `auto`, numeric, and `custom` modes. Custom counts are validated, auto recommendations follow the specified size buckets, filenames include palette suffixes when needed, and tests/documentation are updated.
+The GUI now uses separate Width and Height controls with `16`, `32`, `64`, `Original`, and `Custom`. Custom inputs are hidden until needed, Original is source-size aware, presets larger than the source are disabled, and the hard 256 limit is removed.
 
-## 2. Algorithm Accuracy
-Palette limiting is applied after tile conversion. `src/paletteQuantizer.js` extracts visible pixels, builds a median cut palette, maps visible pixels to nearest palette RGB values, and preserves alpha.
+## 2. Validation Accuracy
+`src/fileHandler.js` validates integer dimensions, minimum 1, and maximum source dimensions. It allows sizes above 256 when source dimensions allow them.
 
-## 3. Transparency Handling
-Pixels below the transparency threshold are excluded from palette generation and remain transparent. Semi-transparent visible pixels keep their alpha while their RGB values are quantized.
+## 3. Performance Behavior
+Large output sizes show warning banners. Automatic reconversion is deferred for large sizes, and explicit conversion through `미리보기 갱신` remains available.
 
-## 4. Export Compatibility
-PNG, JPG, and Aseprite export all use the same palette-limited canvas. JPG still composites over white after palette limiting.
+## 4. Preview Behavior
+Preview images start hidden and without `src`. Reset and failed preview paths remove `src`, hide the image, and show placeholders.
 
-## 5. GUI Usability
-Palette controls are added to the existing options area. The output panel shows palette mode and before/effective/after color summary. The existing warning banner handles invalid palette counts.
+## 5. Existing Behavior Preservation
+Default 32x32 median PNG palette-off output remains intact. Sampling modes, palette limit, PNG/JPG/Aseprite export, drag-and-drop, warning banner, filenames, and tests remain functional.
 
 ## 6. Remaining Limitations
-No dithering or external palette import is included. Aseprite export is not switched to indexed color mode.
-
-## 7. Future Improvements
-Useful next work includes optional dithering, external palette import, Web Worker quantization, palette preview swatches, and Aseprite app/CLI validation.
+No Web Worker is included. No dithering, external palette import, or indexed-color Aseprite export is included.

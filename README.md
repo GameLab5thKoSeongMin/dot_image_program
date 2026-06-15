@@ -1,7 +1,7 @@
 # Pixel Icon Generator
 
 ## 1. Overview
-This is a local browser app that converts PNG/JPG/JPEG images into small pixel icons.
+This is a local browser app that converts PNG/JPG/JPEG images into pixel icons.
 
 The default behavior is `32x32`, `median`, `PNG`, palette limit `off`.
 
@@ -10,18 +10,26 @@ The conversion is not a simple resize. The source image is divided into an outpu
 ## 2. Main Features
 - PNG/JPG/JPEG image input
 - Drag-and-drop support
-- Preset output sizes: 16x16, 24x24, 32x32, 48x48, 64x64
-- Custom output width and height
+- Separate Width and Height controls
+- Width options: `16`, `32`, `64`, `Original`, `Custom`
+- Height options: `16`, `32`, `64`, `Original`, `Custom`
+- Custom width/height inputs that appear only when `Custom` is selected
+- `Original` width/height output after an image is loaded
+- Output size validation against original image dimensions
+- Output sizes above 256 when the source image is large enough
+- Large-output performance warnings through the warning banner
 - Sampling modes: `median`, `average`, `center`
 - Palette limit modes: `off`, `auto`, `4`, `8`, `16`, `32`, `64`, `128`, `256`, `custom`
 - Median cut palette quantization
 - Transparent PNG handling
+- Checkerboard preview backgrounds
+- Clean preview placeholders without broken image icons
+- Result preview zoom options: `Fit`, `Actual`, `8x`, `16x`
 - PNG export
 - JPG export with white background compositing
 - `.aseprite` binary export
-- Warning banner for invalid options and transparency limitations
 - Download filenames with size, sampling mode, palette suffix when enabled, and extension
-- Manual test page
+- Manual/browser test page
 
 ## 3. How to Run
 Open `index.html` directly in a modern browser.
@@ -43,15 +51,34 @@ http://localhost:8000/
 ## 4. How to Use
 1. Open `index.html`.
 2. Choose a PNG/JPG/JPEG image or drag an image into the drop area.
-3. Select a preset size or enter custom width and height.
-4. Select `median`, `average`, or `center` sampling.
-5. Select PNG, JPG, or Aseprite output.
-6. Choose palette mode. Leave it `off` for original behavior.
-7. For `custom`, enter a color count from 2 to 256.
-8. Check the generated preview and palette summary.
-9. Download the result.
+3. Choose Width and Height separately.
+4. Select `Custom` only when you need a manually entered width or height.
+5. Select `Original` after an image is loaded to preserve the source width or height.
+6. Select `median`, `average`, or `center` sampling.
+7. Select PNG, JPG, or Aseprite output.
+8. Choose palette mode. Leave it `off` for original behavior.
+9. For palette `custom`, enter a color count from 2 to 256.
+10. Check the generated preview, result summary, and palette summary.
+11. Download the result.
 
-## 5. Palette Limit
+Large valid output sizes may show a warning and ask you to use `미리보기 갱신` to avoid repeated heavy auto-conversions.
+
+## 5. Output Size Policy
+Output size is limited by the original image dimensions.
+
+Hard validation rules:
+- Width must be an integer.
+- Height must be an integer.
+- Width must be at least 1.
+- Height must be at least 1.
+- Width must not exceed original image width.
+- Height must not exceed original image height.
+
+There is no fixed 256x256 output limit.
+
+If output pixels exceed `65,536`, the app shows a moderate performance warning. If output pixels exceed `262,144`, the app shows a stronger warning. These warnings do not block explicit conversion.
+
+## 6. Palette Limit
 Palette limiting is a post-processing step:
 
 ```txt
@@ -70,12 +97,12 @@ Palette count means visible RGB colors only. Fully transparent pixels are not co
 
 The larger of output width and height is used.
 
-## 6. Output Formats
+## 7. Output Formats
 - PNG: Preserves transparency.
 - JPG: Does not preserve transparency. Transparent pixels are composited over white and a warning is shown.
 - `.aseprite`: Exports a binary Aseprite file with one frame, one layer, and raw RGBA cel data.
 
-## 7. Output Filename
+## 8. Output Filename
 Palette `off`:
 
 ```txt
@@ -90,16 +117,22 @@ sample_64x64_average_p32.jpg
 sample_48x32_center_p8.aseprite
 ```
 
-## 8. Testing
+Original-size output uses the resolved numeric size:
+
+```txt
+sample_512x384_median.png
+```
+
+## 9. Testing
 Open `tests/test-cases.html` to run generated test cases.
 
-The current test page verifies legacy behavior, variable sizes, sampling modes, validation behavior, PNG/JPG/Aseprite export, palette auto rules, palette custom validation, transparency preservation, and palette filename suffixes.
+The current test page verifies legacy conversion behavior, separate size controls, hidden custom inputs, original-size behavior, source-dimension validation, output above 256, performance warnings, placeholder behavior, sampling modes, PNG/JPG/Aseprite export, palette rules, palette custom validation, transparency preservation, and palette filename suffixes.
 
 Recorded test results are in `TEST_PLAN.md`.
 
-## 9. Known Limitations
+## 10. Known Limitations
 - Palette limiting uses median cut only.
 - Dithering and external palette import are not included.
 - Aseprite export remains RGBA, not indexed color.
-- Very large images are processed on the main browser thread.
+- Very large images are processed on the main browser thread after explicit conversion.
 - `.aseprite` export is structurally validated, but this environment did not include the Aseprite desktop app or CLI for external open/save validation.

@@ -142,6 +142,7 @@
   <script src="../src/imageProcessor.js"></script>
   <script src="../src/paletteQuantizer.js"></script>
   <script src="../src/exporter.js"></script>
+  <script src="../src/uiController.js"></script>
   <script src="./testImageFactory.js"></script>
   <script>
     (function () {
@@ -258,6 +259,176 @@
           pass: true,
           note: shouldPass ? "accepted as expected." : "rejected as expected."
         };
+      }
+
+      function runPerformanceWarningCase(name, width, height, expectedLevel) {
+        var warning = fileHandler.getOutputSizePerformanceWarning(width, height);
+
+        if (expectedLevel) {
+          assert(warning && warning.level === expectedLevel, "Expected " + expectedLevel + " warning");
+        } else {
+          assert(!warning, "Unexpected performance warning");
+        }
+
+        return {
+          name: name,
+          description: width + "x" + height + " performance warning policy",
+          pass: true,
+          note: expectedLevel ? "warning level is " + expectedLevel + "." : "no warning as expected."
+        };
+      }
+
+      function getFixtureAxisButtons(axis) {
+        return Array.prototype.slice.call(document.querySelectorAll("#uiFixture .size-axis-button[data-axis='" + axis + "']"));
+      }
+
+      function createUiFixture() {
+        var oldFixture = document.getElementById("uiFixture");
+        if (oldFixture) {
+          oldFixture.remove();
+        }
+
+        var fixture = document.createElement("div");
+        fixture.id = "uiFixture";
+        fixture.hidden = true;
+        fixture.innerHTML =
+          '<input id="fileInput" type="file">' +
+          '<div id="dropZone"></div>' +
+          '<img id="originalPreview" hidden>' +
+          '<p id="originalPlaceholder"></p>' +
+          '<img id="resultPreview" hidden>' +
+          '<p id="resultPlaceholder"></p>' +
+          '<select id="resultZoomSelect"><option value="fit" selected>Fit</option><option value="actual">Actual</option><option value="8">8x</option><option value="16">16x</option></select>' +
+          '<p id="errorMessage"></p>' +
+          '<p id="statusMessage"></p>' +
+          '<span id="sourceSizeLabel"></span>' +
+          '<span id="resultMetaLabel"></span>' +
+          '<span id="outputFilename"></span>' +
+          '<span id="outputSize"></span>' +
+          '<span id="outputMode"></span>' +
+          '<span id="outputFormatLabel"></span>' +
+          '<span id="outputPalette"></span>' +
+          '<span id="resultSummary"></span>' +
+          '<button id="downloadButton" type="button"></button>' +
+          '<button id="convertButton" type="button"></button>' +
+          '<label id="customWidthField"><input id="outputWidthInput" type="number" value="32"></label>' +
+          '<label id="customHeightField"><input id="outputHeightInput" type="number" value="32"></label>' +
+          '<select id="samplingModeSelect"><option value="median" selected>median</option><option value="average">average</option><option value="center">center</option></select>' +
+          '<select id="outputFormatSelect"><option value="png" selected>PNG</option><option value="jpg">JPG</option><option value="aseprite">Aseprite</option></select>' +
+          '<select id="paletteModeSelect"><option value="off" selected>off</option><option value="auto">auto</option><option value="custom">custom</option></select>' +
+          '<label id="customPaletteField"><input id="customPaletteCountInput" type="number" value="16"></label>' +
+          '<p id="paletteSummary"></p>' +
+          '<button class="size-axis-button" type="button" data-axis="width" data-value="16">16</button>' +
+          '<button class="size-axis-button is-selected" type="button" data-axis="width" data-value="32">32</button>' +
+          '<button class="size-axis-button" type="button" data-axis="width" data-value="64">64</button>' +
+          '<button class="size-axis-button" type="button" data-axis="width" data-value="original">Original</button>' +
+          '<button class="size-axis-button" type="button" data-axis="width" data-value="custom">Custom</button>' +
+          '<button class="size-axis-button" type="button" data-axis="height" data-value="16">16</button>' +
+          '<button class="size-axis-button is-selected" type="button" data-axis="height" data-value="32">32</button>' +
+          '<button class="size-axis-button" type="button" data-axis="height" data-value="64">64</button>' +
+          '<button class="size-axis-button" type="button" data-axis="height" data-value="original">Original</button>' +
+          '<button class="size-axis-button" type="button" data-axis="height" data-value="custom">Custom</button>' +
+          '<div id="warningBanner" hidden><span id="warningMessage"></span><button id="warningCloseButton" type="button"></button></div>';
+        document.body.appendChild(fixture);
+        return fixture;
+      }
+
+      function runSizeUiCases() {
+        var ui = window.PixelIconUIController;
+        var fixture = createUiFixture();
+        var elements = ui.initUI();
+        var widthValues = getFixtureAxisButtons("width").map(function (button) {
+          return button.getAttribute("data-value");
+        }).join(",");
+        var heightValues = getFixtureAxisButtons("height").map(function (button) {
+          return button.getAttribute("data-value");
+        }).join(",");
+        var widthOriginalButton = getFixtureAxisButtons("width").find(function (button) {
+          return button.getAttribute("data-value") === "original";
+        });
+        var heightOriginalButton = getFixtureAxisButtons("height").find(function (button) {
+          return button.getAttribute("data-value") === "original";
+        });
+        var width32Button = getFixtureAxisButtons("width").find(function (button) {
+          return button.getAttribute("data-value") === "32";
+        });
+        var height64Button = getFixtureAxisButtons("height").find(function (button) {
+          return button.getAttribute("data-value") === "64";
+        });
+        var sourceCanvas = factory.createSolidColorImage();
+
+        assert(ui.getSelectedAxisOption("width") === "32", "Default width option should be 32");
+        assert(ui.getSelectedAxisOption("height") === "32", "Default height option should be 32");
+        assert(widthValues === "16,32,64,original,custom", "Width option list mismatch: " + widthValues);
+        assert(heightValues === "16,32,64,original,custom", "Height option list mismatch: " + heightValues);
+        assert(elements.customWidthField.hidden, "Custom width field should start hidden");
+        assert(elements.customHeightField.hidden, "Custom height field should start hidden");
+        assert(widthOriginalButton.disabled && heightOriginalButton.disabled, "Original should start disabled");
+
+        ui.selectSizeOption("width", "custom");
+        ui.selectSizeOption("height", "custom");
+        assert(!elements.customWidthField.hidden, "Custom width field should show after selecting custom");
+        assert(!elements.customHeightField.hidden, "Custom height field should show after selecting custom");
+
+        ui.updateSizeControls(20, 40);
+        assert(width32Button.disabled, "Width 32 should be disabled for a 20px source width");
+        assert(height64Button.disabled, "Height 64 should be disabled for a 40px source height");
+        assert(!widthOriginalButton.disabled && !heightOriginalButton.disabled, "Original should enable after image load");
+
+        ui.showOriginalPreview(sourceCanvas.toDataURL("image/png"), sourceCanvas.width, sourceCanvas.height);
+        assert(!elements.originalPreview.hidden && elements.originalPreview.hasAttribute("src"), "Original preview should show valid image source");
+        ui.clearOriginalPreview();
+        assert(elements.originalPreview.hidden && !elements.originalPreview.hasAttribute("src"), "Original preview should clear image source");
+        assert(!elements.originalPlaceholder.hidden, "Original placeholder should be visible after clear");
+
+        ui.showResultPreview(sourceCanvas);
+        assert(!elements.resultPreview.hidden && elements.resultPreview.hasAttribute("src"), "Result preview should show valid image source");
+        elements.resultZoomSelect.value = "8";
+        ui.applyResultZoom();
+        assert(elements.resultPreview.style.width === (sourceCanvas.width * 8) + "px", "Result preview 8x zoom failed");
+        ui.clearResultPreview();
+        assert(elements.resultPreview.hidden && !elements.resultPreview.hasAttribute("src"), "Result preview should clear image source");
+        assert(!elements.resultPlaceholder.hidden, "Result placeholder should be visible after clear");
+
+        elements.originalPreview.hidden = false;
+        elements.originalPreview.setAttribute("src", "#");
+        elements.originalPreview.dispatchEvent(new Event("error"));
+        assert(elements.originalPreview.hidden && !elements.originalPreview.hasAttribute("src"), "Broken original image should be hidden");
+
+        fixture.remove();
+
+        return [
+          {
+            name: "Size UI defaults and options",
+            description: "Separate width and height controls expose 16, 32, 64, Original, and Custom.",
+            pass: true,
+            note: "defaults and option lists are valid."
+          },
+          {
+            name: "Custom size visibility",
+            description: "Custom inputs are hidden until Custom is selected.",
+            pass: true,
+            note: "custom fields toggle correctly."
+          },
+          {
+            name: "Original and preset availability",
+            description: "Original is disabled before image load and presets larger than source are disabled after load.",
+            pass: true,
+            note: "availability rules are valid."
+          },
+          {
+            name: "Preview placeholders and zoom",
+            description: "Preview images start clean, clear without broken src, and result zoom can be applied.",
+            pass: true,
+            note: "placeholder and zoom behavior are valid."
+          },
+          {
+            name: "Broken original preview handling",
+            description: "A failed image preview load is hidden and restored to the placeholder state.",
+            pass: true,
+            note: "broken image icon is prevented."
+          }
+        ];
       }
 
       async function runExportCases() {
@@ -460,10 +631,21 @@
 
           allResults.push(runValidationCase("Reject width greater than source", 129, 32, 128, 128, false));
           allResults.push(runValidationCase("Reject height greater than source", 32, 129, 128, 128, false));
-          allResults.push(runValidationCase("Reject width greater than 256", 257, 32, 512, 512, false));
-          allResults.push(runValidationCase("Reject height greater than 256", 32, 257, 512, 512, false));
+          allResults.push(runValidationCase("Reject zero width", 0, 32, 128, 128, false));
+          allResults.push(runValidationCase("Reject zero height", 32, 0, 128, 128, false));
+          allResults.push(runValidationCase("Reject non-integer width", "12.5", 32, 128, 128, false));
+          allResults.push(runValidationCase("Reject non-integer height", 32, "12.5", 128, 128, false));
+          allResults.push(runValidationCase("Accept width above 256 within source", 300, 32, 512, 512, true));
+          allResults.push(runValidationCase("Accept height above 256 within source", 32, 300, 512, 512, true));
+          allResults.push(runValidationCase("Accept original-size output", 512, 384, 512, 384, true));
           allResults.push(runValidationCase("Accept custom 8x12", 8, 12, 20, 20, true));
           allResults.push(runValidationCase("Reject preset larger than source", 24, 24, 20, 20, false));
+
+          allResults.push(runPerformanceWarningCase("No performance warning at 256x256", 256, 256, null));
+          allResults.push(runPerformanceWarningCase("Moderate performance warning", 320, 240, "moderate"));
+          allResults.push(runPerformanceWarningCase("Strong performance warning", 800, 600, "strong"));
+
+          allResults = allResults.concat(runSizeUiCases());
 
           allResults = allResults.concat(await runExportCases());
 
@@ -522,6 +704,14 @@
       }
 
       button.addEventListener("click", runTests);
+
+      if (new URLSearchParams(window.location.search).get("autorun") === "1") {
+        window.setTimeout(function () {
+          runTests().catch(function () {
+            summary.setAttribute("data-failed", "true");
+          });
+        }, 0);
+      }
     })();
   </script>
 </body>
