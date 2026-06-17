@@ -37,8 +37,8 @@
       outputPalette: requireElement("outputPalette"),
       resultSummary: requireElement("resultSummary"),
       downloadButton: requireElement("downloadButton"),
-      convertButton: requireElement("convertButton"),
       previewRefreshButton: requireElement("previewRefreshButton"),
+      customSizeToggle: requireElement("customSizeToggle"),
       outputWidthInput: requireElement("outputWidthInput"),
       outputHeightInput: requireElement("outputHeightInput"),
       customWidthField: requireElement("customWidthField"),
@@ -52,12 +52,17 @@
       widthAxisButtons: queryButtons("width"),
       heightAxisButtons: queryButtons("height"),
       sizeAxisButtons: Array.prototype.slice.call(document.querySelectorAll(".size-axis-button")),
+      widthAxisButtonGroup: requireElement("widthAxisButtons"),
+      heightAxisButtonGroup: requireElement("heightAxisButtons"),
       warningBanner: requireElement("warningBanner"),
       warningMessage: requireElement("warningMessage"),
       warningCloseButton: requireElement("warningCloseButton")
     };
 
     installPreviewErrorHandlers();
+    elements.customSizeToggle.checked = constants.DEFAULT_CUSTOM_SIZE_ENABLED;
+    elements.outputWidthInput.value = constants.DEFAULT_OUTPUT_WIDTH;
+    elements.outputHeightInput.value = constants.DEFAULT_OUTPUT_HEIGHT;
     setDownloadEnabled(false);
     setConvertEnabled(false);
     updateSizeControls(0, 0);
@@ -107,7 +112,6 @@
     getAxisButtonList(axis).forEach(function (button) {
       button.classList.toggle("is-selected", button.getAttribute("data-value") === value);
     });
-    updateCustomSizeVisibility();
   }
 
   function selectOptionFromSize(axis, size) {
@@ -121,7 +125,7 @@
       return;
     }
 
-    selectSizeOption(axis, "custom");
+    setCustomSizeEnabled(true);
     if (axis === "width") {
       elements.outputWidthInput.value = size;
     } else {
@@ -129,8 +133,32 @@
     }
   }
 
+  function isCustomSizeEnabled() {
+    return !!elements.customSizeToggle.checked;
+  }
+
+  function setCustomSizeEnabled(enabled) {
+    elements.customSizeToggle.checked = !!enabled;
+    updateCustomSizeVisibility();
+  }
+
+  function setCustomSizeInputDefaults(width, height) {
+    if (Number.isInteger(width) && width > 0) {
+      elements.outputWidthInput.value = width;
+    } else {
+      elements.outputWidthInput.value = constants.DEFAULT_OUTPUT_WIDTH;
+    }
+
+    if (Number.isInteger(height) && height > 0) {
+      elements.outputHeightInput.value = height;
+    } else {
+      elements.outputHeightInput.value = constants.DEFAULT_OUTPUT_HEIGHT;
+    }
+  }
+
   function getSelectedOptions() {
     return {
+      customSizeEnabled: isCustomSizeEnabled(),
       widthOption: getSelectedAxisOption("width"),
       heightOption: getSelectedAxisOption("height"),
       customWidth: elements.outputWidthInput.value,
@@ -148,37 +176,25 @@
   }
 
   function updateCustomSizeVisibility() {
-    var widthIsCustom = getSelectedAxisOption("width") === "custom";
-    var heightIsCustom = getSelectedAxisOption("height") === "custom";
+    var customEnabled = isCustomSizeEnabled();
 
-    elements.customWidthField.hidden = !widthIsCustom;
-    elements.customHeightField.hidden = !heightIsCustom;
-    elements.outputWidthInput.disabled = !widthIsCustom;
-    elements.outputHeightInput.disabled = !heightIsCustom;
+    elements.widthAxisButtonGroup.hidden = customEnabled;
+    elements.heightAxisButtonGroup.hidden = customEnabled;
+    elements.customWidthField.hidden = !customEnabled;
+    elements.customHeightField.hidden = !customEnabled;
+    elements.outputWidthInput.disabled = !customEnabled;
+    elements.outputHeightInput.disabled = !customEnabled;
   }
 
   function updateAxisAvailability(axis, sourceDimension) {
     var hasSourceDimension = Number.isInteger(sourceDimension) && sourceDimension > 0;
 
     getAxisButtonList(axis).forEach(function (button) {
-      var value = button.getAttribute("data-value");
-      var numericValue = Number(value);
-      var disabled = false;
-
-      if (value === "original") {
-        disabled = !hasSourceDimension;
-      } else if (Number.isInteger(numericValue) && hasSourceDimension) {
-        disabled = numericValue > sourceDimension;
-      }
+      var numericValue = Number(button.getAttribute("data-value"));
+      var disabled = hasSourceDimension && Number.isInteger(numericValue) && numericValue > sourceDimension;
 
       button.disabled = disabled;
-      if (disabled && value === "original") {
-        button.title = "이미지를 먼저 업로드하면 Original을 선택할 수 있습니다.";
-      } else if (disabled) {
-        button.title = "원본 이미지 크기보다 큰 값입니다.";
-      } else {
-        button.title = "";
-      }
+      button.title = disabled ? "원본 이미지 크기보다 큰 preset입니다." : "";
     });
   }
 
@@ -224,6 +240,7 @@
     elements.originalPreview.hidden = false;
     elements.originalPlaceholder.hidden = true;
     elements.sourceSizeLabel.textContent = width && height ? width + "x" + height + " px" : "loaded";
+    setCustomSizeInputDefaults(width, height);
     updateSizeControls(width, height);
     setConvertEnabled(true);
   }
@@ -233,6 +250,7 @@
     elements.originalPreview.hidden = true;
     elements.originalPlaceholder.hidden = false;
     elements.sourceSizeLabel.textContent = "대기 중";
+    setCustomSizeInputDefaults(0, 0);
     updateSizeControls(0, 0);
     setConvertEnabled(false);
   }
@@ -306,7 +324,6 @@
   }
 
   function setConvertEnabled(enabled) {
-    elements.convertButton.disabled = !enabled;
     elements.previewRefreshButton.disabled = !enabled;
   }
 
@@ -365,12 +382,21 @@
 
     var parts = [];
     if (paletteInfo.paletteMode === "auto") {
-      parts.push("자동 추천 팔레트: " + paletteInfo.effectivePaletteCount + "색");
+      parts.push("자동 추천 팔레트 " + paletteInfo.effectivePaletteCount + "색");
     } else {
-      parts.push("제한 색상 수: " + paletteInfo.effectivePaletteCount);
+      parts.push("제한 색상 수 " + paletteInfo.effectivePaletteCount);
     }
-    parts.push("현재 색상 수: " + paletteInfo.beforeColorCount);
-    parts.push("적용 후 색상 수: " + paletteInfo.afterColorCount);
+    parts.push("visible RGB " + paletteInfo.beforeColorCount + " -> " + paletteInfo.afterColorCount);
+
+    if (Number.isInteger(paletteInfo.beforeRgbaColorCount) &&
+      Number.isInteger(paletteInfo.afterRgbaColorCount)) {
+      parts.push("unique RGBA " + paletteInfo.beforeRgbaColorCount + " -> " + paletteInfo.afterRgbaColorCount);
+    }
+
+    if (paletteInfo.alphaMode === constants.PALETTE_LIMIT_ALPHA_MODE) {
+      parts.push("alpha 0/255");
+    }
+
     elements.paletteSummary.textContent = parts.join(" / ");
   }
 
@@ -381,6 +407,9 @@
     getSelectedAxisOption: getSelectedAxisOption,
     selectSizeOption: selectSizeOption,
     setSelectedSize: setSelectedSize,
+    isCustomSizeEnabled: isCustomSizeEnabled,
+    setCustomSizeEnabled: setCustomSizeEnabled,
+    setCustomSizeInputDefaults: setCustomSizeInputDefaults,
     updateCustomSizeVisibility: updateCustomSizeVisibility,
     updateSizeControls: updateSizeControls,
     updatePresetSelection: updatePresetSelection,

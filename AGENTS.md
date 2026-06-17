@@ -9,13 +9,13 @@ The converter must not be simplified into a resize shortcut.
 
 ## Repository Layout
 - `index.html`: Main HTML entry and four-section app layout.
-- `styles/style.css`: Layout, controls, preview, warning banner, checkerboard backgrounds, visible preview refresh actions, and responsive styling.
-- `src/constants.js`: Global constants for size axis options, defaults, performance thresholds, modes, formats, palette limits, and Aseprite identifiers.
+- `styles/style.css`: Layout, controls, preview, warning banner, checkerboard backgrounds, visible result-header preview refresh action, and responsive styling.
+- `src/constants.js`: Global constants for size presets, defaults, performance thresholds, modes, formats, palette limits, palette alpha behavior, and Aseprite identifiers.
 - `src/fileHandler.js`: File validation, output size validation against source dimensions, performance warning policy, palette option validation, option normalization, and filename handling.
-- `src/imageProcessor.js`: Image loading, tile bounds, median/average/center sampling, and transparency handling.
-- `src/paletteQuantizer.js`: Palette limit post-processing using median cut quantization.
+- `src/imageProcessor.js`: Image loading, tile bounds, median/average/center/dominant sampling, and transparency handling.
+- `src/paletteQuantizer.js`: Palette limit post-processing using median cut quantization and palette-on alpha normalization.
 - `src/exporter.js`: PNG/JPG/Aseprite export helpers.
-- `src/uiController.js`: DOM updates, separate width/height controls, custom input visibility, source-size availability, preview placeholders, preview refresh state, zoom, summaries, palette summaries, warning banner, and download state.
+- `src/uiController.js`: DOM updates, separate width/height presets, Custom size toggle state, custom input visibility, source-size defaults, preview placeholders, preview refresh state, zoom, summaries, palette summaries, warning banner, and download state.
 - `src/app.js`: App entry point, source image state, size resolution, validation, conversion, palette limiting, performance warning flow, export, and download.
 - `tests/test-cases.html`: Manual/browser test runner for conversion, validation, UI policy, palette, placeholder, and export behavior.
 - `tests/testImageFactory.js`: Test image generation helpers.
@@ -37,10 +37,16 @@ The converter must not be simplified into a resize shortcut.
 - Do not mix image processing logic with DOM manipulation.
 - Do not implement conversion as a simple `drawImage(image, 0, 0, width, height)` resize.
 - Preserve the default 32x32 median PNG palette-off behavior.
-- Resolve `Original` width/height only after a valid image has loaded.
+- Custom size mode must default to off.
+- With Custom size off, show Width/Height preset buttons and hide numeric inputs.
+- With Custom size on, hide preset buttons and show numeric Width/Height inputs.
+- After a valid image loads, Custom Width and Custom Height inputs default to the source image dimensions.
 - Validate output width/height against the original image dimensions, not against a fixed 256 limit.
 - Use warning banners for large output sizes instead of blocking valid sizes.
+- Avoid repeated heavy automatic conversion for large output sizes; require explicit `미리보기 갱신`.
 - Apply palette limit as post-processing after tile conversion.
+- Palette `off` must preserve prior alpha behavior.
+- Palette `on` must normalize alpha to `0` or `255` by default so unique RGBA output is controlled.
 - Preserve transparent PNG behavior for PNG/Aseprite export.
 - Composite JPG export over a white background and warn the user when transparency is present.
 - Keep Codex-facing documents in English.
@@ -52,19 +58,23 @@ Before considering this project complete:
 - Test drag and drop.
 - Test invalid and corrupted files.
 - Test default `32x32`, `median`, `png`, palette `off` output.
-- Test separate Width and Height options: `16`, `32`, `64`, `Original`, `Custom`.
-- Test that custom width/height inputs are hidden until `Custom` is selected.
-- Test that `Original` is disabled before image load and resolves to source dimensions after image load.
-- Test presets larger than the source dimension are disabled or clearly blocked.
+- Test separate Width and Height preset options: `16`, `32`, `64`, `128`, `256`.
+- Test that Custom size defaults to off.
+- Test that custom width/height inputs are hidden while Custom size is off.
+- Test that preset buttons are hidden and custom width/height inputs are visible while Custom size is on.
+- Test that custom width/height inputs default to source dimensions after a valid image loads.
+- Test that presets larger than the source dimension are disabled or clearly blocked.
 - Test output size validation against source dimensions.
 - Test output sizes above 256 when the source image is large enough.
 - Test large output performance warnings and confirm they do not block explicit conversion.
-- Confirm `미리보기 갱신` is visible from the result preview header and remains available from the Export controls.
+- Confirm `미리보기 갱신` is visible from the result preview header.
+- Confirm there is no duplicate lower/input-area `미리보기 갱신` button.
 - Confirm the output format selector is visible from the result preview header and includes PNG, JPG, and Aseprite.
-- Test `median`, `average`, and `center` sampling modes.
+- Test `median`, `average`, `center`, and `dominant` sampling modes.
 - Test palette modes: `off`, `auto`, numeric, and `custom`.
 - Test custom palette validation below 2 and above 256.
 - Confirm transparent pixels remain transparent after palette quantization.
+- Confirm palette-on output uses binary alpha and unique RGBA count stays controlled.
 - Test PNG, JPG, and `.aseprite` export after palette limiting.
 - Confirm warning banner is used instead of browser `alert()`.
 - Confirm no broken image icon appears in the default, reset, or failed preview states.

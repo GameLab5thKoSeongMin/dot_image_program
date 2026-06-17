@@ -38,50 +38,19 @@
     ui.resetResult();
   }
 
-  function resolveAxisSize(axis, selectedOption, customValue) {
-    var sourceDimension = axis === "width" ? state.sourceWidth : state.sourceHeight;
-
-    if (selectedOption === "original") {
-      if (!sourceDimension) {
-        return {
-          valid: false,
-          message: "이미지를 먼저 업로드해야 Original 크기를 선택할 수 있습니다."
-        };
-      }
-
-      return {
-        valid: true,
-        value: sourceDimension
-      };
-    }
-
-    if (selectedOption === "custom") {
-      return {
-        valid: true,
-        value: customValue
-      };
-    }
-
-    return {
-      valid: true,
-      value: selectedOption
-    };
-  }
-
   function getNormalizedOptions() {
     var selectedOptions = ui.getSelectedOptions();
-    var widthResult = resolveAxisSize("width", selectedOptions.widthOption, selectedOptions.customWidth);
-    var heightResult = resolveAxisSize("height", selectedOptions.heightOption, selectedOptions.customHeight);
+    var outputWidth = selectedOptions.customSizeEnabled ? selectedOptions.customWidth : selectedOptions.widthOption;
+    var outputHeight = selectedOptions.customSizeEnabled ? selectedOptions.customHeight : selectedOptions.heightOption;
     var outputFormat = fileHandler.normalizeOutputFormat(selectedOptions.outputFormat);
     var samplingMode = fileHandler.normalizeSamplingMode(selectedOptions.samplingMode);
 
     return {
+      customSizeEnabled: selectedOptions.customSizeEnabled,
       widthOption: selectedOptions.widthOption,
       heightOption: selectedOptions.heightOption,
-      outputWidth: widthResult.value,
-      outputHeight: heightResult.value,
-      widthResolveError: widthResult.valid ? "" : widthResult.message,
-      heightResolveError: heightResult.valid ? "" : heightResult.message,
+      outputWidth: outputWidth,
+      outputHeight: outputHeight,
       samplingMode: samplingMode,
       outputFormat: outputFormat,
       paletteMode: fileHandler.normalizePaletteMode(selectedOptions.paletteMode),
@@ -90,20 +59,6 @@
   }
 
   function validateCurrentOptions(options) {
-    if (options.widthResolveError) {
-      return {
-        valid: false,
-        message: options.widthResolveError
-      };
-    }
-
-    if (options.heightResolveError) {
-      return {
-        valid: false,
-        message: options.heightResolveError
-      };
-    }
-
     return fileHandler.validateOutputSize(
       options.outputWidth,
       options.outputHeight,
@@ -246,7 +201,10 @@
         paletteApplied: paletteResult.paletteApplied,
         effectivePaletteCount: paletteResult.effectivePaletteCount,
         beforeColorCount: paletteResult.beforeColorCount,
-        afterColorCount: paletteResult.afterColorCount
+        afterColorCount: paletteResult.afterColorCount,
+        beforeRgbaColorCount: paletteResult.beforeRgbaColorCount,
+        afterRgbaColorCount: paletteResult.afterRgbaColorCount,
+        alphaMode: paletteResult.alphaMode
       };
       result.paletteText = paletteText;
 
@@ -407,13 +365,11 @@
       });
     });
 
-    elements.convertButton.addEventListener("click", function () {
-      processCurrentImage({ auto: false });
-    });
-
     elements.previewRefreshButton.addEventListener("click", function () {
       processCurrentImage({ auto: false });
     });
+
+    elements.customSizeToggle.addEventListener("change", handleOptionChange);
 
     elements.resultZoomSelect.addEventListener("change", function () {
       ui.applyResultZoom();

@@ -10,18 +10,21 @@ The program does not simply resize the image.
 
 ```txt
 input image
--> tile conversion using median / average / center
+-> tile conversion using median / average / center / dominant
 -> optional palette limit using median cut
 -> preview
 -> PNG / JPG / Aseprite export
 ```
 
 ## 3. Conversion Options
-- `widthOption`: `16`, `32`, `64`, `original`, or `custom`.
-- `heightOption`: `16`, `32`, `64`, `original`, or `custom`.
+- `customSizeEnabled`: boolean. Defaults to `false`.
+- `widthOption`: preset value `16`, `32`, `64`, `128`, or `256` when Custom size is off.
+- `heightOption`: preset value `16`, `32`, `64`, `128`, or `256` when Custom size is off.
+- `customWidth`: numeric input used when Custom size is on.
+- `customHeight`: numeric input used when Custom size is on.
 - `outputWidth`: resolved numeric output width.
 - `outputHeight`: resolved numeric output height.
-- `samplingMode`: `median`, `average`, or `center`.
+- `samplingMode`: `median`, `average`, `center`, or `dominant`.
 - `outputFormat`: `png`, `jpg`, or `aseprite`.
 - `paletteMode`: `off`, `auto`, numeric mode, or `custom`.
 - `customPaletteCount`: integer 2 to 256 when custom palette mode is selected.
@@ -30,20 +33,25 @@ input image
 Width and Height are selected independently.
 
 ```txt
-Width:  16 / 32 / 64 / Original / Custom
-Height: 16 / 32 / 64 / Original / Custom
+Width presets:  16 / 32 / 64 / 128 / 256
+Height presets: 16 / 32 / 64 / 128 / 256
 ```
 
 Defaults:
 - Width: `32`
 - Height: `32`
+- Custom size: off
 
-`Custom Width` is hidden until Width `Custom` is selected. `Custom Height` is hidden until Height `Custom` is selected.
+Custom size off:
+- Preset buttons are visible.
+- Numeric width/height inputs are hidden and disabled.
 
-`Original` is disabled until a valid image has loaded. After load:
-- Width `Original` resolves to source image width.
-- Height `Original` resolves to source image height.
-- Numeric options larger than the source dimension are disabled.
+Custom size on:
+- Preset buttons are hidden.
+- Numeric width/height inputs are visible and enabled.
+- After a valid image is loaded, numeric inputs default to source image width and height.
+
+Preset buttons larger than the loaded source dimension are disabled.
 
 ## 5. Output Size Validation
 The fixed 256x256 hard limit has been removed.
@@ -65,7 +73,7 @@ Thresholds:
 - `outputWidth * outputHeight > 65,536`: moderate warning.
 - `outputWidth * outputHeight > 262,144`: stronger warning.
 
-For large sizes, automatic reconversion on option changes is deferred. The app shows the warning banner and asks the user to press `미리보기 갱신` for explicit conversion. The result preview header keeps this action visible, and the Export controls keep a secondary refresh button.
+For large sizes, automatic reconversion on option changes is deferred. The app shows the warning banner and asks the user to press `미리보기 갱신` for explicit conversion. The result preview header keeps this action visible. The older lower/input-area duplicate refresh button is intentionally removed.
 
 ## 7. Image Processing Rules
 - Draw the source image onto a temporary canvas only to read pixels.
@@ -74,6 +82,12 @@ For large sizes, automatic reconversion on option changes is deferred. The app s
 - Calculate each output pixel using the selected sampling mode.
 - Write the result into output `ImageData`.
 - Apply palette limit post-processing only when palette mode is not `off`.
+
+Sampling modes:
+- `median`: visible tile channels are sorted and reduced by median.
+- `average`: visible tile channels are averaged.
+- `center`: center source pixel is used.
+- `dominant`: visible tile pixels are quantized into RGB buckets; the most frequent bucket wins and outputs average RGBA. If no visible pixel exists, the tile is transparent.
 
 ## 8. Palette Quantization
 Palette limiting is implemented in `src/paletteQuantizer.js`.
@@ -84,10 +98,13 @@ Rules:
 - Do not count pixels whose alpha is below `TRANSPARENT_ALPHA_THRESHOLD`.
 - Build a limited RGB palette.
 - Map visible pixels to nearest palette RGB values.
-- Preserve alpha values.
 - Keep transparent pixels transparent.
-- If visible color count is 0, return a transparent result unchanged.
-- If effective palette count is greater than or equal to the visible RGB color count, return the result unchanged.
+- Palette `off` returns the original canvas and preserves alpha behavior.
+- Palette enabled normalizes alpha to binary `0` or `255` by default.
+- If visible color count is 0, return a transparent alpha-normalized result.
+- If effective palette count is greater than or equal to the visible RGB color count, still return the alpha-normalized result when palette is enabled.
+
+The palette summary reports visible RGB color counts and unique RGBA counts before/after palette application.
 
 ## 9. Auto Palette Rules
 Use the larger of output width and height:
@@ -99,9 +116,10 @@ Use the larger of output width and height:
 - `> 64`: 32 colors
 
 ## 10. Transparency Rules
-- PNG and Aseprite preserve output alpha.
-- JPG composites the palette-limited RGBA result onto white.
+- PNG and Aseprite preserve final output alpha.
+- JPG composites the final RGBA result onto white.
 - JPG may contain white background in addition to palette-limited visible colors because JPG cannot store transparency.
+- Palette enabled reduces alpha to `0` or `255`; palette off does not.
 
 ## 11. Preview Rules
 - Original and result preview `<img>` elements start hidden and without `src`.
@@ -117,26 +135,27 @@ The app keeps the four-section layout.
 
 - Top-left: input image preview
 - Top-right: generated result preview, output format selector, `미리보기 갱신`, and zoom control
-- Bottom-left: image input, conversion options, and secondary Export refresh action
+- Bottom-left: image input and conversion options
 - Bottom-right: output metadata and download
 
 The options area is grouped into:
 - Output Size
 - Pixel Processing
-- Export refresh action
 
 The output panel shows filename, size, sampling mode, format, palette text, and a compact result summary.
 
 The upper-center warning banner is reused for invalid values, JPG transparency limitations, palette notices, and large output warnings. Browser `alert()` is not used.
 
+Desktop layout uses viewport-height panels with internal scrolling where needed, so the page does not become larger than the viewport on ordinary desktop sizes.
+
 ## 13. Module Responsibilities
 - `app.js`: Connects events, current source state, width/height option resolution, validation, conversion, palette limiting, performance warnings, export, and download.
-- `imageProcessor.js`: Loads images and performs tile-based conversion.
-- `paletteQuantizer.js`: Performs visible color counting, median cut palette generation, nearest-color mapping, and transparency-preserving palette application.
+- `imageProcessor.js`: Loads images and performs tile-based conversion, including dominant sampling.
+- `paletteQuantizer.js`: Performs visible color counting, median cut palette generation, nearest-color mapping, and palette alpha normalization.
 - `fileHandler.js`: Validates files, output size, palette options, performance warnings, and filenames.
 - `exporter.js`: Creates PNG/JPG/Aseprite export blobs.
-- `uiController.js`: Handles DOM state, size axis controls, custom input visibility, placeholders, zoom, summaries, palette summary, warning banner, and output metadata.
-- `constants.js`: Stores size axis options, defaults, thresholds, modes, formats, palette rules, and Aseprite constants.
+- `uiController.js`: Handles DOM state, size preset controls, Custom size visibility, placeholders, zoom, summaries, palette summary, warning banner, and output metadata.
+- `constants.js`: Stores size presets, defaults, thresholds, modes, formats, palette rules, alpha policy, and Aseprite constants.
 
 ## 14. Future Extensions
 - Dithering

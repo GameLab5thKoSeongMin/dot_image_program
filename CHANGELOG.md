@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.5.0] - Custom Size, Dominant Sampling, and Palette Alpha Update
+
+### Added
+- Custom size toggle with default off state.
+- Width presets: `16`, `32`, `64`, `128`, `256`.
+- Height presets: `16`, `32`, `64`, `128`, `256`.
+- Source-dimension defaults for Custom Width and Custom Height after image load.
+- `dominant` sampling mode.
+- Dominant tile sampling using visible RGB buckets and average RGBA from the winning bucket.
+- Palette-on alpha normalization to `0` or `255`.
+- Palette summary unique RGBA before/after counts.
+- Tests for Custom size toggle behavior, dominant sampling, and palette alpha normalization.
+
+### Changed
+- Removed the old `Original` size buttons.
+- Removed per-axis `Custom` size buttons.
+- Removed the lower/input-area duplicate `미리보기 갱신` button.
+- Kept the result preview header as the single explicit refresh location.
+- Palette-enabled output now applies alpha normalization even when RGB palette reduction is not needed.
+- PNG/JPG/Aseprite preview/export continue to use the final palette-processed canvas.
+- Documentation now reflects Custom size mode, dominant sampling, and palette alpha behavior.
+
+### Fixed
+- Palette-enabled semi-transparent output no longer creates uncontrolled unique RGBA counts.
+- Output and Aseprite selection remain visible in the result preview header.
+- Desktop 1280x720 layout stays within the viewport height.
+
+### Verification
+- JS syntax checks passed.
+- Local Edge test page reported `64 / 64 cases passed.`
+- Local Edge app flow verified Custom source-size output and `dominant + palette 4 + Aseprite`.
+
 ## [0.4.0] - Size UI and Output Policy Update
 
 ### Added

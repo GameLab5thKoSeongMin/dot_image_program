@@ -73,6 +73,10 @@
       <div class="control-grid" aria-label="변환 옵션">
         <fieldset class="control-group size-axis-group">
           <legend>Output Size</legend>
+          <label class="custom-size-toggle">
+            <input id="customSizeToggle" type="checkbox">
+            <span>Custom size</span>
+          </label>
 
           <div class="size-axis-row" data-axis-row="width">
             <div class="axis-label">Width</div>
@@ -80,8 +84,8 @@
               <button class="size-axis-button" type="button" data-axis="width" data-value="16">16</button>
               <button class="size-axis-button is-selected" type="button" data-axis="width" data-value="32">32</button>
               <button class="size-axis-button" type="button" data-axis="width" data-value="64">64</button>
-              <button class="size-axis-button" type="button" data-axis="width" data-value="original" disabled>Original</button>
-              <button class="size-axis-button" type="button" data-axis="width" data-value="custom">Custom</button>
+              <button class="size-axis-button" type="button" data-axis="width" data-value="128">128</button>
+              <button class="size-axis-button" type="button" data-axis="width" data-value="256">256</button>
             </div>
             <label id="customWidthField" class="custom-size-field" hidden>
               <span>Custom Width</span>
@@ -95,8 +99,8 @@
               <button class="size-axis-button" type="button" data-axis="height" data-value="16">16</button>
               <button class="size-axis-button is-selected" type="button" data-axis="height" data-value="32">32</button>
               <button class="size-axis-button" type="button" data-axis="height" data-value="64">64</button>
-              <button class="size-axis-button" type="button" data-axis="height" data-value="original" disabled>Original</button>
-              <button class="size-axis-button" type="button" data-axis="height" data-value="custom">Custom</button>
+              <button class="size-axis-button" type="button" data-axis="height" data-value="128">128</button>
+              <button class="size-axis-button" type="button" data-axis="height" data-value="256">256</button>
             </div>
             <label id="customHeightField" class="custom-size-field" hidden>
               <span>Custom Height</span>
@@ -113,6 +117,7 @@
               <option value="median" selected>median</option>
               <option value="average">average</option>
               <option value="center">center</option>
+              <option value="dominant">dominant</option>
             </select>
           </label>
 
@@ -140,10 +145,6 @@
           <p id="paletteSummary" class="palette-summary">팔레트 제한: off</p>
         </fieldset>
 
-        <fieldset class="control-group export-group">
-          <legend>Export</legend>
-          <button id="convertButton" class="convert-button" type="button">미리보기 갱신</button>
-        </fieldset>
       </div>
 
       <p id="errorMessage" class="message error-message" role="alert" aria-live="polite"></p>

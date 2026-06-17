@@ -79,6 +79,38 @@
     return canvas;
   }
 
+  function createDominantColorImage() {
+    var canvas = createCanvas(16, 16);
+    var context = canvas.getContext("2d");
+    context.fillStyle = "rgb(30, 80, 210)";
+    context.fillRect(0, 0, 16, 16);
+    context.fillStyle = "rgb(220, 40, 50)";
+    context.fillRect(0, 0, 12, 16);
+    context.fillStyle = "rgb(40, 180, 90)";
+    context.fillRect(0, 0, 4, 4);
+    return canvas;
+  }
+
+  function createAlphaVariationImage() {
+    var canvas = createCanvas(64, 64);
+    var context = canvas.getContext("2d");
+    var imageData = context.createImageData(64, 64);
+    var data = imageData.data;
+
+    for (var y = 0; y < 64; y += 1) {
+      for (var x = 0; x < 64; x += 1) {
+        var index = (y * 64 + x) * 4;
+        data[index] = (x * 7 + y * 3) % 256;
+        data[index + 1] = (x * 5 + y * 11) % 256;
+        data[index + 2] = (x * 13 + y * 2) % 256;
+        data[index + 3] = (x + y) % 9 === 0 ? 8 : 32 + ((x * 17 + y * 19) % 180);
+      }
+    }
+
+    context.putImageData(imageData, 0, 0);
+    return canvas;
+  }
+
   function createWideImage() {
     var canvas = createCanvas(320, 40);
     var context = canvas.getContext("2d");
@@ -177,6 +209,8 @@
     createTransparentShapeImage: createTransparentShapeImage,
     createFullyTransparentImage: createFullyTransparentImage,
     createLowAlphaImage: createLowAlphaImage,
+    createDominantColorImage: createDominantColorImage,
+    createAlphaVariationImage: createAlphaVariationImage,
     createWideImage: createWideImage,
     createTallImage: createTallImage,
     createLargeImage: createLargeImage,

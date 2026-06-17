@@ -223,6 +223,29 @@
         };
       }
 
+      async function runDominantSamplingCase() {
+        var sourceCanvas = factory.createDominantColorImage();
+        var image = await canvasToImageElement(sourceCanvas);
+        var result = processor.convertImageToPixelIcon(image, {
+          outputWidth: 1,
+          outputHeight: 1,
+          samplingMode: "dominant"
+        });
+        var imageData = result.canvas.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, 1, 1);
+        var data = imageData.data;
+
+        assert(data[0] > 180 && data[1] < 100 && data[2] < 120, "Dominant sampling did not choose the red majority");
+
+        return {
+          name: "Dominant sampling",
+          description: "Dominant mode selects the most frequent visible RGB bucket in a tile.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: result.canvas,
+          pass: true,
+          note: "dominant bucket output is the expected red majority."
+        };
+      }
+
       async function runLegacyCases() {
         var cases = factory.createTestImages();
         var results = [];
@@ -310,25 +333,29 @@
           '<span id="outputPalette"></span>' +
           '<span id="resultSummary"></span>' +
           '<button id="downloadButton" type="button"></button>' +
-          '<button id="convertButton" type="button"></button>' +
           '<button id="previewRefreshButton" type="button"></button>' +
+          '<label><input id="customSizeToggle" type="checkbox">Custom size</label>' +
+          '<div id="widthAxisButtons">' +
+          '<button class="size-axis-button" type="button" data-axis="width" data-value="16">16</button>' +
+          '<button class="size-axis-button is-selected" type="button" data-axis="width" data-value="32">32</button>' +
+          '<button class="size-axis-button" type="button" data-axis="width" data-value="64">64</button>' +
+          '<button class="size-axis-button" type="button" data-axis="width" data-value="128">128</button>' +
+          '<button class="size-axis-button" type="button" data-axis="width" data-value="256">256</button>' +
+          '</div>' +
+          '<div id="heightAxisButtons">' +
+          '<button class="size-axis-button" type="button" data-axis="height" data-value="16">16</button>' +
+          '<button class="size-axis-button is-selected" type="button" data-axis="height" data-value="32">32</button>' +
+          '<button class="size-axis-button" type="button" data-axis="height" data-value="64">64</button>' +
+          '<button class="size-axis-button" type="button" data-axis="height" data-value="128">128</button>' +
+          '<button class="size-axis-button" type="button" data-axis="height" data-value="256">256</button>' +
+          '</div>' +
           '<label id="customWidthField"><input id="outputWidthInput" type="number" value="32"></label>' +
           '<label id="customHeightField"><input id="outputHeightInput" type="number" value="32"></label>' +
-          '<select id="samplingModeSelect"><option value="median" selected>median</option><option value="average">average</option><option value="center">center</option></select>' +
+          '<select id="samplingModeSelect"><option value="median" selected>median</option><option value="average">average</option><option value="center">center</option><option value="dominant">dominant</option></select>' +
           '<select id="outputFormatSelect"><option value="png" selected>PNG</option><option value="jpg">JPG</option><option value="aseprite">Aseprite</option></select>' +
           '<select id="paletteModeSelect"><option value="off" selected>off</option><option value="auto">auto</option><option value="custom">custom</option></select>' +
           '<label id="customPaletteField"><input id="customPaletteCountInput" type="number" value="16"></label>' +
           '<p id="paletteSummary"></p>' +
-          '<button class="size-axis-button" type="button" data-axis="width" data-value="16">16</button>' +
-          '<button class="size-axis-button is-selected" type="button" data-axis="width" data-value="32">32</button>' +
-          '<button class="size-axis-button" type="button" data-axis="width" data-value="64">64</button>' +
-          '<button class="size-axis-button" type="button" data-axis="width" data-value="original">Original</button>' +
-          '<button class="size-axis-button" type="button" data-axis="width" data-value="custom">Custom</button>' +
-          '<button class="size-axis-button" type="button" data-axis="height" data-value="16">16</button>' +
-          '<button class="size-axis-button is-selected" type="button" data-axis="height" data-value="32">32</button>' +
-          '<button class="size-axis-button" type="button" data-axis="height" data-value="64">64</button>' +
-          '<button class="size-axis-button" type="button" data-axis="height" data-value="original">Original</button>' +
-          '<button class="size-axis-button" type="button" data-axis="height" data-value="custom">Custom</button>' +
           '<div id="warningBanner" hidden><span id="warningMessage"></span><button id="warningCloseButton" type="button"></button></div>';
         document.body.appendChild(fixture);
         return fixture;
@@ -347,37 +374,65 @@
         var widthOriginalButton = getFixtureAxisButtons("width").find(function (button) {
           return button.getAttribute("data-value") === "original";
         });
-        var heightOriginalButton = getFixtureAxisButtons("height").find(function (button) {
-          return button.getAttribute("data-value") === "original";
+        var widthCustomButton = getFixtureAxisButtons("width").find(function (button) {
+          return button.getAttribute("data-value") === "custom";
+        });
+        var width16Button = getFixtureAxisButtons("width").find(function (button) {
+          return button.getAttribute("data-value") === "16";
         });
         var width32Button = getFixtureAxisButtons("width").find(function (button) {
+          return button.getAttribute("data-value") === "32";
+        });
+        var height32Button = getFixtureAxisButtons("height").find(function (button) {
           return button.getAttribute("data-value") === "32";
         });
         var height64Button = getFixtureAxisButtons("height").find(function (button) {
           return button.getAttribute("data-value") === "64";
         });
+        var samplingValues = Array.prototype.slice.call(elements.samplingModeSelect.options).map(function (option) {
+          return option.value;
+        }).join(",");
+        var formatValues = Array.prototype.slice.call(elements.outputFormatSelect.options).map(function (option) {
+          return option.value;
+        }).join(",");
         var sourceCanvas = factory.createSolidColorImage();
 
         assert(ui.getSelectedAxisOption("width") === "32", "Default width option should be 32");
         assert(ui.getSelectedAxisOption("height") === "32", "Default height option should be 32");
-        assert(widthValues === "16,32,64,original,custom", "Width option list mismatch: " + widthValues);
-        assert(heightValues === "16,32,64,original,custom", "Height option list mismatch: " + heightValues);
+        assert(widthValues === "16,32,64,128,256", "Width option list mismatch: " + widthValues);
+        assert(heightValues === "16,32,64,128,256", "Height option list mismatch: " + heightValues);
+        assert(!widthOriginalButton && !widthCustomButton, "Original/Custom size buttons should not exist");
+        assert(samplingValues === "median,average,center,dominant", "Sampling option list mismatch: " + samplingValues);
+        assert(formatValues === "png,jpg,aseprite", "Output format list mismatch: " + formatValues);
+        assert(!ui.isCustomSizeEnabled(), "Custom size toggle should start off");
         assert(elements.customWidthField.hidden, "Custom width field should start hidden");
         assert(elements.customHeightField.hidden, "Custom height field should start hidden");
-        assert(widthOriginalButton.disabled && heightOriginalButton.disabled, "Original should start disabled");
+        assert(elements.outputWidthInput.disabled, "Custom width input should start disabled");
+        assert(elements.outputHeightInput.disabled, "Custom height input should start disabled");
 
-        ui.selectSizeOption("width", "custom");
-        ui.selectSizeOption("height", "custom");
-        assert(!elements.customWidthField.hidden, "Custom width field should show after selecting custom");
-        assert(!elements.customHeightField.hidden, "Custom height field should show after selecting custom");
+        ui.setCustomSizeEnabled(true);
+        assert(elements.widthAxisButtonGroup.hidden, "Width preset buttons should hide in custom mode");
+        assert(elements.heightAxisButtonGroup.hidden, "Height preset buttons should hide in custom mode");
+        assert(!elements.customWidthField.hidden, "Custom width field should show when custom mode is on");
+        assert(!elements.customHeightField.hidden, "Custom height field should show when custom mode is on");
+        assert(!elements.outputWidthInput.disabled, "Custom width input should enable in custom mode");
+        assert(!elements.outputHeightInput.disabled, "Custom height input should enable in custom mode");
+        ui.setCustomSizeEnabled(false);
+        assert(!elements.widthAxisButtonGroup.hidden, "Width preset buttons should show when custom mode is off");
+        assert(elements.customWidthField.hidden, "Custom width field should hide when custom mode is off");
 
         ui.updateSizeControls(20, 40);
+        assert(!width16Button.disabled, "Width 16 should remain enabled for a 20px source width");
         assert(width32Button.disabled, "Width 32 should be disabled for a 20px source width");
+        assert(!height32Button.disabled, "Height 32 should remain enabled for a 40px source height");
         assert(height64Button.disabled, "Height 64 should be disabled for a 40px source height");
-        assert(!widthOriginalButton.disabled && !heightOriginalButton.disabled, "Original should enable after image load");
 
         ui.showOriginalPreview(sourceCanvas.toDataURL("image/png"), sourceCanvas.width, sourceCanvas.height);
         assert(!elements.originalPreview.hidden && elements.originalPreview.hasAttribute("src"), "Original preview should show valid image source");
+        assert(elements.outputWidthInput.value === String(sourceCanvas.width), "Custom width should default to source width after load");
+        assert(elements.outputHeightInput.value === String(sourceCanvas.height), "Custom height should default to source height after load");
+        assert(!elements.previewRefreshButton.disabled, "Result-header preview refresh should enable after load");
+        assert(!document.getElementById("convertButton"), "Lower preview refresh button should not exist");
         ui.clearOriginalPreview();
         assert(elements.originalPreview.hidden && !elements.originalPreview.hasAttribute("src"), "Original preview should clear image source");
         assert(!elements.originalPlaceholder.hidden, "Original placeholder should be visible after clear");
@@ -401,21 +456,27 @@
         return [
           {
             name: "Size UI defaults and options",
-            description: "Separate width and height controls expose 16, 32, 64, Original, and Custom.",
+            description: "Separate width and height controls expose 16, 32, 64, 128, and 256 presets.",
             pass: true,
             note: "defaults and option lists are valid."
           },
           {
-            name: "Custom size visibility",
-            description: "Custom inputs are hidden until Custom is selected.",
+            name: "Custom size toggle",
+            description: "Custom inputs are hidden until the Custom size toggle is enabled.",
             pass: true,
             note: "custom fields toggle correctly."
           },
           {
-            name: "Original and preset availability",
-            description: "Original is disabled before image load and presets larger than source are disabled after load.",
+            name: "Preset availability",
+            description: "Preset buttons larger than the source dimension are disabled after load.",
             pass: true,
             note: "availability rules are valid."
+          },
+          {
+            name: "Single preview refresh action",
+            description: "The result preview header keeps the refresh action and the lower duplicate is removed.",
+            pass: true,
+            note: "preview refresh button placement is valid."
           },
           {
             name: "Preview placeholders and zoom",
@@ -519,8 +580,11 @@
 
         if (paletteOptions.paletteMode === "off") {
           assert(limited.canvas === converted.canvas, "Palette off should preserve the original canvas object");
+          assert(limited.alphaMode === "preserve", "Palette off should preserve alpha mode");
         } else {
           assert(limited.afterColorCount <= expectedLimit, "Palette limit exceeded: " + limited.afterColorCount + " > " + expectedLimit);
+          assert(limited.afterRgbaColorCount <= expectedLimit + 1, "Palette RGBA limit exceeded: " + limited.afterRgbaColorCount + " > " + (expectedLimit + 1));
+          assert(limited.alphaMode === constants.PALETTE_LIMIT_ALPHA_MODE, "Palette alpha mode should be binary");
         }
 
         return {
@@ -529,7 +593,8 @@
           sourceCanvas: sourceCanvas,
           resultCanvas: limited.canvas,
           pass: true,
-          note: "visible colors " + limited.beforeColorCount + " -> " + limited.afterColorCount + "."
+          note: "visible RGB " + limited.beforeColorCount + " -> " + limited.afterColorCount +
+            ", RGBA " + limited.beforeRgbaColorCount + " -> " + limited.afterRgbaColorCount + "."
         };
       }
 
@@ -562,6 +627,37 @@
           resultCanvas: limited.canvas,
           pass: true,
           note: "transparent pixels were preserved."
+        };
+      }
+
+      async function runPaletteAlphaNormalizationCase() {
+        var sourceCanvas = factory.createAlphaVariationImage();
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, {
+          outputWidth: 64,
+          outputHeight: 64,
+          samplingMode: "center"
+        });
+        var limited = quantizer.applyPaletteLimitToCanvas(converted.canvas, {
+          paletteMode: "4"
+        });
+        var limitedContext = limited.canvas.getContext("2d", { willReadFrequently: true });
+        var limitedImageData = limitedContext.getImageData(0, 0, 64, 64);
+
+        for (var index = 3; index < limitedImageData.data.length; index += 4) {
+          assert(limitedImageData.data[index] === 0 || limitedImageData.data[index] === 255, "Palette alpha should be normalized to 0 or 255");
+        }
+
+        assert(limited.beforeRgbaColorCount > limited.afterRgbaColorCount, "RGBA count should drop after alpha normalization");
+        assert(limited.afterRgbaColorCount <= limited.effectivePaletteCount + 1, "RGBA count should fit palette plus transparent");
+
+        return {
+          name: "Palette alpha normalization",
+          description: "Palette mode normalizes alpha to binary values and controls unique RGBA output.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: limited.canvas,
+          pass: true,
+          note: "unique RGBA " + limited.beforeRgbaColorCount + " -> " + limited.afterRgbaColorCount + "."
         };
       }
 
@@ -627,6 +723,7 @@
           allResults.push(await runConversionCase("8x12 custom", solid, { outputWidth: 8, outputHeight: 12, samplingMode: "median" }));
           allResults.push(await runConversionCase("32x32 average", split, { outputWidth: 32, outputHeight: 32, samplingMode: "average" }));
           allResults.push(await runConversionCase("32x32 center", split, { outputWidth: 32, outputHeight: 32, samplingMode: "center" }));
+          allResults.push(await runDominantSamplingCase());
           allResults.push(await runConversionCase("64x64 average", solid, { outputWidth: 64, outputHeight: 64, samplingMode: "average" }));
           allResults.push(await runConversionCase("48x32 center", wide, { outputWidth: 48, outputHeight: 32, samplingMode: "center" }));
 
@@ -638,7 +735,7 @@
           allResults.push(runValidationCase("Reject non-integer height", 32, "12.5", 128, 128, false));
           allResults.push(runValidationCase("Accept width above 256 within source", 300, 32, 512, 512, true));
           allResults.push(runValidationCase("Accept height above 256 within source", 32, 300, 512, 512, true));
-          allResults.push(runValidationCase("Accept original-size output", 512, 384, 512, 384, true));
+          allResults.push(runValidationCase("Accept custom source-size output", 512, 384, 512, 384, true));
           allResults.push(runValidationCase("Accept custom 8x12", 8, 12, 20, 20, true));
           allResults.push(runValidationCase("Reject preset larger than source", 24, 24, 20, 20, false));
 
@@ -678,6 +775,7 @@
           allResults.push(await runPaletteLimitCase("One-color palette case", solid, { outputWidth: 32, outputHeight: 32, samplingMode: "median" }, { paletteMode: "16" }, 16));
           allResults.push(await runPaletteLimitCase("Fully transparent palette case", factory.createFullyTransparentImage(), { outputWidth: 32, outputHeight: 32, samplingMode: "median" }, { paletteMode: "4" }, 4));
           allResults.push(await runPaletteTransparencyCase());
+          allResults.push(await runPaletteAlphaNormalizationCase());
           allResults.push(await runPaletteExportCase());
         } catch (error) {
           failed = true;

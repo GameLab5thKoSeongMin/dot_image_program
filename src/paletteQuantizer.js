@@ -28,6 +28,10 @@
     return red + "," + green + "," + blue;
   }
 
+  function createRgbaKey(red, green, blue, alpha) {
+    return red + "," + green + "," + blue + "," + alpha;
+  }
+
   function countUniqueVisibleColors(imageData) {
     var data = imageData.data;
     var colors = Object.create(null);
@@ -44,6 +48,40 @@
     }
 
     return count;
+  }
+
+  function countUniqueRgbaColors(imageData) {
+    var data = imageData.data;
+    var colors = Object.create(null);
+    var count = 0;
+
+    for (var index = 0; index < data.length; index += 4) {
+      var key = createRgbaKey(data[index], data[index + 1], data[index + 2], data[index + 3]);
+      if (!colors[key]) {
+        colors[key] = true;
+        count += 1;
+      }
+    }
+
+    return count;
+  }
+
+  function normalizeAlphaForPaletteLimit(imageData) {
+    var normalized = cloneImageData(imageData);
+    var data = normalized.data;
+
+    for (var index = 0; index < data.length; index += 4) {
+      if (isVisibleAlpha(data[index + 3])) {
+        data[index + 3] = 255;
+      } else {
+        data[index] = 0;
+        data[index + 1] = 0;
+        data[index + 2] = 0;
+        data[index + 3] = 0;
+      }
+    }
+
+    return normalized;
   }
 
   function extractVisiblePixels(imageData) {
@@ -245,6 +283,7 @@
       imageData.height
     );
     var beforeColorCount = countUniqueVisibleColors(imageData);
+    var beforeRgbaColorCount = countUniqueRgbaColors(imageData);
 
     if (paletteMode === "off") {
       return {
@@ -253,35 +292,47 @@
         paletteApplied: false,
         effectivePaletteCount: null,
         beforeColorCount: beforeColorCount,
-        afterColorCount: beforeColorCount
+        afterColorCount: beforeColorCount,
+        beforeRgbaColorCount: beforeRgbaColorCount,
+        afterRgbaColorCount: beforeRgbaColorCount,
+        alphaMode: "preserve"
       };
     }
 
-    if (!beforeColorCount) {
-      return {
-        imageData: cloneImageData(imageData),
-        paletteMode: paletteMode,
-        paletteApplied: true,
-        effectivePaletteCount: effectivePaletteCount,
-        beforeColorCount: 0,
-        afterColorCount: 0
-      };
-    }
+    var normalizedImageData = normalizeAlphaForPaletteLimit(imageData);
+    var normalizedColorCount = countUniqueVisibleColors(normalizedImageData);
 
-    if (effectivePaletteCount >= beforeColorCount) {
+    if (!normalizedColorCount) {
       return {
-        imageData: cloneImageData(imageData),
+        imageData: normalizedImageData,
         paletteMode: paletteMode,
         paletteApplied: true,
         effectivePaletteCount: effectivePaletteCount,
         beforeColorCount: beforeColorCount,
-        afterColorCount: beforeColorCount
+        afterColorCount: 0,
+        beforeRgbaColorCount: beforeRgbaColorCount,
+        afterRgbaColorCount: countUniqueRgbaColors(normalizedImageData),
+        alphaMode: constants.PALETTE_LIMIT_ALPHA_MODE
       };
     }
 
-    var visiblePixels = extractVisiblePixels(imageData);
+    if (effectivePaletteCount >= normalizedColorCount) {
+      return {
+        imageData: normalizedImageData,
+        paletteMode: paletteMode,
+        paletteApplied: true,
+        effectivePaletteCount: effectivePaletteCount,
+        beforeColorCount: beforeColorCount,
+        afterColorCount: normalizedColorCount,
+        beforeRgbaColorCount: beforeRgbaColorCount,
+        afterRgbaColorCount: countUniqueRgbaColors(normalizedImageData),
+        alphaMode: constants.PALETTE_LIMIT_ALPHA_MODE
+      };
+    }
+
+    var visiblePixels = extractVisiblePixels(normalizedImageData);
     var palette = buildMedianCutPalette(visiblePixels, effectivePaletteCount);
-    var mappedImageData = mapImageDataToPalette(imageData, palette);
+    var mappedImageData = mapImageDataToPalette(normalizedImageData, palette);
 
     return {
       imageData: mappedImageData,
@@ -290,6 +341,9 @@
       effectivePaletteCount: effectivePaletteCount,
       beforeColorCount: beforeColorCount,
       afterColorCount: countUniqueVisibleColors(mappedImageData),
+      beforeRgbaColorCount: beforeRgbaColorCount,
+      afterRgbaColorCount: countUniqueRgbaColors(mappedImageData),
+      alphaMode: constants.PALETTE_LIMIT_ALPHA_MODE,
       palette: palette
     };
   }
@@ -309,6 +363,8 @@
     mapImageDataToPalette: mapImageDataToPalette,
     findNearestPaletteColor: findNearestPaletteColor,
     countUniqueVisibleColors: countUniqueVisibleColors,
+    countUniqueRgbaColors: countUniqueRgbaColors,
+    normalizeAlphaForPaletteLimit: normalizeAlphaForPaletteLimit,
     resolveEffectivePaletteCount: resolveEffectivePaletteCount
   };
 })();

@@ -211,6 +211,69 @@
     return color;
   }
 
+  function createDominantBucketKey(red, green, blue) {
+    var bucketSize = constants.DOMINANT_BUCKET_SIZE;
+    return [
+      Math.floor(red / bucketSize),
+      Math.floor(green / bucketSize),
+      Math.floor(blue / bucketSize)
+    ].join(",");
+  }
+
+  function calculateTileDominantColor(imageData, tileBounds) {
+    var data = imageData.data;
+    var width = imageData.width;
+    var buckets = Object.create(null);
+    var winningBucket = null;
+
+    for (var y = tileBounds.yStart; y < tileBounds.yEnd; y += 1) {
+      for (var x = tileBounds.xStart; x < tileBounds.xEnd; x += 1) {
+        var index = (y * width + x) * 4;
+        var alpha = data[index + 3];
+
+        if (isTransparentPixel(alpha)) {
+          continue;
+        }
+
+        var red = data[index];
+        var green = data[index + 1];
+        var blue = data[index + 2];
+        var key = createDominantBucketKey(red, green, blue);
+
+        if (!buckets[key]) {
+          buckets[key] = {
+            count: 0,
+            redTotal: 0,
+            greenTotal: 0,
+            blueTotal: 0,
+            alphaTotal: 0
+          };
+        }
+
+        buckets[key].count += 1;
+        buckets[key].redTotal += red;
+        buckets[key].greenTotal += green;
+        buckets[key].blueTotal += blue;
+        buckets[key].alphaTotal += alpha;
+
+        if (!winningBucket || buckets[key].count > winningBucket.count) {
+          winningBucket = buckets[key];
+        }
+      }
+    }
+
+    if (!winningBucket) {
+      return [0, 0, 0, 0];
+    }
+
+    return [
+      Math.round(winningBucket.redTotal / winningBucket.count),
+      Math.round(winningBucket.greenTotal / winningBucket.count),
+      Math.round(winningBucket.blueTotal / winningBucket.count),
+      Math.round(winningBucket.alphaTotal / winningBucket.count)
+    ];
+  }
+
   function calculateTileRepresentativeColor(imageData, tileBounds, samplingMode) {
     if (samplingMode === "average") {
       return calculateTileAverageColor(imageData, tileBounds);
@@ -218,6 +281,10 @@
 
     if (samplingMode === "center") {
       return calculateTileCenterColor(imageData, tileBounds);
+    }
+
+    if (samplingMode === "dominant") {
+      return calculateTileDominantColor(imageData, tileBounds);
     }
 
     return calculateTileMedianColor(imageData, tileBounds);
@@ -289,6 +356,7 @@
     calculateTileMedianColor: calculateTileMedianColor,
     calculateTileAverageColor: calculateTileAverageColor,
     calculateTileCenterColor: calculateTileCenterColor,
+    calculateTileDominantColor: calculateTileDominantColor,
     calculateTileRepresentativeColor: calculateTileRepresentativeColor,
     calculateMedian: calculateMedian,
     calculateAverage: calculateAverage,

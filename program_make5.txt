@@ -1,0 +1,953 @@
+You are working on an already existing project.
+
+This is a focused v0.5.0 refinement task for the existing Pixel Icon Generator.
+
+Do not recreate the project from scratch.
+Do not replace the project with a new framework.
+Do not over-refactor or redesign the project more than necessary.
+Do not remove working features.
+Do not break current behavior.
+
+First, read the existing repository and understand the current implementation before making changes.
+
+You must begin by reading and inspecting at least the following:
+
+* `AGENTS.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+* `index.html`
+* `styles/style.css`
+* `src/constants.js`
+* `src/fileHandler.js`
+* `src/imageProcessor.js`
+* `src/paletteQuantizer.js`
+* `src/exporter.js`
+* `src/uiController.js`
+* `src/app.js`
+* `tests/test-cases.html`
+* `tests/testImageFactory.js`
+
+Preserve all existing working behavior unless a change is explicitly required by this task.
+
+The current app already supports:
+
+* PNG/JPG/JPEG input
+* drag and drop
+* variable output size
+* separate Width and Height controls
+* sampling modes: `median`, `average`, `center`
+* palette limit modes
+* PNG/JPG/Aseprite export
+* warning banner UI
+* clean preview placeholders
+* checkerboard preview
+* preview zoom
+* result summary
+* tests
+* English Codex-facing documents
+* Korean user-facing review documents
+
+Do not break these features.
+
+The existing default behavior must remain:
+
+* output width: `32`
+* output height: `32`
+* sampling mode: `median`
+* output format: `png`
+* palette limit: `off`
+
+---
+
+# Language Policy
+
+All Codex-facing documents and technical documents must remain in English.
+
+Codex-facing English documents:
+
+* `AGENTS.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+
+User-facing review documents must remain in Korean.
+
+User-facing Korean documents:
+
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+
+Code identifiers, file names, folder names, function names, constants, and API names must remain in English.
+
+The app UI text may be in Korean.
+
+When writing Korean user-facing documents, do not translate code identifiers, constants, file names, or function names.
+
+---
+
+# Main Goal of This Task
+
+Implement a focused GUI and processing refinement based on the current completed project.
+
+This task must do four things:
+
+1. Remove the unused preview refresh button from the file input / lower input area.
+2. Replace the current `Original` size option with a `Custom` on/off mode.
+3. Preserve sampling and palette features while fixing the palette alpha bug.
+4. Add one new pixel sampling mode optimized for pixel-art-friendly color stability.
+
+Do not add AI generation, Google login, backend, authentication, cloud storage, or API integrations.
+
+This is still a local Vanilla HTML/CSS/JavaScript frontend app.
+
+---
+
+# Critical Preservation Rules
+
+Do not:
+
+* recreate the repository
+* introduce React, Vite, Webpack, or other build systems
+* switch to ES Modules
+* remove existing tests
+* remove existing Korean user-facing documents
+* remove existing English technical documents
+* replace the existing four-section layout with an unrelated layout
+* simplify the image conversion into a resize shortcut
+* break PNG/JPG/Aseprite export
+* break palette limit
+* break the warning banner UI
+* break drag-and-drop input
+* break default 32x32 median PNG palette-off behavior
+
+---
+
+# Current State Summary
+
+The project currently uses separate Width and Height controls with options like:
+
+```txt
+Width: 16 / 32 / 64 / Original / Custom
+Height: 16 / 32 / 64 / Original / Custom
+```
+
+It also has a `미리보기 갱신` button in more than one location.
+
+The user now wants a simpler and clearer size UI:
+
+* remove the `Original` button
+* keep a `Custom` mode
+* add a dedicated Custom on/off toggle
+* when Custom is off, show width/height presets
+* when Custom is on, hide width/height presets and show numeric inputs
+* default Custom state is off
+
+---
+
+# Required Change 1. Remove Unused Preview Refresh Button from File Input Area
+
+There is currently a `미리보기 갱신` button in the file input / lower-left / input-related GUI area.
+
+This button is not used and should be removed from that area.
+
+Keep only the meaningful preview refresh action.
+
+Recommended behavior:
+
+* Keep the result-preview-header `미리보기 갱신` button if it is still needed for large output explicit conversion.
+* Remove the redundant lower input-area or file-input-area `미리보기 갱신` button.
+* Do not leave a duplicate unused refresh button in the input section.
+* Do not remove conversion functionality itself.
+
+If there are two refresh buttons and one is in the result preview header while another is in the lower option/input area, remove the lower/input-area one and preserve the header one.
+
+Update tests and documentation to reflect that there is only one primary preview refresh action.
+
+---
+
+# Required Change 2. Replace Original Button with Custom On/Off Mode
+
+Remove the `Original` option button from Width and Height controls.
+
+Add a dedicated `Custom` on/off toggle.
+
+The UI should work like this:
+
+## Custom Off
+
+Initial state must be Custom Off.
+
+When Custom is Off:
+
+* Width preset controls are visible.
+* Height preset controls are visible.
+* Custom width input is hidden.
+* Custom height input is hidden.
+* Width and Height default to `32`.
+* Presets should include:
+
+  * `16`
+  * `32`
+  * `64`
+  * `128`
+  * `256`
+
+UI concept:
+
+```txt
+Custom: [Off]
+
+Width
+[16] [32] [64] [128] [256]
+
+Height
+[16] [32] [64] [128] [256]
+```
+
+Default selected:
+
+```txt
+Width: 32
+Height: 32
+```
+
+## Custom On
+
+When Custom is On:
+
+* Width preset controls are hidden.
+* Height preset controls are hidden.
+* Custom width input is visible.
+* Custom height input is visible.
+* The custom width input should default to the original image width.
+* The custom height input should default to the original image height.
+
+UI concept:
+
+```txt
+Custom: [On]
+
+Width:  [ originalImageWidth ]
+Height: [ originalImageHeight ]
+```
+
+This replaces the old `Original` button behavior.
+
+The purpose is:
+
+* Preset mode for common pixel icon sizes.
+* Custom mode for original-size palette reduction or manually entered sizes.
+
+## Before image load
+
+Before a valid image is loaded:
+
+* Custom toggle can exist, but custom inputs should be disabled or empty until a source image is available.
+* If Custom is turned on before image load, show a warning and keep inputs disabled, or allow the state but show placeholder text.
+* The app must not crash.
+* The app must not set invalid width/height values.
+* Download/conversion must remain disabled until a valid source image exists.
+
+Recommended Korean warning text:
+
+```txt
+이미지를 먼저 업로드해야 원본 크기를 입력할 수 있습니다.
+```
+
+---
+
+# Required Change 3. Preset Rules
+
+When Custom is Off, presets are used.
+
+Width preset options:
+
+* `16`
+* `32`
+* `64`
+* `128`
+* `256`
+
+Height preset options:
+
+* `16`
+* `32`
+* `64`
+* `128`
+* `256`
+
+Default selected:
+
+* Width `32`
+* Height `32`
+
+After image load:
+
+* Disable width presets larger than the source image width.
+* Disable height presets larger than the source image height.
+
+Examples:
+
+If source image is `64x32`:
+
+* Width: `16`, `32`, `64` allowed
+* Width: `128`, `256` disabled
+* Height: `16`, `32` allowed
+* Height: `64`, `128`, `256` disabled
+
+If source image is `512x384`:
+
+* all width presets up to `256` allowed
+* all height presets up to `256` allowed
+* Custom On can use `512x384`
+
+Do not restore `Original` as a preset.
+
+`Original` must be removed from the size buttons.
+
+---
+
+# Required Change 4. Custom Size Rules
+
+When Custom is On:
+
+* hide all preset buttons for width and height
+* show width and height numeric inputs
+* default the inputs to source image dimensions after a valid image is loaded
+* allow manual editing
+* validate against source image dimensions
+* allow values above 256 as long as they do not exceed source dimensions
+
+Hard validation:
+
+* width must be an integer
+* height must be an integer
+* width must be >= 1
+* height must be >= 1
+* width must be <= source image width
+* height must be <= source image height
+
+There is no hard 256 limit for custom mode.
+
+This allows original-size palette reduction.
+
+---
+
+# Required Change 5. Performance Warning Policy
+
+Keep the current performance warning behavior.
+
+Large output sizes should warn but not block if they are valid.
+
+Use the existing warning banner.
+
+Suggested thresholds:
+
+```txt
+outputWidth * outputHeight > 65,536
+→ moderate performance warning
+
+outputWidth * outputHeight > 262,144
+→ stronger performance warning
+```
+
+Example Korean warning text:
+
+```txt
+출력 해상도가 커서 변환 시간이 길어질 수 있습니다.
+매우 큰 출력 해상도입니다. 변환 중 브라우저가 잠시 멈춘 것처럼 보일 수 있습니다.
+```
+
+Large Custom On original-size output should usually require explicit preview refresh.
+
+Do not repeatedly auto-convert very large output sizes on every input change.
+
+---
+
+# Required Change 6. Keep Sampling Modes and Add One New Mode
+
+Keep the existing sampling modes:
+
+* `median`
+* `average`
+* `center`
+
+Add one new sampling mode:
+
+* `dominant`
+
+The new `dominant` mode should choose the dominant visible color inside each source tile.
+
+Purpose:
+
+* reduce unwanted blended colors
+* improve pixel-art-like color stability
+* help palette limit produce cleaner results
+* make Aseprite cleanup easier
+
+## Dominant sampling behavior
+
+Implement a practical browser-friendly dominant color method.
+
+Recommended approach:
+
+1. Collect visible pixels in the tile.
+2. Exclude pixels whose alpha is below the existing transparency threshold.
+3. Quantize RGB into buckets to avoid every tiny variation becoming a separate color.
+4. Count bucket frequency.
+5. Choose the most frequent bucket.
+6. Use the average RGB of pixels inside that bucket as the tile output color.
+7. Handle alpha carefully:
+
+   * either use the average alpha of the winning bucket, or
+   * snap visible alpha to 255 if alpha cleanup mode is active
+8. If there are no visible pixels, return transparent.
+
+Do not implement a heavy iterative k-means method for per-tile sampling in this task.
+
+The goal is stable dominant color sampling, not expensive clustering.
+
+Recommended helper functions:
+
+* `calculateTileDominantColor(...)`
+* `getDominantColorBucket(...)`
+* `quantizeColorForDominantBucket(...)`
+
+Add `dominant` to UI sampling options.
+
+Example Korean UI text:
+
+```txt
+Dominant
+```
+
+or
+
+```txt
+대표색
+```
+
+Keep code identifier as `dominant`.
+
+---
+
+# Required Change 7. Fix Palette Alpha Bug
+
+There is a known palette limit bug:
+
+When pixels have many different alpha values, the palette color reduction does not effectively remove colors.
+
+This must be fixed.
+
+The current implementation may reduce visible RGB color count while preserving many alpha values. That can make the final output still contain many unique RGBA colors.
+
+For pixel-art editing, the user wants the palette-limited result to actually reduce editable color complexity.
+
+## Required alpha policy update
+
+Add alpha cleanup / alpha quantization behavior for palette limiting.
+
+Recommended default when palette limit is enabled:
+
+* pixels with alpha below `TRANSPARENT_ALPHA_THRESHOLD` become fully transparent with alpha `0`
+* visible pixels become fully opaque with alpha `255`
+
+This is the simplest pixel-art-friendly behavior.
+
+If preserving semi-transparent alpha is still desired, add an option such as:
+
+* `alphaMode: "binary"` default for palette-limited output
+* `alphaMode: "preserve"` optional
+
+But do not overcomplicate the UI unless necessary.
+
+Minimum acceptable implementation:
+
+* When palette limit is enabled, normalize alpha so that the output does not contain many unique alpha values.
+* Transparent pixels stay transparent.
+* Visible pixels should not keep hundreds of distinct alpha values.
+* The visible color count / unique RGBA count after palette limit should be meaningfully reduced.
+
+Recommended behavior:
+
+```txt
+palette off:
+- preserve existing alpha behavior
+
+palette on:
+- alpha < threshold -> alpha 0
+- alpha >= threshold -> alpha 255
+- map RGB to limited palette
+```
+
+This may remove anti-aliased semi-transparent edges, but that is acceptable for pixel-art-oriented editing.
+
+Document this clearly.
+
+## Counting rule update
+
+Update color count display and tests to distinguish:
+
+* visible RGB color count
+* unique RGBA color count
+
+The bug fix should ensure that when palette limit is enabled:
+
+* visible RGB color count <= effective palette count
+* unique RGBA color count should also be controlled and should not explode due to many alpha values
+
+If binary alpha is used, unique RGBA count should generally be <= effective palette count + transparent color.
+
+---
+
+# Required Change 8. Palette Limit Must Apply to Preview and All Exports
+
+Palette-limited output must still be used consistently for:
+
+* preview
+* PNG export
+* JPG export
+* `.aseprite` export
+
+For JPG:
+
+* apply palette limit first
+* then composite onto white
+
+For Aseprite:
+
+* export the palette-limited final canvas data
+* keep existing RGBA export mode unless indexed mode already exists
+
+Do not break existing PNG/JPG/Aseprite behavior.
+
+---
+
+# Required Change 9. Result Summary and Palette Summary Update
+
+Update result summary to include the new state.
+
+Example summaries:
+
+```txt
+32×32 · median · palette off · PNG
+32×32 · dominant · palette 16 · PNG
+512×384 · dominant · palette 32 · Aseprite
+```
+
+If Custom mode is on and source size is used, show resolved numeric size.
+
+Palette summary should make the alpha cleanup clear if palette is enabled.
+
+Example Korean UI text:
+
+```txt
+현재 RGB 색상 수: 43
+현재 RGBA 색상 수: 126
+제한 색상 수: 16
+적용 후 RGB 색상 수: 16
+적용 후 RGBA 색상 수: 17
+```
+
+If this is too much for the compact UI, at least update internal tests and documentation.
+
+---
+
+# Required Change 10. GUI Cleanup Priority
+
+Focus on these GUI changes only:
+
+1. Remove redundant lower/input-area `미리보기 갱신` button.
+2. Add Custom on/off toggle.
+3. Remove `Original` size button.
+4. Hide presets when Custom is On.
+5. Hide custom inputs when Custom is Off.
+6. Add `128` and `256` presets when Custom is Off.
+7. Keep sampling controls visible.
+8. Keep palette controls visible.
+9. Add `dominant` sampling mode.
+10. Preserve warning banner, result summary, checkerboard preview, and zoom.
+
+Do not do a full redesign.
+
+---
+
+# Technical Structure Requirements
+
+Maintain responsibility separation.
+
+## `src/constants.js`
+
+Update or add constants such as:
+
+* `SIZE_PRESET_VALUES = [16, 32, 64, 128, 256]`
+* `DEFAULT_CUSTOM_MODE = false`
+* `DEFAULT_WIDTH_PRESET = 32`
+* `DEFAULT_HEIGHT_PRESET = 32`
+* `SAMPLING_MODES.DOMINANT`
+* alpha cleanup constants if needed
+
+Remove or stop using the `Original` size option constant if it exists.
+
+Do not remove unrelated constants.
+
+## `src/fileHandler.js`
+
+Update validation helpers if needed:
+
+* custom mode validation
+* preset mode validation
+* source dimension validation
+* performance warning helper
+
+Do not restore hard 256 limit.
+
+## `src/imageProcessor.js`
+
+Add dominant sampling logic.
+
+Recommended helpers:
+
+* `calculateTileDominantColor(...)`
+* `quantizeColorForDominantBucket(...)`
+
+Keep existing:
+
+* `median`
+* `average`
+* `center`
+
+Do not replace tile conversion with simple resize.
+
+## `src/paletteQuantizer.js`
+
+Fix alpha-related palette bug.
+
+Recommended helpers:
+
+* `normalizeAlphaForPaletteLimit(...)`
+* `countUniqueVisibleRgbColors(...)`
+* `countUniqueRgbaColors(...)`
+
+Ensure palette limit with alpha cleanup works correctly.
+
+## `src/uiController.js`
+
+Update UI behavior:
+
+* custom on/off toggle
+* hide/show preset groups
+* hide/show custom inputs
+* remove Original button from size controls
+* remove redundant lower/input-area refresh button
+* preserve result header refresh button if needed
+* add dominant sampling option
+* update palette summary if possible
+
+## `src/app.js`
+
+Update state and event flow:
+
+* read custom mode
+* resolve preset width/height when custom off
+* resolve input width/height when custom on
+* initialize custom inputs to source dimensions after valid image load
+* validate and convert
+* connect dominant sampling
+* connect alpha-fixed palette result to preview/export
+
+## `tests/test-cases.html`
+
+Expand tests for:
+
+* custom on/off UI
+* Original button removal
+* 128/256 presets
+* dominant sampling
+* alpha palette bug fix
+* redundant refresh button removal
+
+---
+
+# Testing Requirements
+
+Update existing tests and add new ones.
+
+Update:
+
+* `TEST_PLAN.md` in English
+* `TEST_SUMMARY_KO.md` in Korean
+* `DEVELOPMENT_REPORT_KO.md` in Korean
+* `tests/test-cases.html`
+* `tests/testImageFactory.js` if useful
+
+Add or update test coverage for:
+
+## GUI size mode tests
+
+* default custom mode is off
+* when custom mode is off, width presets are visible
+* when custom mode is off, height presets are visible
+* when custom mode is off, custom width input is hidden
+* when custom mode is off, custom height input is hidden
+* width presets include `16`, `32`, `64`, `128`, `256`
+* height presets include `16`, `32`, `64`, `128`, `256`
+* default selected width preset is `32`
+* default selected height preset is `32`
+* `Original` button no longer exists
+* when custom mode is on, preset controls are hidden
+* when custom mode is on, custom width input is visible
+* when custom mode is on, custom height input is visible
+* after image load, custom width defaults to source image width
+* after image load, custom height defaults to source image height
+* custom mode allows output above 256 if source dimensions allow it
+* custom mode blocks width above source width
+* custom mode blocks height above source height
+
+## Refresh button cleanup tests
+
+* lower/input-area `미리보기 갱신` button is removed
+* result-header `미리보기 갱신` button still exists if large-output explicit refresh is needed
+* no duplicate unused refresh button remains in the input area
+
+## Sampling tests
+
+* existing `median` sampling still works
+* existing `average` sampling still works
+* existing `center` sampling still works
+* new `dominant` sampling works
+* `dominant` handles transparent tiles
+* `dominant` handles one-color tiles
+* `dominant` reduces blended color artifacts compared with average in a controlled test if practical
+
+## Palette alpha bug tests
+
+Create or use a test image with:
+
+* same RGB values but many alpha values
+* transparent background
+* semi-transparent edge pixels
+* many alpha variations
+
+Test requirements:
+
+* palette off preserves existing behavior
+* palette on with alpha cleanup reduces unique RGBA count
+* alpha below threshold becomes transparent
+* visible alpha becomes normalized instead of preserving many alpha values
+* visible RGB color count after palette limit <= effective palette count
+* unique RGBA count after palette limit is controlled and does not explode due to alpha variations
+* transparent pixels remain transparent
+* PNG export uses alpha-fixed palette result
+* JPG export uses alpha-fixed palette result composited on white
+* Aseprite export uses alpha-fixed palette result
+
+## Regression tests
+
+* PNG/JPG/JPEG input still works
+* drag and drop still works
+* default `32x32`, `median`, `png`, palette `off` still works
+* palette limit still works
+* PNG export still works
+* JPG export still works
+* Aseprite export still works
+* warning banner still works
+* preview placeholders still work
+* broken image icon does not return
+* no ES Module `import/export`
+* no browser `alert()`
+* no resize shortcut conversion
+
+---
+
+# Documentation Update Requirements
+
+Update the following English Codex-facing docs:
+
+* `AGENTS.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+
+Update the following Korean user-facing docs:
+
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+
+Documentation must reflect:
+
+* current progress before the task
+* removal of redundant lower/input-area refresh button
+* Custom on/off mode
+* preset mode with `16`, `32`, `64`, `128`, `256`
+* custom mode defaulting to source dimensions after image load
+* removal of `Original` size button
+* preservation of sampling modes
+* new `dominant` sampling mode
+* palette alpha bug fix
+* alpha cleanup behavior when palette limit is enabled
+* preview/export consistency
+* test results
+* remaining limitations
+
+Do not claim that a feature was implemented unless it actually was tested.
+
+---
+
+# Development Loop
+
+Use this loop throughout the task:
+
+Audit current implementation → plan v0.5.0 refinement → implement one stage → test → fix → refactor carefully → update English docs → update Korean docs → continue
+
+Do not skip the audit step.
+
+---
+
+# Recommended Step Plan
+
+## V0. Audit current implementation
+
+* read all relevant files
+* inspect current refresh buttons
+* inspect current width/height option state
+* inspect `Original` option implementation
+* inspect custom input logic
+* inspect palette alpha handling
+* inspect current sampling mode dispatch
+* inspect current palette color count tests
+* record findings in `PLANS.md`
+* summarize findings in `DEVELOPMENT_REPORT_KO.md`
+
+## V1. GUI cleanup
+
+* remove lower/input-area `미리보기 갱신`
+* keep only the meaningful result-header refresh action if needed
+* remove `Original` size buttons
+* add Custom on/off toggle
+* add `128` and `256` presets
+* hide presets when Custom is On
+* hide custom inputs when Custom is Off
+* initialize Custom mode Off
+
+## V2. Custom mode state and validation
+
+* after image load, default custom width/height inputs to source dimensions
+* allow custom sizes up to source dimensions
+* keep performance warnings
+* do not restore hard 256 limit
+
+## V3. Add dominant sampling
+
+* implement `dominant`
+* add UI option
+* add tests
+* preserve median/average/center
+
+## V4. Fix palette alpha bug
+
+* add alpha cleanup for palette-limited output
+* ensure transparent remains transparent
+* ensure visible alpha is normalized or quantized
+* update color count tests
+* ensure preview/export use the fixed final canvas
+
+## V5. Tests and regression
+
+* expand `tests/test-cases.html`
+* run syntax checks
+* run browser test page
+* verify app flow if possible
+
+## V6. Documentation and final report
+
+* update English docs
+* update Korean docs
+* update changelog
+* record final self-evaluation
+
+---
+
+# Completion Criteria
+
+This task is complete only if all of the following are satisfied:
+
+* [ ] Current features still work.
+* [ ] Default behavior remains `32x32`, `median`, `png`, palette `off`.
+* [ ] Lower/input-area `미리보기 갱신` button is removed.
+* [ ] Result-header refresh action remains available if needed.
+* [ ] Custom mode toggle exists.
+* [ ] Initial custom mode is Off.
+* [ ] In Custom Off mode, width presets are visible.
+* [ ] In Custom Off mode, height presets are visible.
+* [ ] Width presets are `16`, `32`, `64`, `128`, `256`.
+* [ ] Height presets are `16`, `32`, `64`, `128`, `256`.
+* [ ] In Custom Off mode, custom width input is hidden.
+* [ ] In Custom Off mode, custom height input is hidden.
+* [ ] `Original` size button is removed.
+* [ ] In Custom On mode, width/height presets are hidden.
+* [ ] In Custom On mode, custom width input is visible.
+* [ ] In Custom On mode, custom height input is visible.
+* [ ] After valid image load, Custom On width defaults to source width.
+* [ ] After valid image load, Custom On height defaults to source height.
+* [ ] Custom sizes above 256 are allowed if source dimensions allow them.
+* [ ] Custom sizes larger than source dimensions are blocked.
+* [ ] Existing sampling modes remain.
+* [ ] New `dominant` sampling mode works.
+* [ ] Palette limit still works.
+* [ ] Palette alpha bug is fixed.
+* [ ] Palette-limited output no longer keeps excessive unique RGBA colors due only to many alpha values.
+* [ ] Transparent pixels remain transparent.
+* [ ] PNG export uses the fixed final canvas.
+* [ ] JPG export uses the fixed final canvas composited on white.
+* [ ] Aseprite export uses the fixed final canvas.
+* [ ] Existing warning banner still works.
+* [ ] Existing preview placeholders still work.
+* [ ] Broken image icon does not return.
+* [ ] Existing tests are preserved or improved.
+* [ ] New GUI/sampling/palette-alpha tests are added.
+* [ ] English docs are updated correctly.
+* [ ] Korean docs are updated correctly.
+* [ ] No unnecessary project recreation or overhauling occurred.
+
+---
+
+# Final Execution Instruction
+
+Start by auditing the existing project.
+
+Do not start coding immediately without understanding the current structure.
+
+Then implement the v0.5.0 refinement incrementally.
+
+At every meaningful stage:
+
+1. update `PLANS.md` in English
+2. update `DEVELOPMENT_REPORT_KO.md` in Korean
+3. update `TEST_PLAN.md` in English when test requirements change
+4. update `TEST_SUMMARY_KO.md` in Korean when tests are executed
+5. verify behavior before moving on
+
+Preserve working behavior.
+
+Make focused GUI and processing updates.
+
+Avoid unnecessary project recreation.
+
+Avoid unnecessary structure changes.
+
+Keep the implementation grounded in the existing repository rules.
+
+Finally, deliver the existing pixel icon generator with current functionality preserved, cleaner custom-size UX, a fixed palette alpha behavior, and one additional `dominant` sampling mode.
