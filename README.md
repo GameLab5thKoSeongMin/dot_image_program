@@ -18,12 +18,14 @@ The conversion is not a simple resize. The source image is divided into an outpu
 - Output size validation against original image dimensions
 - Output sizes above 256 when the source image is large enough
 - Large-output performance warnings through the warning banner
+- Output format selector in the result preview header with PNG, JPG, and Aseprite options
 - Sampling modes: `median`, `average`, `center`
 - Palette limit modes: `off`, `auto`, `4`, `8`, `16`, `32`, `64`, `128`, `256`, `custom`
 - Median cut palette quantization
 - Transparent PNG handling
 - Checkerboard preview backgrounds
 - Clean preview placeholders without broken image icons
+- `미리보기 갱신` buttons in the result preview header and Export controls
 - Result preview zoom options: `Fit`, `Actual`, `8x`, `16x`
 - PNG export
 - JPG export with white background compositing
@@ -55,13 +57,14 @@ http://localhost:8000/
 4. Select `Custom` only when you need a manually entered width or height.
 5. Select `Original` after an image is loaded to preserve the source width or height.
 6. Select `median`, `average`, or `center` sampling.
-7. Select PNG, JPG, or Aseprite output.
+7. Select PNG, JPG, or Aseprite output from the result preview header.
 8. Choose palette mode. Leave it `off` for original behavior.
 9. For palette `custom`, enter a color count from 2 to 256.
-10. Check the generated preview, result summary, and palette summary.
-11. Download the result.
+10. Use `미리보기 갱신` from the result preview header or Export controls when an explicit refresh is needed.
+11. Check the generated preview, result summary, and palette summary.
+12. Download the result.
 
-Large valid output sizes may show a warning and ask you to use `미리보기 갱신` to avoid repeated heavy auto-conversions.
+Large valid output sizes may show a warning and ask you to use `미리보기 갱신` to avoid repeated heavy auto-conversions. The same refresh action is visible in the result preview header and in the Export controls.
 
 ## 5. Output Size Policy
 Output size is limited by the original image dimensions.

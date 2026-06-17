@@ -32,6 +32,9 @@
 - result preview placeholder: Pass
 - failed preview load 처리: Pass
 - result preview zoom: Pass
+- 결과 미리보기 상단 `미리보기 갱신` 버튼 표시: Pass
+- 결과 미리보기 상단 Output format selector 표시: Pass
+- Aseprite 출력 선택 및 `.aseprite` 파일명 생성: Pass
 - sampling `median`: Pass
 - sampling `average`: Pass
 - sampling `center`: Pass
@@ -61,6 +64,9 @@ Local Edge에서 `index.html`을 열고 실제 앱 흐름을 확인했습니다.
 - `512x384` PNG 업로드 후 기본 결과는 `sample_32x32_median.png`입니다.
 - Width/Height `Original` 선택 시 큰 출력 warning banner가 표시됩니다.
 - `미리보기 갱신` 후 `sample_512x384_median.png`가 생성됩니다.
+- 결과 미리보기 상단의 `미리보기 갱신` 버튼이 데스크톱/모바일 화면 안에 표시됩니다.
+- Output format selector가 결과 미리보기 상단에 표시되고 PNG/JPG/Aseprite 옵션을 제공합니다.
+- Aseprite 선택 시 `.aseprite` 파일명이 생성됩니다.
 - palette `4` 선택 후 `sample_32x32_median_p4.png`가 생성됩니다.
 
 ## 4. 실패한 테스트

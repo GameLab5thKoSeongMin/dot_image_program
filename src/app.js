@@ -411,6 +411,10 @@
       processCurrentImage({ auto: false });
     });
 
+    elements.previewRefreshButton.addEventListener("click", function () {
+      processCurrentImage({ auto: false });
+    });
+
     elements.resultZoomSelect.addEventListener("change", function () {
       ui.applyResultZoom();
     });

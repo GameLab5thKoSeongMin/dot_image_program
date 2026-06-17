@@ -12,6 +12,7 @@
 - Disabled state for numeric options larger than the source dimension.
 - Large-output performance warnings.
 - Explicit `미리보기 갱신` button for large output conversion.
+- Header-level `미리보기 갱신` button in the result preview panel.
 - Clean original/result preview placeholders without empty or fake image sources.
 - Preview image `error` handling that restores placeholder state.
 - Result summary text.
@@ -19,6 +20,8 @@
 - UI and validation tests for the new size policy.
 
 ### Changed
+- Output format selection moved to the result preview header so PNG/JPG/Aseprite remains visible on shorter viewports.
+- Desktop layout now uses a fixed viewport-height grid with internal panel scrolling instead of expanding the whole page.
 - Removed the fixed 256x256 output size limit.
 - Output validation now allows sizes up to original image dimensions.
 - Valid output above 256 is allowed when the source image is large enough.
@@ -30,6 +33,7 @@
 ### Fixed
 - Default state no longer risks showing broken image icons.
 - Failed preview image loads no longer leave visible broken image elements.
+- The preview refresh action is no longer easy to miss on shorter desktop viewports; the input panel can scroll and the result header keeps a visible refresh button.
 
 ## [0.3.0] - Palette Limit Extension
 

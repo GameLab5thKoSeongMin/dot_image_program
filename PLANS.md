@@ -35,6 +35,8 @@ UI/size policy update U7 is complete: audit, implementation, tests, browser veri
 - Keep custom inputs hidden until their axis is set to `Custom`.
 - Use performance warnings for large output sizes instead of hard blocking.
 - Defer automatic reconversion for large output sizes and require `미리보기 갱신`.
+- Keep `미리보기 갱신` visible in the result preview header, with a second refresh button in the Export controls.
+- Keep the output format selector visible in the result preview header so PNG/JPG/Aseprite are not hidden below the fold.
 - Keep palette and export behavior unchanged.
 - Add result summary and result zoom controls because they fit the existing preview flow without a layout rewrite.
 
@@ -57,7 +59,10 @@ UI/size policy update U7 is complete: audit, implementation, tests, browser veri
 - Browser app flow loaded a generated 512x384 PNG and verified default `sample_32x32_median.png`.
 - Browser app flow verified `Original` width/height warns and defers automatic conversion.
 - Browser app flow verified pressing `미리보기 갱신` produces `sample_512x384_median.png`.
+- Follow-up visibility check verified the result-header `미리보기 갱신` button is inside the desktop and mobile viewport.
 - Browser app flow verified palette `4` produces `sample_32x32_median_p4.png`.
+- Follow-up layout check verified desktop document height equals the viewport height and page-level vertical scroll is gone.
+- Follow-up format check verified the visible output selector includes PNG, JPG, and Aseprite and that selecting Aseprite produces `formatcheck_32x32_median.aseprite`.
 
 ## 8. Next Actions
 - Try real artwork with Original-size palette reduction.
@@ -73,7 +78,7 @@ The GUI now uses separate Width and Height controls with `16`, `32`, `64`, `Orig
 `src/fileHandler.js` validates integer dimensions, minimum 1, and maximum source dimensions. It allows sizes above 256 when source dimensions allow them.
 
 ## 3. Performance Behavior
-Large output sizes show warning banners. Automatic reconversion is deferred for large sizes, and explicit conversion through `미리보기 갱신` remains available.
+Large output sizes show warning banners. Automatic reconversion is deferred for large sizes, and explicit conversion through `미리보기 갱신` remains available from the result preview header and the Export controls.
 
 ## 4. Preview Behavior
 Preview images start hidden and without `src`. Reset and failed preview paths remove `src`, hide the image, and show placeholders.

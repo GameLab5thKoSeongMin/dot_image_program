@@ -65,7 +65,7 @@ Thresholds:
 - `outputWidth * outputHeight > 65,536`: moderate warning.
 - `outputWidth * outputHeight > 262,144`: stronger warning.
 
-For large sizes, automatic reconversion on option changes is deferred. The app shows the warning banner and asks the user to press `미리보기 갱신` for explicit conversion.
+For large sizes, automatic reconversion on option changes is deferred. The app shows the warning banner and asks the user to press `미리보기 갱신` for explicit conversion. The result preview header keeps this action visible, and the Export controls keep a secondary refresh button.
 
 ## 7. Image Processing Rules
 - Draw the source image onto a temporary canvas only to read pixels.
@@ -108,20 +108,22 @@ Use the larger of output width and height:
 - Placeholders are visible before upload/conversion.
 - Preview image errors clear `src`, hide the image, restore the placeholder, and show the warning banner.
 - Preview stages use a subtle checkerboard background for transparency inspection.
+- The result preview header includes a visible `미리보기 갱신` action.
+- The result preview header includes the output format selector so PNG/JPG/Aseprite is visible without scrolling.
 - Result preview supports `Fit`, `Actual`, `8x`, and `16x` zoom.
 
 ## 12. GUI Layout
 The app keeps the four-section layout.
 
 - Top-left: input image preview
-- Top-right: generated result preview and zoom control
-- Bottom-left: image input and conversion options
+- Top-right: generated result preview, output format selector, `미리보기 갱신`, and zoom control
+- Bottom-left: image input, conversion options, and secondary Export refresh action
 - Bottom-right: output metadata and download
 
 The options area is grouped into:
 - Output Size
 - Pixel Processing
-- Export
+- Export refresh action
 
 The output panel shows filename, size, sampling mode, format, palette text, and a compact result summary.
 

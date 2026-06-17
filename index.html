@@ -31,15 +31,26 @@
           <h2 id="resultPreviewTitle">생성된 픽셀 아이콘</h2>
           <span id="resultMetaLabel" class="panel-meta panel-meta-inline">32x32 / median / palette off / PNG</span>
         </div>
-        <label class="zoom-control">
-          <span>Zoom</span>
-          <select id="resultZoomSelect">
-            <option value="fit" selected>Fit</option>
-            <option value="actual">Actual</option>
-            <option value="8">8x</option>
-            <option value="16">16x</option>
-          </select>
-        </label>
+        <div class="preview-actions">
+          <label class="preview-format-control">
+            <span>Output</span>
+            <select id="outputFormatSelect">
+              <option value="png" selected>PNG</option>
+              <option value="jpg">JPG</option>
+              <option value="aseprite">Aseprite</option>
+            </select>
+          </label>
+          <button id="previewRefreshButton" class="convert-button preview-refresh-button" type="button" disabled>미리보기 갱신</button>
+          <label class="zoom-control">
+            <span>Zoom</span>
+            <select id="resultZoomSelect">
+              <option value="fit" selected>Fit</option>
+              <option value="actual">Actual</option>
+              <option value="8">8x</option>
+              <option value="16">16x</option>
+            </select>
+          </label>
+        </div>
       </div>
       <div class="preview-stage preview-stage-result">
         <p id="resultPlaceholder" class="placeholder">변환 결과가 여기에 표시됩니다.</p>
@@ -131,14 +142,6 @@
 
         <fieldset class="control-group export-group">
           <legend>Export</legend>
-          <label class="control-field">
-            <span>Output</span>
-            <select id="outputFormatSelect">
-              <option value="png" selected>PNG</option>
-              <option value="jpg">JPG</option>
-              <option value="aseprite">Aseprite</option>
-            </select>
-          </label>
           <button id="convertButton" class="convert-button" type="button">미리보기 갱신</button>
         </fieldset>
       </div>

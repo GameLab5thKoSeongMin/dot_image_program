@@ -51,6 +51,8 @@ Result: Pass.
 - [x] 320x240 shows a moderate performance warning.
 - [x] 800x600 shows a strong performance warning.
 - [x] Large output warning does not block explicit conversion.
+- [x] The result preview header exposes a visible `미리보기 갱신` button.
+- [x] The result preview header exposes the output format selector with PNG, JPG, and Aseprite.
 
 Result: Pass. Browser app flow verified Original 512x384 warns, defers automatic conversion, and then converts after `미리보기 갱신`.
 
@@ -118,7 +120,24 @@ Result: Pass.
     - Pressing `미리보기 갱신` produced `sample_512x384_median.png`.
     - Palette `4` produced `sample_32x32_median_p4.png`.
 
-## 13. Verification Notes
+## 13. Preview Refresh Visibility Check
+- [x] Result-header `미리보기 갱신` is visible on a 1280x720 desktop viewport.
+- [x] Result-header `미리보기 갱신` is visible on a 390x844 mobile viewport.
+- [x] The lower Export `미리보기 갱신` button remains in the option panel.
+
+Result: Pass. Local Edge confirmed the header button was inside the viewport on desktop and mobile after the follow-up CSS/HTML update.
+
+## 14. Layout and Output Format Visibility Check
+- [x] Desktop 1366x768 document height equals viewport height.
+- [x] Desktop 1280x720 document height equals viewport height.
+- [x] Page-level vertical scrolling is removed on desktop; panels scroll internally when needed.
+- [x] Output format selector is visible in the result preview header.
+- [x] Output format selector options are `png`, `jpg`, and `aseprite`.
+- [x] Selecting Aseprite produces `.aseprite` filename and `Aseprite` output label.
+
+Result: Pass. Local Edge verified `formatcheck_32x32_median.aseprite`.
+
+## 15. Verification Notes
 - Static syntax checks passed for app JS files.
 - The implementation keeps normal script tags and does not use ES Modules.
 - Source search found no `alert(` usage.

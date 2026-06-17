@@ -9,13 +9,13 @@ The converter must not be simplified into a resize shortcut.
 
 ## Repository Layout
 - `index.html`: Main HTML entry and four-section app layout.
-- `styles/style.css`: Layout, controls, preview, warning banner, checkerboard backgrounds, and responsive styling.
+- `styles/style.css`: Layout, controls, preview, warning banner, checkerboard backgrounds, visible preview refresh actions, and responsive styling.
 - `src/constants.js`: Global constants for size axis options, defaults, performance thresholds, modes, formats, palette limits, and Aseprite identifiers.
 - `src/fileHandler.js`: File validation, output size validation against source dimensions, performance warning policy, palette option validation, option normalization, and filename handling.
 - `src/imageProcessor.js`: Image loading, tile bounds, median/average/center sampling, and transparency handling.
 - `src/paletteQuantizer.js`: Palette limit post-processing using median cut quantization.
 - `src/exporter.js`: PNG/JPG/Aseprite export helpers.
-- `src/uiController.js`: DOM updates, separate width/height controls, custom input visibility, source-size availability, preview placeholders, zoom, summaries, palette summaries, warning banner, and download state.
+- `src/uiController.js`: DOM updates, separate width/height controls, custom input visibility, source-size availability, preview placeholders, preview refresh state, zoom, summaries, palette summaries, warning banner, and download state.
 - `src/app.js`: App entry point, source image state, size resolution, validation, conversion, palette limiting, performance warning flow, export, and download.
 - `tests/test-cases.html`: Manual/browser test runner for conversion, validation, UI policy, palette, placeholder, and export behavior.
 - `tests/testImageFactory.js`: Test image generation helpers.
@@ -59,6 +59,8 @@ Before considering this project complete:
 - Test output size validation against source dimensions.
 - Test output sizes above 256 when the source image is large enough.
 - Test large output performance warnings and confirm they do not block explicit conversion.
+- Confirm `미리보기 갱신` is visible from the result preview header and remains available from the Export controls.
+- Confirm the output format selector is visible from the result preview header and includes PNG, JPG, and Aseprite.
 - Test `median`, `average`, and `center` sampling modes.
 - Test palette modes: `off`, `auto`, numeric, and `custom`.
 - Test custom palette validation below 2 and above 256.

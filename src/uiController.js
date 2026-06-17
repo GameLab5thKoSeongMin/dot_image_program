@@ -38,6 +38,7 @@
       resultSummary: requireElement("resultSummary"),
       downloadButton: requireElement("downloadButton"),
       convertButton: requireElement("convertButton"),
+      previewRefreshButton: requireElement("previewRefreshButton"),
       outputWidthInput: requireElement("outputWidthInput"),
       outputHeightInput: requireElement("outputHeightInput"),
       customWidthField: requireElement("customWidthField"),
@@ -306,6 +307,7 @@
 
   function setConvertEnabled(enabled) {
     elements.convertButton.disabled = !enabled;
+    elements.previewRefreshButton.disabled = !enabled;
   }
 
   function setDropActive(active) {
