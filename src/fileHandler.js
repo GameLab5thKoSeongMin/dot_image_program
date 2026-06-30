@@ -171,6 +171,180 @@
     return paletteMode;
   }
 
+  function normalizePaletteSource(paletteSource) {
+    if (constants.PALETTE_SOURCE_MODES.indexOf(paletteSource) === -1) {
+      return constants.DEFAULT_PALETTE_SOURCE;
+    }
+    return paletteSource;
+  }
+
+  function getBuiltInPaletteById(paletteId) {
+    var palettes = constants.BUILT_IN_PALETTES || [];
+    var fallback = palettes[0] || null;
+
+    return palettes.find(function (palette) {
+      return palette.id === paletteId;
+    }) || fallback;
+  }
+
+  function normalizeBuiltInPaletteId(paletteId) {
+    var palette = getBuiltInPaletteById(paletteId || constants.DEFAULT_BUILT_IN_PALETTE_ID);
+    return palette ? palette.id : constants.DEFAULT_BUILT_IN_PALETTE_ID;
+  }
+
+  function normalizeDitheringMode(ditheringMode) {
+    if (constants.DITHERING_MODES.indexOf(ditheringMode) === -1) {
+      return constants.DEFAULT_DITHERING_MODE;
+    }
+    return ditheringMode;
+  }
+
+  function normalizeRangedNumber(value, minimum, maximum, fallback) {
+    var numericValue = Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+      return fallback;
+    }
+
+    return Math.max(minimum, Math.min(maximum, numericValue));
+  }
+
+  function normalizePreprocessAdjustment(value, fallback) {
+    return normalizeRangedNumber(
+      value,
+      constants.PREPROCESS_ADJUSTMENT_MIN,
+      constants.PREPROCESS_ADJUSTMENT_MAX,
+      fallback
+    );
+  }
+
+  function normalizeSharpenMode(sharpenMode) {
+    if (constants.SHARPEN_MODES.indexOf(sharpenMode) === -1) {
+      return constants.DEFAULT_SHARPEN_MODE;
+    }
+    return sharpenMode;
+  }
+
+  function normalizeBackgroundCleanupTolerance(tolerance) {
+    return normalizeRangedNumber(
+      tolerance,
+      constants.BACKGROUND_CLEANUP_TOLERANCE_MIN,
+      constants.BACKGROUND_CLEANUP_TOLERANCE_MAX,
+      constants.DEFAULT_BACKGROUND_CLEANUP_TOLERANCE
+    );
+  }
+
+  function normalizeOutlineMode(outlineMode) {
+    if (constants.OUTLINE_MODES.indexOf(outlineMode) === -1) {
+      return constants.DEFAULT_OUTLINE_MODE;
+    }
+    return outlineMode;
+  }
+
+  function normalizeHexToken(token) {
+    var value = String(token || "").trim();
+    var hex;
+
+    if (!value) {
+      return null;
+    }
+
+    if (value.charAt(0) === "#") {
+      value = value.slice(1);
+    }
+
+    if (/^[0-9a-fA-F]{3}$/.test(value)) {
+      hex = value.split("").map(function (character) {
+        return character + character;
+      }).join("");
+      return "#" + hex.toLowerCase();
+    }
+
+    if (/^[0-9a-fA-F]{6}$/.test(value)) {
+      return "#" + value.toLowerCase();
+    }
+
+    return null;
+  }
+
+  function hexToRgb(hexColor) {
+    var normalized = normalizeHexToken(hexColor);
+
+    if (!normalized) {
+      return null;
+    }
+
+    return {
+      r: parseInt(normalized.slice(1, 3), 16),
+      g: parseInt(normalized.slice(3, 5), 16),
+      b: parseInt(normalized.slice(5, 7), 16),
+      hex: normalized
+    };
+  }
+
+  function createRgbPaletteFromHexColors(hexColors) {
+    return (hexColors || []).map(hexToRgb).filter(function (color) {
+      return !!color;
+    });
+  }
+
+  function parseHexPaletteText(text) {
+    var rawText = String(text || "");
+    var tokens = rawText.split(/[\s,;]+/).filter(function (token) {
+      return token.trim() !== "";
+    });
+    var seen = Object.create(null);
+    var colors = [];
+    var invalidTokens = [];
+
+    tokens.forEach(function (token) {
+      var normalized = normalizeHexToken(token);
+
+      if (!normalized) {
+        invalidTokens.push(token);
+        return;
+      }
+
+      if (!seen[normalized]) {
+        seen[normalized] = true;
+        colors.push(normalized);
+      }
+    });
+
+    if (invalidTokens.length) {
+      return {
+        valid: false,
+        message: "유효한 HEX 색상이 필요합니다.",
+        colors: colors,
+        invalidTokens: invalidTokens
+      };
+    }
+
+    if (colors.length < constants.MIN_PALETTE_COLORS) {
+      return {
+        valid: false,
+        message: "palette 색상은 2개 이상이어야 합니다.",
+        colors: colors
+      };
+    }
+
+    if (colors.length > constants.MAX_PALETTE_COLORS) {
+      return {
+        valid: false,
+        message: "palette 색상은 최대 256개까지 지원합니다.",
+        colors: colors
+      };
+    }
+
+    return {
+      valid: true,
+      message: "",
+      colors: colors,
+      rgbColors: createRgbPaletteFromHexColors(colors),
+      colorCount: colors.length
+    };
+  }
+
   function validatePaletteOptions(paletteMode, customPaletteCount) {
     var normalizedMode = normalizePaletteMode(paletteMode);
     var count;
@@ -230,6 +404,22 @@
     });
   }
 
+  function readFileAsText(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+
+      reader.onload = function () {
+        resolve(reader.result || "");
+      };
+
+      reader.onerror = function () {
+        reject(new Error("파일을 읽을 수 없습니다."));
+      };
+
+      reader.readAsText(file);
+    });
+  }
+
   function sanitizeBaseName(filename) {
     var withoutExtension = filename.replace(/\.[^.]+$/, "");
     var safeName = withoutExtension
@@ -283,7 +473,20 @@
     normalizeSamplingMode: normalizeSamplingMode,
     normalizeOutputFormat: normalizeOutputFormat,
     normalizePaletteMode: normalizePaletteMode,
+    normalizePaletteSource: normalizePaletteSource,
+    normalizeBuiltInPaletteId: normalizeBuiltInPaletteId,
+    normalizeDitheringMode: normalizeDitheringMode,
+    normalizePreprocessAdjustment: normalizePreprocessAdjustment,
+    normalizeSharpenMode: normalizeSharpenMode,
+    normalizeBackgroundCleanupTolerance: normalizeBackgroundCleanupTolerance,
+    normalizeOutlineMode: normalizeOutlineMode,
+    getBuiltInPaletteById: getBuiltInPaletteById,
+    normalizeHexToken: normalizeHexToken,
+    hexToRgb: hexToRgb,
+    parseHexPaletteText: parseHexPaletteText,
+    createRgbPaletteFromHexColors: createRgbPaletteFromHexColors,
     readFileAsDataURL: readFileAsDataURL,
+    readFileAsText: readFileAsText,
     createOutputFilename: createOutputFilename,
     getFileExtension: getFileExtension,
     getReadableFileSize: getReadableFileSize,

@@ -46,6 +46,221 @@
     return context.getImageData(0, 0, width, height);
   }
 
+  function cloneImageData(imageData) {
+    return new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height);
+  }
+
+  function clampChannel(value) {
+    var numericValue = Number(value);
+    return Number.isFinite(numericValue)
+      ? Math.max(0, Math.min(255, Math.round(numericValue)))
+      : 0;
+  }
+
+  function clampNumber(value, minimum, maximum, fallback) {
+    var numericValue = Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+      return fallback;
+    }
+
+    return Math.max(minimum, Math.min(maximum, numericValue));
+  }
+
+  function normalizeSharpenMode(mode) {
+    return constants.SHARPEN_MODES.indexOf(mode) === -1
+      ? constants.DEFAULT_SHARPEN_MODE
+      : mode;
+  }
+
+  function normalizePreprocessOptions(options) {
+    var safeOptions = options || {};
+    var cleanupColor = safeOptions.backgroundCleanupColor || { r: 255, g: 255, b: 255 };
+
+    return {
+      brightness: clampNumber(
+        safeOptions.brightness,
+        constants.PREPROCESS_ADJUSTMENT_MIN,
+        constants.PREPROCESS_ADJUSTMENT_MAX,
+        constants.DEFAULT_BRIGHTNESS
+      ),
+      contrast: clampNumber(
+        safeOptions.contrast,
+        constants.PREPROCESS_ADJUSTMENT_MIN,
+        constants.PREPROCESS_ADJUSTMENT_MAX,
+        constants.DEFAULT_CONTRAST
+      ),
+      saturation: clampNumber(
+        safeOptions.saturation,
+        constants.PREPROCESS_ADJUSTMENT_MIN,
+        constants.PREPROCESS_ADJUSTMENT_MAX,
+        constants.DEFAULT_SATURATION
+      ),
+      sharpenMode: normalizeSharpenMode(safeOptions.sharpenMode),
+      backgroundCleanupEnabled: !!safeOptions.backgroundCleanupEnabled,
+      backgroundCleanupColor: {
+        r: clampChannel(cleanupColor.r),
+        g: clampChannel(cleanupColor.g),
+        b: clampChannel(cleanupColor.b)
+      },
+      backgroundCleanupTolerance: clampNumber(
+        safeOptions.backgroundCleanupTolerance,
+        constants.BACKGROUND_CLEANUP_TOLERANCE_MIN,
+        constants.BACKGROUND_CLEANUP_TOLERANCE_MAX,
+        constants.DEFAULT_BACKGROUND_CLEANUP_TOLERANCE
+      )
+    };
+  }
+
+  function cleanupBackgroundInImageData(imageData, color, tolerance) {
+    var cleaned = cloneImageData(imageData);
+    var data = cleaned.data;
+    var target = color || { r: 255, g: 255, b: 255 };
+    var safeTolerance = Math.max(0, Number(tolerance) || 0);
+    var removedPixelCount = 0;
+
+    for (var index = 0; index < data.length; index += 4) {
+      if (isTransparentPixel(data[index + 3])) {
+        continue;
+      }
+
+      var redDelta = data[index] - target.r;
+      var greenDelta = data[index + 1] - target.g;
+      var blueDelta = data[index + 2] - target.b;
+      var distance = Math.sqrt(
+        redDelta * redDelta +
+        greenDelta * greenDelta +
+        blueDelta * blueDelta
+      );
+
+      if (distance <= safeTolerance) {
+        data[index] = 0;
+        data[index + 1] = 0;
+        data[index + 2] = 0;
+        data[index + 3] = 0;
+        removedPixelCount += 1;
+      }
+    }
+
+    return {
+      imageData: cleaned,
+      removedPixelCount: removedPixelCount
+    };
+  }
+
+  function adjustImageData(imageData, brightness, contrast, saturation) {
+    var adjusted = cloneImageData(imageData);
+    var data = adjusted.data;
+    var brightnessOffset = 255 * brightness / 100;
+    var contrastValue = 255 * contrast / 100;
+    var contrastFactor = (259 * (contrastValue + 255)) / (255 * (259 - contrastValue));
+    var saturationFactor = 1 + saturation / 100;
+
+    for (var index = 0; index < data.length; index += 4) {
+      if (isTransparentPixel(data[index + 3])) {
+        continue;
+      }
+
+      var red = contrastFactor * (data[index] - 128) + 128 + brightnessOffset;
+      var green = contrastFactor * (data[index + 1] - 128) + 128 + brightnessOffset;
+      var blue = contrastFactor * (data[index + 2] - 128) + 128 + brightnessOffset;
+      var luminance = red * 0.2126 + green * 0.7152 + blue * 0.0722;
+
+      data[index] = clampChannel(luminance + (red - luminance) * saturationFactor);
+      data[index + 1] = clampChannel(luminance + (green - luminance) * saturationFactor);
+      data[index + 2] = clampChannel(luminance + (blue - luminance) * saturationFactor);
+    }
+
+    return adjusted;
+  }
+
+  function getSharpenNeighborChannel(data, width, height, x, y, channel, centerValue) {
+    if (x < 0 || x >= width || y < 0 || y >= height) {
+      return centerValue;
+    }
+
+    var index = (y * width + x) * 4;
+    return isTransparentPixel(data[index + 3]) ? centerValue : data[index + channel];
+  }
+
+  function sharpenImageData(imageData, mode) {
+    var sharpenMode = normalizeSharpenMode(mode);
+
+    if (sharpenMode === "off") {
+      return imageData;
+    }
+
+    var source = imageData.data;
+    var sharpened = cloneImageData(imageData);
+    var output = sharpened.data;
+    var width = imageData.width;
+    var height = imageData.height;
+    var amount = sharpenMode === "medium" ? 0.7 : 0.35;
+
+    for (var y = 0; y < height; y += 1) {
+      for (var x = 0; x < width; x += 1) {
+        var index = (y * width + x) * 4;
+
+        if (isTransparentPixel(source[index + 3])) {
+          continue;
+        }
+
+        for (var channel = 0; channel < 3; channel += 1) {
+          var center = source[index + channel];
+          var sharpenedValue = center * 5 -
+            getSharpenNeighborChannel(source, width, height, x - 1, y, channel, center) -
+            getSharpenNeighborChannel(source, width, height, x + 1, y, channel, center) -
+            getSharpenNeighborChannel(source, width, height, x, y - 1, channel, center) -
+            getSharpenNeighborChannel(source, width, height, x, y + 1, channel, center);
+
+          output[index + channel] = clampChannel(center + (sharpenedValue - center) * amount);
+        }
+      }
+    }
+
+    return sharpened;
+  }
+
+  function applyPreprocessToImageData(imageData, options) {
+    var normalized = normalizePreprocessOptions(options);
+    var hasAdjustments = normalized.brightness !== constants.DEFAULT_BRIGHTNESS ||
+      normalized.contrast !== constants.DEFAULT_CONTRAST ||
+      normalized.saturation !== constants.DEFAULT_SATURATION;
+    var hasSharpen = normalized.sharpenMode !== constants.DEFAULT_SHARPEN_MODE;
+    var currentImageData = imageData;
+    var removedPixelCount = 0;
+
+    if (normalized.backgroundCleanupEnabled) {
+      var cleanupResult = cleanupBackgroundInImageData(
+        currentImageData,
+        normalized.backgroundCleanupColor,
+        normalized.backgroundCleanupTolerance
+      );
+      currentImageData = cleanupResult.imageData;
+      removedPixelCount = cleanupResult.removedPixelCount;
+    }
+
+    if (hasAdjustments) {
+      currentImageData = adjustImageData(
+        currentImageData,
+        normalized.brightness,
+        normalized.contrast,
+        normalized.saturation
+      );
+    }
+
+    if (hasSharpen) {
+      currentImageData = sharpenImageData(currentImageData, normalized.sharpenMode);
+    }
+
+    return {
+      imageData: currentImageData,
+      options: normalized,
+      preprocessApplied: normalized.backgroundCleanupEnabled || hasAdjustments || hasSharpen,
+      removedPixelCount: removedPixelCount
+    };
+  }
+
   function normalizeConversionOptions(options) {
     var safeOptions = options || {};
     var outputWidth = Number(safeOptions.outputWidth) || constants.DEFAULT_OUTPUT_WIDTH;
@@ -57,7 +272,8 @@
     return {
       outputWidth: outputWidth,
       outputHeight: outputHeight,
-      samplingMode: samplingMode
+      samplingMode: samplingMode,
+      preprocess: normalizePreprocessOptions(safeOptions.preprocess)
     };
   }
 
@@ -303,8 +519,13 @@
   }
 
   function convertImageToPixelIcon(image, options) {
-    var sourceImageData = createSourceImageData(image);
     var conversionOptions = normalizeConversionOptions(options);
+    var originalSourceImageData = createSourceImageData(image);
+    var preprocessResult = applyPreprocessToImageData(
+      originalSourceImageData,
+      conversionOptions.preprocess
+    );
+    var sourceImageData = preprocessResult.imageData;
     var outputWidth = conversionOptions.outputWidth;
     var outputHeight = conversionOptions.outputHeight;
     var samplingMode = conversionOptions.samplingMode;
@@ -344,7 +565,11 @@
       sourceWidth: sourceImageData.width,
       sourceHeight: sourceImageData.height,
       samplingMode: samplingMode,
-      sourceHasTransparency: imageDataHasTransparency(sourceImageData),
+      sourceHasTransparency: imageDataHasTransparency(originalSourceImageData),
+      preprocessedSourceHasTransparency: imageDataHasTransparency(sourceImageData),
+      preprocessApplied: preprocessResult.preprocessApplied,
+      preprocessOptions: preprocessResult.options,
+      backgroundRemovedPixelCount: preprocessResult.removedPixelCount,
       resultHasTransparency: imageDataHasTransparency(outputImageData)
     };
   }
@@ -360,6 +585,11 @@
     calculateTileRepresentativeColor: calculateTileRepresentativeColor,
     calculateMedian: calculateMedian,
     calculateAverage: calculateAverage,
+    normalizePreprocessOptions: normalizePreprocessOptions,
+    cleanupBackgroundInImageData: cleanupBackgroundInImageData,
+    adjustImageData: adjustImageData,
+    sharpenImageData: sharpenImageData,
+    applyPreprocessToImageData: applyPreprocessToImageData,
     isTransparentPixel: isTransparentPixel,
     shouldTileBeTransparent: shouldTileBeTransparent,
     imageDataHasTransparency: imageDataHasTransparency

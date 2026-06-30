@@ -141,6 +141,7 @@
   <script src="../src/fileHandler.js"></script>
   <script src="../src/imageProcessor.js"></script>
   <script src="../src/paletteQuantizer.js"></script>
+  <script src="../src/iconAssistProcessor.js"></script>
   <script src="../src/exporter.js"></script>
   <script src="../src/uiController.js"></script>
   <script src="./testImageFactory.js"></script>
@@ -154,6 +155,7 @@
       var factory = window.PixelIconTestImageFactory;
       var processor = window.PixelIconImageProcessor;
       var quantizer = window.PixelIconPaletteQuantizer;
+      var iconAssist = window.PixelIconIconAssistProcessor;
       var fileHandler = window.PixelIconFileHandler;
       var exporter = window.PixelIconExporter;
       var constants = window.PixelIconConstants;
@@ -205,6 +207,24 @@
       function assert(condition, message) {
         if (!condition) {
           throw new Error(message);
+        }
+      }
+
+      function getCanvasImageData(canvas) {
+        return canvas.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height);
+      }
+
+      function assertCanvasPixelsEqual(canvasA, canvasB, message) {
+        var dataA = getCanvasImageData(canvasA).data;
+        var dataB = getCanvasImageData(canvasB).data;
+
+        assert(canvasA.width === canvasB.width && canvasA.height === canvasB.height, message + ": size mismatch");
+        assert(dataA.length === dataB.length, message + ": data length mismatch");
+
+        for (var index = 0; index < dataA.length; index += 1) {
+          if (dataA[index] !== dataB[index]) {
+            throw new Error(message + ": pixel mismatch at byte " + index);
+          }
         }
       }
 
@@ -352,10 +372,36 @@
           '<label id="customWidthField"><input id="outputWidthInput" type="number" value="32"></label>' +
           '<label id="customHeightField"><input id="outputHeightInput" type="number" value="32"></label>' +
           '<select id="samplingModeSelect"><option value="median" selected>median</option><option value="average">average</option><option value="center">center</option><option value="dominant">dominant</option></select>' +
+          '<select id="ditheringModeSelect"><option value="off" selected>off</option><option value="floydSteinberg">Floyd-Steinberg</option><option value="bayer4x4">Bayer 4x4</option></select>' +
+          '<details id="preprocessSection"></details>' +
+          '<input id="brightnessInput" type="range" min="-100" max="100" value="0"><output id="brightnessValue"></output>' +
+          '<input id="contrastInput" type="range" min="-100" max="100" value="0"><output id="contrastValue"></output>' +
+          '<input id="saturationInput" type="range" min="-100" max="100" value="0"><output id="saturationValue"></output>' +
+          '<select id="sharpenModeSelect"><option value="off" selected>off</option><option value="low">low</option><option value="medium">medium</option></select>' +
+          '<input id="backgroundCleanupToggle" type="checkbox">' +
+          '<div id="backgroundCleanupControls"></div>' +
+          '<input id="backgroundCleanupColorInput" type="color" value="#ffffff">' +
+          '<input id="backgroundCleanupToleranceInput" type="range" min="0" max="255" value="0"><output id="backgroundCleanupToleranceValue"></output>' +
+          '<details id="iconAssistSection"></details>' +
+          '<select id="outlineModeSelect"><option value="off" selected>off</option><option value="black">1px black</option><option value="dark">1px dark</option></select>' +
+          '<select id="paletteSourceSelect"><option value="generated" selected>Generated</option><option value="builtIn">Built-in</option><option value="imported">Imported</option></select>' +
+          '<label id="builtInPaletteField"><select id="builtInPaletteSelect"><option value="grayscale4" selected>Grayscale 4</option><option value="gameboyLike4">Gameboy-like 4</option></select></label>' +
+          '<div id="importedPaletteField"><textarea id="importedPaletteTextInput"></textarea><input id="importedPaletteFileInput" type="file"><button id="applyImportedPaletteButton" type="button"></button><div id="importedPalettePreview"></div></div>' +
           '<select id="outputFormatSelect"><option value="png" selected>PNG</option><option value="jpg">JPG</option><option value="aseprite">Aseprite</option></select>' +
           '<select id="paletteModeSelect"><option value="off" selected>off</option><option value="auto">auto</option><option value="custom">custom</option></select>' +
           '<label id="customPaletteField"><input id="customPaletteCountInput" type="number" value="16"></label>' +
           '<p id="paletteSummary"></p>' +
+          '<details id="paletteEditorSection"><summary>Palette Editor</summary></details>' +
+          '<p id="paletteEditorNotice">설정을 변경하거나 다시 변환하면 수동 palette 편집 결과가 초기화됩니다.</p>' +
+          '<p id="resultPaletteStats"></p>' +
+          '<div id="resultPaletteSwatches"></div>' +
+          '<strong id="selectedPaletteColor"></strong>' +
+          '<button id="copyPaletteHexButton" type="button"></button>' +
+          '<input id="paletteReplacementInput" type="text" value="#000000">' +
+          '<button id="replacePaletteColorButton" type="button"></button>' +
+          '<select id="paletteMergeTargetSelect"><option value="">Select target</option></select>' +
+          '<button id="mergePaletteColorButton" type="button"></button>' +
+          '<p id="paletteEditorStatus"></p>' +
           '<div id="warningBanner" hidden><span id="warningMessage"></span><button id="warningCloseButton" type="button"></button></div>';
         document.body.appendChild(fixture);
         return fixture;
@@ -392,6 +438,18 @@
         var samplingValues = Array.prototype.slice.call(elements.samplingModeSelect.options).map(function (option) {
           return option.value;
         }).join(",");
+        var ditheringValues = Array.prototype.slice.call(elements.ditheringModeSelect.options).map(function (option) {
+          return option.value;
+        }).join(",");
+        var sharpenValues = Array.prototype.slice.call(elements.sharpenModeSelect.options).map(function (option) {
+          return option.value;
+        }).join(",");
+        var outlineValues = Array.prototype.slice.call(elements.outlineModeSelect.options).map(function (option) {
+          return option.value;
+        }).join(",");
+        var paletteSourceValues = Array.prototype.slice.call(elements.paletteSourceSelect.options).map(function (option) {
+          return option.value;
+        }).join(",");
         var formatValues = Array.prototype.slice.call(elements.outputFormatSelect.options).map(function (option) {
           return option.value;
         }).join(",");
@@ -403,12 +461,66 @@
         assert(heightValues === "16,32,64,128,256", "Height option list mismatch: " + heightValues);
         assert(!widthOriginalButton && !widthCustomButton, "Original/Custom size buttons should not exist");
         assert(samplingValues === "median,average,center,dominant", "Sampling option list mismatch: " + samplingValues);
+        assert(ditheringValues === "off,floydSteinberg,bayer4x4", "Dithering option list mismatch: " + ditheringValues);
+        assert(elements.ditheringModeSelect.value === "off", "Dithering should default to off");
+        assert(elements.brightnessInput.value === "0", "Brightness should default to 0");
+        assert(elements.contrastInput.value === "0", "Contrast should default to 0");
+        assert(elements.saturationInput.value === "0", "Saturation should default to 0");
+        assert(sharpenValues === "off,low,medium", "Sharpen option list mismatch: " + sharpenValues);
+        assert(elements.sharpenModeSelect.value === "off", "Sharpen should default to off");
+        assert(!elements.backgroundCleanupToggle.checked, "Background cleanup should default to off");
+        assert(elements.backgroundCleanupColorInput.disabled, "Background cleanup color should start disabled");
+        assert(elements.backgroundCleanupToleranceInput.disabled, "Background cleanup tolerance should start disabled");
+        assert(outlineValues === "off,black,dark", "Outline option list mismatch: " + outlineValues);
+        assert(elements.outlineModeSelect.value === "off", "Outline should default to off");
+        assert(!elements.preprocessSection.open, "Preprocess should start collapsed");
+        assert(!elements.iconAssistSection.open, "Icon Assist should start collapsed");
+        assert(paletteSourceValues === "generated,builtIn,imported", "Palette source option list mismatch: " + paletteSourceValues);
+        assert(elements.paletteSourceSelect.value === "generated", "Palette source should default to generated");
+        assert(elements.builtInPaletteField.hidden, "Built-in palette field should start hidden");
+        assert(elements.importedPaletteField.hidden, "Imported palette field should start hidden");
+        assert(!elements.paletteModeSelect.disabled, "Generated palette source should keep palette mode enabled");
         assert(formatValues === "png,jpg,aseprite", "Output format list mismatch: " + formatValues);
         assert(!ui.isCustomSizeEnabled(), "Custom size toggle should start off");
         assert(elements.customWidthField.hidden, "Custom width field should start hidden");
         assert(elements.customHeightField.hidden, "Custom height field should start hidden");
         assert(elements.outputWidthInput.disabled, "Custom width input should start disabled");
         assert(elements.outputHeightInput.disabled, "Custom height input should start disabled");
+        assert(elements.copyPaletteHexButton.disabled, "Copy HEX should be disabled before result palette exists");
+        assert(elements.replacePaletteColorButton.disabled, "Replace color should be disabled before result palette exists");
+        assert(elements.mergePaletteColorButton.disabled, "Merge color should be disabled before result palette exists");
+        assert(elements.paletteEditorNotice.textContent.indexOf("초기화") !== -1, "Palette edit reset policy should be visible");
+
+        elements.backgroundCleanupToggle.checked = true;
+        ui.updatePreprocessControls();
+        assert(!elements.backgroundCleanupColorInput.disabled, "Background cleanup color should enable with cleanup");
+        assert(!elements.backgroundCleanupToleranceInput.disabled, "Background cleanup tolerance should enable with cleanup");
+        elements.brightnessInput.value = "20";
+        elements.contrastInput.value = "-10";
+        elements.saturationInput.value = "15";
+        elements.backgroundCleanupToleranceInput.value = "24";
+        ui.updatePreprocessControls();
+        assert(elements.brightnessValue.textContent === "20", "Brightness output should track range value");
+        assert(elements.contrastValue.textContent === "-10", "Contrast output should track range value");
+        assert(elements.saturationValue.textContent === "15", "Saturation output should track range value");
+        assert(elements.backgroundCleanupToleranceValue.textContent === "24", "Cleanup tolerance output should track range value");
+
+        ui.updatePaletteEditor({
+          colors: [
+            { r: 255, g: 0, b: 0, hex: "#ff0000", count: 8, percentage: 80 },
+            { r: 0, g: 0, b: 255, hex: "#0000ff", count: 2, percentage: 20 }
+          ],
+          visibleColorCount: 2,
+          visiblePixelCount: 10,
+          transparentPixelCount: 6
+        });
+        assert(elements.resultPaletteSwatches.children.length === 2, "Palette editor should render result swatches");
+        assert(ui.getSelectedPaletteHex() === "#ff0000", "Palette editor should select the first swatch");
+        assert(!elements.copyPaletteHexButton.disabled, "Copy HEX should enable after palette render");
+        assert(elements.paletteMergeTargetSelect.options.length === 2, "Merge target should exclude selected source color");
+        ui.resetPaletteEditor();
+        assert(elements.resultPaletteSwatches.children.length === 0, "Palette editor reset should clear swatches");
+        assert(elements.copyPaletteHexButton.disabled, "Palette editor reset should disable actions");
 
         ui.setCustomSizeEnabled(true);
         assert(elements.widthAxisButtonGroup.hidden, "Width preset buttons should hide in custom mode");
@@ -426,6 +538,22 @@
         assert(width32Button.disabled, "Width 32 should be disabled for a 20px source width");
         assert(!height32Button.disabled, "Height 32 should remain enabled for a 40px source height");
         assert(height64Button.disabled, "Height 64 should be disabled for a 40px source height");
+
+        elements.paletteSourceSelect.value = "builtIn";
+        ui.updatePaletteControls();
+        assert(!elements.builtInPaletteField.hidden, "Built-in palette field should show for built-in source");
+        assert(elements.importedPaletteField.hidden, "Imported palette field should hide for built-in source");
+        assert(elements.paletteModeSelect.disabled, "Fixed palette source should disable generated palette limit controls");
+
+        elements.paletteSourceSelect.value = "imported";
+        ui.updatePaletteControls();
+        assert(elements.builtInPaletteField.hidden, "Built-in palette field should hide for imported source");
+        assert(!elements.importedPaletteField.hidden, "Imported palette field should show for imported source");
+        assert(elements.importedPaletteTextInput.disabled === false, "Imported palette textarea should enable for imported source");
+
+        elements.paletteSourceSelect.value = "generated";
+        ui.updatePaletteControls();
+        assert(!elements.paletteModeSelect.disabled, "Generated source should re-enable palette mode controls");
 
         ui.showOriginalPreview(sourceCanvas.toDataURL("image/png"), sourceCanvas.width, sourceCanvas.height);
         assert(!elements.originalPreview.hidden && elements.originalPreview.hasAttribute("src"), "Original preview should show valid image source");
@@ -465,6 +593,24 @@
             description: "Custom inputs are hidden until the Custom size toggle is enabled.",
             pass: true,
             note: "custom fields toggle correctly."
+          },
+          {
+            name: "Palette source UI",
+            description: "Generated, built-in, and imported palette source controls expose the expected fields.",
+            pass: true,
+            note: "palette source defaults and visibility rules are valid."
+          },
+          {
+            name: "Palette editor UI",
+            description: "Result swatches, Copy HEX, Replace, Merge, and edit-reset notice are available.",
+            pass: true,
+            note: "palette editor controls and reset policy are visible."
+          },
+          {
+            name: "Preprocess and Icon Assist UI",
+            description: "Neutral defaults, collapsed sections, cleanup enablement, and outline options are valid.",
+            pass: true,
+            note: "preprocess and icon assist controls use safe defaults."
           },
           {
             name: "Preset availability",
@@ -700,6 +846,712 @@
         };
       }
 
+      async function runDitheringOffRegressionCase() {
+        var sourceCanvas = factory.createWideImage();
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, {
+          outputWidth: 64,
+          outputHeight: 16,
+          samplingMode: "center"
+        });
+        var defaultLimited = quantizer.applyPaletteLimitToCanvas(converted.canvas, {
+          paletteMode: "16"
+        });
+        var ditheringOff = quantizer.applyPaletteLimitToCanvas(converted.canvas, {
+          paletteMode: "16",
+          ditheringMode: "off"
+        });
+
+        assert(!ditheringOff.ditheringApplied, "Dithering off should not apply");
+        assertCanvasPixelsEqual(defaultLimited.canvas, ditheringOff.canvas, "Dithering off regression");
+
+        return {
+          name: "Dithering off regression",
+          description: "Explicit dithering off preserves previous palette mapping output.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: ditheringOff.canvas,
+          pass: true,
+          note: "off output matches the previous palette result."
+        };
+      }
+
+      async function runDitheringModeCase(mode, label) {
+        var sourceCanvas = factory.createWideImage();
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, {
+          outputWidth: 64,
+          outputHeight: 16,
+          samplingMode: "center"
+        });
+        var limited = quantizer.applyPaletteLimitToCanvas(converted.canvas, {
+          paletteMode: "16",
+          ditheringMode: mode
+        });
+
+        assert(limited.ditheringApplied, label + " should apply");
+        assert(limited.afterColorCount <= 16, label + " exceeded palette count");
+        assert(limited.afterRgbaColorCount <= 17, label + " exceeded RGBA palette count");
+        assert(limited.alphaMode === constants.PALETTE_LIMIT_ALPHA_MODE, label + " should keep binary alpha policy");
+
+        return {
+          name: label + " dithering",
+          description: label + " maps a gradient through palette 16.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: limited.canvas,
+          pass: true,
+          note: "visible RGB " + limited.beforeColorCount + " -> " + limited.afterColorCount + "."
+        };
+      }
+
+      function createTransparentGradientImage() {
+        var canvas = factory.createCanvas(128, 128);
+        var context = canvas.getContext("2d");
+        var gradient = context.createLinearGradient(16, 0, 112, 0);
+
+        context.clearRect(0, 0, 128, 128);
+        gradient.addColorStop(0, "rgb(30, 80, 220)");
+        gradient.addColorStop(0.5, "rgb(70, 190, 120)");
+        gradient.addColorStop(1, "rgb(235, 210, 70)");
+        context.fillStyle = gradient;
+        context.fillRect(16, 16, 96, 96);
+
+        return canvas;
+      }
+
+      async function runDitheringTransparencyCase() {
+        var sourceCanvas = createTransparentGradientImage();
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, {
+          outputWidth: 32,
+          outputHeight: 32,
+          samplingMode: "center"
+        });
+        var sourceImageData = getCanvasImageData(converted.canvas);
+        var limited = quantizer.applyPaletteLimitToCanvas(converted.canvas, {
+          paletteMode: "4",
+          ditheringMode: "floydSteinberg"
+        });
+        var limitedImageData = getCanvasImageData(limited.canvas);
+
+        assert(limited.ditheringApplied, "Transparent dithering case should apply");
+
+        for (var index = 3; index < sourceImageData.data.length; index += 4) {
+          if (sourceImageData.data[index] < constants.TRANSPARENT_ALPHA_THRESHOLD) {
+            assert(limitedImageData.data[index] < constants.TRANSPARENT_ALPHA_THRESHOLD, "Dithering turned transparent pixel visible");
+          }
+        }
+
+        return {
+          name: "Dithering transparency preservation",
+          description: "Floyd-Steinberg dithering does not diffuse into transparent pixels.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: limited.canvas,
+          pass: true,
+          note: "transparent pixels stayed transparent."
+        };
+      }
+
+      async function runDitheringPaletteOffCase() {
+        var sourceCanvas = factory.createWideImage();
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, {
+          outputWidth: 64,
+          outputHeight: 16,
+          samplingMode: "center"
+        });
+        var limited = quantizer.applyPaletteLimitToCanvas(converted.canvas, {
+          paletteMode: "off",
+          ditheringMode: "floydSteinberg"
+        });
+
+        assert(limited.canvas === converted.canvas, "Palette off should preserve the original canvas object");
+        assert(!limited.ditheringApplied, "Dithering should not apply when palette is off");
+        assert(limited.ditheringSkipped, "Dithering should be marked skipped when palette is off");
+
+        return {
+          name: "Dithering skipped with palette off",
+          description: "Dithering is not run unless palette mapping is active.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: limited.canvas,
+          pass: true,
+          note: "palette off preserved the canvas and skipped dithering."
+        };
+      }
+
+      async function runDitheringExportCase() {
+        var sourceCanvas = factory.createWideImage();
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, {
+          outputWidth: 64,
+          outputHeight: 16,
+          samplingMode: "center"
+        });
+        var limited = quantizer.applyPaletteLimitToCanvas(converted.canvas, {
+          paletteMode: "16",
+          ditheringMode: "bayer4x4"
+        });
+        var pngBlob = await exporter.exportCanvas(limited.canvas, "png");
+        var jpgBlob = await exporter.exportCanvas(limited.canvas, "jpg");
+        var asepriteBuffer = exporter.createAsepriteArrayBuffer(limited.canvas);
+        var asepriteHeader = exporter.inspectAsepriteArrayBuffer(asepriteBuffer);
+
+        assert(limited.ditheringApplied, "Dithered export case should apply dithering");
+        assert(pngBlob.size > 0 && pngBlob.type === "image/png", "Dithered PNG export failed");
+        assert(jpgBlob.size > 0 && jpgBlob.type === "image/jpeg", "Dithered JPG export failed");
+        assert(asepriteHeader.width === 64 && asepriteHeader.height === 16, "Dithered Aseprite dimensions failed");
+
+        return {
+          name: "Dithering export compatibility",
+          description: "PNG/JPG/Aseprite export use the dithered final canvas.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: limited.canvas,
+          pass: true,
+          note: "dithered exports are valid."
+        };
+      }
+
+      function runPaletteSourceParsingCases() {
+        var parsed = fileHandler.parseHexPaletteText("#000000 #ffffff, ff0000, #f00");
+        var invalid = fileHandler.parseHexPaletteText("#000000 not-a-color #ffffff");
+        var tooFew = fileHandler.parseHexPaletteText("#fff");
+        var manyColors = [];
+
+        for (var index = 0; index < 257; index += 1) {
+          manyColors.push("#" + (index + 1).toString(16).padStart(6, "0"));
+        }
+
+        var tooMany = fileHandler.parseHexPaletteText(manyColors.join(" "));
+
+        assert(parsed.valid, "valid HEX list should parse");
+        assert(parsed.colors.length === 3, "duplicate HEX colors should be removed");
+        assert(parsed.colors[0] === "#000000" && parsed.colors[1] === "#ffffff", "HEX order should be preserved");
+        assert(!invalid.valid, "invalid HEX token should fail");
+        assert(!tooFew.valid, "palette with fewer than 2 colors should fail");
+        assert(!tooMany.valid, "palette above 256 colors should fail");
+
+        return [
+          {
+            name: "Imported HEX parsing",
+            description: "3-digit and 6-digit HEX values parse, normalize, deduplicate, and preserve order.",
+            pass: true,
+            note: "valid imported palette parsed to " + parsed.colors.length + " unique colors."
+          },
+          {
+            name: "Imported palette validation",
+            description: "Invalid, too-small, and too-large imported palettes are rejected.",
+            pass: true,
+            note: "invalid imported palettes are blocked."
+          }
+        ];
+      }
+
+      async function runGeneratedPaletteSourceCase() {
+        var sourceCanvas = factory.createWideImage();
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, {
+          outputWidth: 64,
+          outputHeight: 16,
+          samplingMode: "center"
+        });
+        var limited = quantizer.applyPaletteLimitToCanvas(converted.canvas, {
+          paletteSource: "generated",
+          paletteMode: "16"
+        });
+
+        assert(limited.paletteSource === "generated", "Generated palette source should be recorded");
+        assert(!limited.fixedPaletteApplied, "Generated palette source should not mark fixed palette");
+        assert(limited.afterColorCount <= 16, "Generated palette source exceeded limit");
+
+        return {
+          name: "Generated palette source",
+          description: "Generated source preserves existing median-cut behavior.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: limited.canvas,
+          pass: true,
+          note: "generated palette limited visible RGB to " + limited.afterColorCount + " colors."
+        };
+      }
+
+      async function runBuiltInPaletteSourceCase() {
+        var sourceCanvas = factory.createWideImage();
+        var palette = fileHandler.getBuiltInPaletteById("gameboyLike4");
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, {
+          outputWidth: 64,
+          outputHeight: 16,
+          samplingMode: "center"
+        });
+        var limited = quantizer.applyPaletteLimitToCanvas(converted.canvas, {
+          paletteSource: "builtIn",
+          paletteMode: "off",
+          fixedPaletteColors: fileHandler.createRgbPaletteFromHexColors(palette.colors)
+        });
+
+        assert(limited.paletteApplied, "Built-in palette should apply even when palette mode is off");
+        assert(limited.fixedPaletteApplied, "Built-in palette should mark fixed palette mapping");
+        assert(limited.effectivePaletteCount === 4, "Built-in palette count should be 4");
+        assert(limited.afterColorCount <= 4, "Built-in palette mapping exceeded color count");
+
+        return {
+          name: "Built-in palette source",
+          description: "Built-in fixed palette maps visible pixels to nearest palette colors.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: limited.canvas,
+          pass: true,
+          note: "built-in palette mapped to " + limited.afterColorCount + " visible colors."
+        };
+      }
+
+      async function runImportedPaletteSourceCase() {
+        var sourceCanvas = factory.createWideImage();
+        var parsed = fileHandler.parseHexPaletteText("#001122 #ffffff #dd3355 #33aa66 #ffaa33");
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, {
+          outputWidth: 64,
+          outputHeight: 16,
+          samplingMode: "center"
+        });
+        var limited = quantizer.applyPaletteLimitToCanvas(converted.canvas, {
+          paletteSource: "imported",
+          paletteMode: "off",
+          fixedPaletteColors: parsed.rgbColors,
+          ditheringMode: "bayer4x4"
+        });
+
+        assert(parsed.valid, "Imported palette should parse");
+        assert(limited.fixedPaletteApplied, "Imported palette should mark fixed palette mapping");
+        assert(limited.effectivePaletteCount === parsed.colors.length, "Imported palette count mismatch");
+        assert(limited.afterColorCount <= parsed.colors.length, "Imported palette mapping exceeded color count");
+        assert(limited.ditheringApplied, "Dithering should apply with imported fixed palette");
+
+        return {
+          name: "Imported palette source",
+          description: "Imported HEX palette maps visible pixels and supports dithering.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: limited.canvas,
+          pass: true,
+          note: "imported palette mapped to " + limited.afterColorCount + " visible colors."
+        };
+      }
+
+      async function runFixedPaletteTransparencyCase() {
+        var sourceCanvas = createTransparentGradientImage();
+        var parsed = fileHandler.parseHexPaletteText("#000000 #ffffff #2288dd #ddaa33");
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, {
+          outputWidth: 32,
+          outputHeight: 32,
+          samplingMode: "center"
+        });
+        var sourceImageData = getCanvasImageData(converted.canvas);
+        var limited = quantizer.applyPaletteLimitToCanvas(converted.canvas, {
+          paletteSource: "imported",
+          paletteMode: "off",
+          fixedPaletteColors: parsed.rgbColors
+        });
+        var limitedImageData = getCanvasImageData(limited.canvas);
+
+        for (var index = 3; index < sourceImageData.data.length; index += 4) {
+          if (sourceImageData.data[index] < constants.TRANSPARENT_ALPHA_THRESHOLD) {
+            assert(limitedImageData.data[index] < constants.TRANSPARENT_ALPHA_THRESHOLD, "Fixed palette turned transparent pixel visible");
+          }
+        }
+
+        return {
+          name: "Fixed palette transparency preservation",
+          description: "Imported fixed palette mapping keeps transparent pixels transparent.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: limited.canvas,
+          pass: true,
+          note: "transparent pixels stayed transparent."
+        };
+      }
+
+      async function runFixedPaletteExportCase() {
+        var sourceCanvas = factory.createWideImage();
+        var palette = fileHandler.getBuiltInPaletteById("cool8");
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, {
+          outputWidth: 64,
+          outputHeight: 16,
+          samplingMode: "center"
+        });
+        var limited = quantizer.applyPaletteLimitToCanvas(converted.canvas, {
+          paletteSource: "builtIn",
+          paletteMode: "off",
+          fixedPaletteColors: fileHandler.createRgbPaletteFromHexColors(palette.colors)
+        });
+        var pngBlob = await exporter.exportCanvas(limited.canvas, "png");
+        var jpgBlob = await exporter.exportCanvas(limited.canvas, "jpg");
+        var asepriteBuffer = exporter.createAsepriteArrayBuffer(limited.canvas);
+        var asepriteHeader = exporter.inspectAsepriteArrayBuffer(asepriteBuffer);
+
+        assert(limited.fixedPaletteApplied, "Fixed palette export case should use fixed palette");
+        assert(pngBlob.size > 0 && pngBlob.type === "image/png", "Fixed palette PNG export failed");
+        assert(jpgBlob.size > 0 && jpgBlob.type === "image/jpeg", "Fixed palette JPG export failed");
+        assert(asepriteHeader.width === 64 && asepriteHeader.height === 16, "Fixed palette Aseprite dimensions failed");
+
+        return {
+          name: "Fixed palette export compatibility",
+          description: "PNG/JPG/Aseprite export use the fixed-palette final canvas.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: limited.canvas,
+          pass: true,
+          note: "fixed-palette exports are valid."
+        };
+      }
+
+      function createPaletteEditorTestCanvas() {
+        var canvas = factory.createCanvas(4, 2);
+        var context = canvas.getContext("2d");
+        var imageData = context.createImageData(4, 2);
+        var pixels = [
+          255, 0, 0, 255,
+          255, 0, 0, 128,
+          255, 0, 0, 0,
+          0, 0, 255, 255,
+          0, 0, 255, 255,
+          0, 255, 0, 255,
+          0, 255, 0, 255,
+          0, 0, 0, 0
+        ];
+
+        imageData.data.set(pixels);
+        context.putImageData(imageData, 0, 0);
+        return canvas;
+      }
+
+      function runPaletteEditorSwatchCase() {
+        var canvas = createPaletteEditorTestCanvas();
+        var palette = quantizer.getResultPaletteFromCanvas(canvas);
+        var redEntry = palette.colors.find(function (color) {
+          return color.hex === "#ff0000";
+        });
+
+        assert(palette.visibleColorCount === 3, "Palette swatch should contain three visible colors");
+        assert(palette.visiblePixelCount === 6, "Palette swatch visible pixel count mismatch");
+        assert(palette.transparentPixelCount === 2, "Palette swatch transparent pixel count mismatch");
+        assert(redEntry && redEntry.count === 2, "Palette swatch HEX/count mismatch");
+        assert(redEntry.percentage > 33 && redEntry.percentage < 34, "Palette swatch percentage mismatch");
+
+        return {
+          name: "Result palette swatches",
+          description: "Visible colors expose HEX, usage count, percentage, and a separate transparent count.",
+          sourceCanvas: canvas,
+          resultCanvas: canvas,
+          pass: true,
+          note: palette.visibleColorCount + " visible colors and " + palette.transparentPixelCount + " transparent pixels were reported."
+        };
+      }
+
+      function runPaletteEditorReplaceCase() {
+        var canvas = createPaletteEditorTestCanvas();
+        var before = getCanvasImageData(canvas);
+        var edited = quantizer.replaceColorInCanvas(
+          canvas,
+          { r: 255, g: 0, b: 0 },
+          { r: 255, g: 255, b: 0 }
+        );
+        var after = getCanvasImageData(edited.canvas);
+
+        assert(edited.replacedPixelCount === 2, "Replace color should update two visible red pixels");
+        assert(after.data[0] === 255 && after.data[1] === 255 && after.data[2] === 0, "Replace color did not update RGB");
+        assert(after.data[3] === before.data[3] && after.data[7] === before.data[7], "Replace color should preserve visible alpha");
+        assert(after.data[11] === 0, "Replace color should keep transparent pixel alpha");
+        assert(after.data[8] === before.data[8] && after.data[9] === before.data[9] && after.data[10] === before.data[10], "Replace color should skip transparent RGB data");
+
+        return {
+          name: "Palette replace color",
+          description: "Replacing a visible RGB color updates matching pixels while preserving alpha.",
+          sourceCanvas: canvas,
+          resultCanvas: edited.canvas,
+          pass: true,
+          note: edited.replacedPixelCount + " visible pixels were replaced."
+        };
+      }
+
+      function runPaletteEditorMergeCase() {
+        var canvas = factory.createLeftRightSplitImage();
+        var before = quantizer.getResultPaletteFromCanvas(canvas);
+        var edited = quantizer.replaceColorInCanvas(
+          canvas,
+          { r: 230, g: 70, b: 70 },
+          { r: 65, g: 150, b: 85 }
+        );
+
+        assert(before.visibleColorCount === 2, "Merge source should start with two colors");
+        assert(edited.palette.visibleColorCount === 1, "Merge should reduce visible colors to one");
+
+        return {
+          name: "Palette merge color",
+          description: "Merging a source swatch into a target swatch reduces visible color count.",
+          sourceCanvas: canvas,
+          resultCanvas: edited.canvas,
+          pass: true,
+          note: "visible colors reduced from 2 to 1."
+        };
+      }
+
+      function runPaletteEditorTransparencyCase() {
+        var canvas = createPaletteEditorTestCanvas();
+        var edited = quantizer.replaceColorInCanvas(
+          canvas,
+          { r: 255, g: 0, b: 0 },
+          { r: 30, g: 40, b: 50 }
+        );
+        var data = getCanvasImageData(edited.canvas).data;
+
+        assert(data[11] === 0 && data[31] === 0, "Palette edit should not make transparent pixels visible");
+
+        return {
+          name: "Palette editor transparency",
+          description: "Manual RGB edits skip transparent pixels and never make them opaque.",
+          sourceCanvas: canvas,
+          resultCanvas: edited.canvas,
+          pass: true,
+          note: "transparent pixels remained transparent."
+        };
+      }
+
+      async function runPaletteEditorExportCase() {
+        var sourceCanvas = factory.createLeftRightSplitImage();
+        var edited = quantizer.replaceColorInCanvas(
+          sourceCanvas,
+          { r: 230, g: 70, b: 70 },
+          { r: 65, g: 150, b: 85 }
+        );
+        var pngBlob = await exporter.exportCanvas(edited.canvas, "png");
+        var jpgBlob = await exporter.exportCanvas(edited.canvas, "jpg");
+        var asepriteBuffer = exporter.createAsepriteArrayBuffer(edited.canvas);
+        var asepriteHeader = exporter.inspectAsepriteArrayBuffer(asepriteBuffer);
+
+        assert(edited.palette.visibleColorCount === 1, "Edited export canvas should contain merged palette");
+        assert(pngBlob.size > 0 && pngBlob.type === "image/png", "Edited PNG export failed");
+        assert(jpgBlob.size > 0 && jpgBlob.type === "image/jpeg", "Edited JPG export failed");
+        assert(asepriteHeader.width === sourceCanvas.width && asepriteHeader.height === sourceCanvas.height, "Edited Aseprite export dimensions failed");
+
+        return {
+          name: "Palette editor export compatibility",
+          description: "PNG/JPG/Aseprite export use the manually edited final canvas.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: edited.canvas,
+          pass: true,
+          note: "edited final canvas exported in all formats."
+        };
+      }
+
+      function createImageDataFromPixels(width, height, pixels) {
+        var canvas = factory.createCanvas(width, height);
+        var context = canvas.getContext("2d");
+        var imageData = context.createImageData(width, height);
+        imageData.data.set(pixels);
+        return imageData;
+      }
+
+      function runPreprocessDefaultRegressionCase() {
+        var source = createImageDataFromPixels(2, 1, [
+          30, 80, 140, 255,
+          200, 120, 60, 128
+        ]);
+        var result = processor.applyPreprocessToImageData(source, {});
+
+        assert(result.imageData === source, "Neutral preprocess should preserve the original ImageData object");
+        assert(!result.preprocessApplied, "Neutral preprocess should not be marked applied");
+        assert(result.options.brightness === 0 && result.options.contrast === 0 && result.options.saturation === 0, "Neutral adjustment defaults mismatch");
+        assert(result.options.sharpenMode === "off", "Neutral sharpen default mismatch");
+        assert(!result.options.backgroundCleanupEnabled, "Background cleanup should default off");
+
+        return {
+          name: "Preprocess neutral regression",
+          description: "Neutral preprocessing preserves the previous conversion input exactly.",
+          pass: true,
+          note: "brightness/contrast/saturation 0, sharpen off, and cleanup off are no-ops."
+        };
+      }
+
+      function runBrightnessCase() {
+        var source = createImageDataFromPixels(1, 1, [80, 100, 120, 255]);
+        var adjusted = processor.adjustImageData(source, 20, 0, 0);
+
+        assert(adjusted.data[0] > source.data[0], "Brightness should increase red");
+        assert(adjusted.data[1] > source.data[1], "Brightness should increase green");
+        assert(adjusted.data[2] > source.data[2], "Brightness should increase blue");
+        assert(adjusted.data[3] === 255, "Brightness should preserve alpha");
+
+        return {
+          name: "Brightness preprocessing",
+          description: "Positive brightness raises visible RGB values without changing alpha.",
+          pass: true,
+          note: "visible RGB values increased."
+        };
+      }
+
+      function runContrastCase() {
+        var source = createImageDataFromPixels(2, 1, [
+          80, 80, 80, 255,
+          176, 176, 176, 255
+        ]);
+        var adjusted = processor.adjustImageData(source, 0, 50, 0);
+        var beforeDifference = source.data[4] - source.data[0];
+        var afterDifference = adjusted.data[4] - adjusted.data[0];
+
+        assert(afterDifference > beforeDifference, "Positive contrast should increase channel separation");
+
+        return {
+          name: "Contrast preprocessing",
+          description: "Positive contrast increases separation around the midpoint.",
+          pass: true,
+          note: "channel separation increased from " + beforeDifference + " to " + afterDifference + "."
+        };
+      }
+
+      function runSaturationCase() {
+        var source = createImageDataFromPixels(1, 1, [220, 80, 40, 255]);
+        var adjusted = processor.adjustImageData(source, 0, 0, -100);
+
+        assert(adjusted.data[0] === adjusted.data[1] && adjusted.data[1] === adjusted.data[2], "Saturation -100 should produce grayscale");
+
+        return {
+          name: "Saturation preprocessing",
+          description: "Saturation -100 converts visible RGB to grayscale.",
+          pass: true,
+          note: "visible channels became equal."
+        };
+      }
+
+      function runSharpenCase() {
+        var source = createImageDataFromPixels(3, 3, [
+          80, 80, 80, 255, 80, 80, 80, 255, 80, 80, 80, 255,
+          80, 80, 80, 255, 120, 120, 120, 255, 80, 80, 80, 255,
+          80, 80, 80, 255, 80, 80, 80, 255, 80, 80, 80, 255
+        ]);
+        var sharpened = processor.sharpenImageData(source, "medium");
+        var centerIndex = (1 * 3 + 1) * 4;
+
+        assert(sharpened.data[centerIndex] > source.data[centerIndex], "Sharpen should increase the center edge value");
+        assert(sharpened.data[centerIndex + 3] === source.data[centerIndex + 3], "Sharpen should preserve alpha");
+
+        return {
+          name: "Sharpen preprocessing",
+          description: "Medium sharpen increases local edge contrast without changing alpha.",
+          pass: true,
+          note: "sharpen completed without errors."
+        };
+      }
+
+      function runBackgroundCleanupCase() {
+        var source = createImageDataFromPixels(4, 1, [
+          255, 255, 255, 255,
+          245, 245, 245, 255,
+          220, 30, 40, 255,
+          255, 255, 255, 0
+        ]);
+        var exact = processor.cleanupBackgroundInImageData(source, { r: 255, g: 255, b: 255 }, 0);
+        var tolerant = processor.cleanupBackgroundInImageData(source, { r: 255, g: 255, b: 255 }, 20);
+
+        assert(exact.removedPixelCount === 1, "Tolerance 0 should remove only the exact visible color");
+        assert(tolerant.removedPixelCount === 2, "Tolerance 20 should remove the near-white visible color");
+        assert(tolerant.imageData.data[11] === 255, "Cleanup should preserve non-matching visible pixels");
+        assert(tolerant.imageData.data[15] === 0, "Cleanup should preserve original transparency");
+
+        return {
+          name: "Background cleanup and tolerance",
+          description: "Picked-color cleanup removes exact and nearby RGB values according to tolerance.",
+          pass: true,
+          note: "tolerance changed removed pixels from 1 to 2."
+        };
+      }
+
+      function runBlackOutlineCase() {
+        var source = createImageDataFromPixels(3, 3, [
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 220, 80, 40, 255, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        ]);
+        var offResult = iconAssist.applyOutlineToImageData(source, { mode: "off" });
+        var outlined = iconAssist.applyOutlineToImageData(source, { mode: "black" });
+        var centerIndex = (1 * 3 + 1) * 4;
+
+        assert(offResult.imageData === source && !offResult.outlineApplied, "Outline off should preserve the original ImageData object");
+        assert(outlined.outlineApplied, "Black outline should apply");
+        assert(outlined.outlineAddedPixelCount === 8, "Black outline should fill eight transparent neighbors");
+        assert(outlined.imageData.data[centerIndex] === 220 && outlined.imageData.data[centerIndex + 3] === 255, "Outline should not overwrite the visible center");
+        assert(outlined.imageData.data[3] === 255 && outlined.imageData.data[0] === 0, "Black outline should fill corner pixels");
+
+        return {
+          name: "Black outline assist",
+          description: "1px black outline fills transparent neighbors without overwriting visible pixels.",
+          pass: true,
+          note: outlined.outlineAddedPixelCount + " outline pixels were added."
+        };
+      }
+
+      function runDarkOutlineCase() {
+        var source = createImageDataFromPixels(3, 3, [
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 180, 120, 60, 255, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        ]);
+        var outlined = iconAssist.applyOutlineToImageData(source, { mode: "dark" });
+
+        assert(outlined.outlineApplied, "Dark outline should apply");
+        assert(outlined.outlineColor.r > 0 && outlined.outlineColor.r < 180, "Dark outline red should be derived and darker");
+        assert(outlined.outlineColor.g > 0 && outlined.outlineColor.g < 120, "Dark outline green should be derived and darker");
+        assert(outlined.outlineColorHex !== "#000000", "Dark outline should not be fixed black");
+
+        return {
+          name: "Dark outline assist",
+          description: "1px dark outline derives one darker RGB color from visible content.",
+          pass: true,
+          note: "derived outline color " + outlined.outlineColorHex + "."
+        };
+      }
+
+      async function runProcessedExportCase() {
+        var sourceCanvas = factory.createCanvas(16, 16);
+        var context = sourceCanvas.getContext("2d");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, 16, 16);
+        context.fillStyle = "#2288dd";
+        context.fillRect(4, 4, 8, 8);
+        var image = await canvasToImageElement(sourceCanvas);
+        var converted = processor.convertImageToPixelIcon(image, {
+          outputWidth: 16,
+          outputHeight: 16,
+          samplingMode: "center",
+          preprocess: {
+            brightness: 10,
+            contrast: 5,
+            saturation: 10,
+            sharpenMode: "low",
+            backgroundCleanupEnabled: true,
+            backgroundCleanupColor: { r: 255, g: 255, b: 255 },
+            backgroundCleanupTolerance: 0
+          }
+        });
+        var outlined = iconAssist.applyOutlineToCanvas(converted.canvas, { mode: "black" });
+        var pngBlob = await exporter.exportCanvas(outlined.canvas, "png");
+        var jpgBlob = await exporter.exportCanvas(outlined.canvas, "jpg");
+        var asepriteBuffer = exporter.createAsepriteArrayBuffer(outlined.canvas);
+        var asepriteHeader = exporter.inspectAsepriteArrayBuffer(asepriteBuffer);
+
+        assert(converted.preprocessApplied, "Processed export should apply preprocessing");
+        assert(converted.backgroundRemovedPixelCount > 0, "Processed export should remove background pixels");
+        assert(outlined.outlineApplied, "Processed export should apply outline");
+        assert(pngBlob.size > 0 && pngBlob.type === "image/png", "Processed PNG export failed");
+        assert(jpgBlob.size > 0 && jpgBlob.type === "image/jpeg", "Processed JPG export failed");
+        assert(asepriteHeader.width === 16 && asepriteHeader.height === 16, "Processed Aseprite dimensions failed");
+
+        return {
+          name: "Preprocess and outline export compatibility",
+          description: "PNG/JPG/Aseprite export use the preprocessed and outlined final canvas.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: outlined.canvas,
+          pass: true,
+          note: "processed final canvas exported in all formats."
+        };
+      }
+
       async function runTests() {
         var allResults = [];
         var failed = false;
@@ -777,6 +1629,32 @@
           allResults.push(await runPaletteTransparencyCase());
           allResults.push(await runPaletteAlphaNormalizationCase());
           allResults.push(await runPaletteExportCase());
+          allResults.push(await runDitheringOffRegressionCase());
+          allResults.push(await runDitheringModeCase("floydSteinberg", "Floyd-Steinberg"));
+          allResults.push(await runDitheringModeCase("bayer4x4", "Bayer 4x4"));
+          allResults.push(await runDitheringTransparencyCase());
+          allResults.push(await runDitheringPaletteOffCase());
+          allResults.push(await runDitheringExportCase());
+          allResults = allResults.concat(runPaletteSourceParsingCases());
+          allResults.push(await runGeneratedPaletteSourceCase());
+          allResults.push(await runBuiltInPaletteSourceCase());
+          allResults.push(await runImportedPaletteSourceCase());
+          allResults.push(await runFixedPaletteTransparencyCase());
+          allResults.push(await runFixedPaletteExportCase());
+          allResults.push(runPaletteEditorSwatchCase());
+          allResults.push(runPaletteEditorReplaceCase());
+          allResults.push(runPaletteEditorMergeCase());
+          allResults.push(runPaletteEditorTransparencyCase());
+          allResults.push(await runPaletteEditorExportCase());
+          allResults.push(runPreprocessDefaultRegressionCase());
+          allResults.push(runBrightnessCase());
+          allResults.push(runContrastCase());
+          allResults.push(runSaturationCase());
+          allResults.push(runSharpenCase());
+          allResults.push(runBackgroundCleanupCase());
+          allResults.push(runBlackOutlineCase());
+          allResults.push(runDarkOutlineCase());
+          allResults.push(await runProcessedExportCase());
         } catch (error) {
           failed = true;
           allResults.push({

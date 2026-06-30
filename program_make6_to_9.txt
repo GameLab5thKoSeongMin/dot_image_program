@@ -1,0 +1,1290 @@
+You are working on an already existing project.
+
+This is a large but controlled v0.6.0 to v0.9.0 feature expansion task for the existing Pixel Icon Generator.
+
+Do not recreate the project from scratch.
+Do not replace the project with a new framework.
+Do not over-refactor or redesign the project more than necessary.
+Do not remove working features.
+Do not break current behavior.
+
+This task must be executed as sequential milestones:
+
+* v0.6.0: Dithering
+* v0.7.0: External Palette / Palette Presets / Palette Source
+* v0.8.0: Palette Swatch / Palette Editor / Color Merge
+* v0.9.0: Preprocess / Icon Assist
+
+Do not implement v1.0 features in this task.
+
+Specifically, do not implement:
+
+* Web Worker
+* batch conversion
+* ZIP export
+* backend
+* Google login
+* OpenAI API integration
+* cloud storage
+* animation / GIF frame editing
+* Aseprite indexed-color export
+
+Those can remain future extensions.
+
+---
+
+# 0. Active Command File Rule
+
+This task should be driven by a root-level command `.txt` file.
+
+Recommended command file name:
+
+* `program_make6_to_9.txt`
+
+If this file does not exist, create it before implementation and copy this full task instruction into it.
+
+If another latest command `.txt` file already exists in the project root and clearly describes v0.6.0 to v0.9.0 work, treat that file as the active command file.
+
+At the start of every milestone, reread the active command `.txt` file.
+
+Do not rely only on memory from the beginning of the session.
+
+---
+
+# 1. Required Startup Document Creation
+
+Before implementing any feature, create or update the required planning documents.
+
+Required existing documents:
+
+* `AGENTS.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+
+Create the following new Codex-facing English document if it does not already exist:
+
+* `ROADMAP_V06_TO_V09.md`
+
+Do not create unnecessary duplicate documents.
+
+## `ROADMAP_V06_TO_V09.md` purpose
+
+This file is the milestone roadmap and synchronization board for this v0.6.0 to v0.9.0 task.
+
+It must include:
+
+1. Current baseline summary.
+2. Active command file name.
+3. v0.6.0 goals and checklist.
+4. v0.7.0 goals and checklist.
+5. v0.8.0 goals and checklist.
+6. v0.9.0 goals and checklist.
+7. Per-milestone status.
+8. Per-milestone test status.
+9. Per-milestone known risks.
+10. Final stabilization checklist.
+
+Use English only in this document.
+
+Do not put user-facing Korean summaries in this file.
+
+User-facing Korean progress should continue to be written in:
+
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+* `USER_GUIDE_KO.md`
+
+---
+
+# 2. Required First Step: Audit Current Project
+
+Before coding, read the existing repository and understand the current implementation.
+
+You must begin by reading and inspecting at least the following:
+
+* active command `.txt` file
+* `AGENTS.md`
+* `ROADMAP_V06_TO_V09.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+* `index.html`
+* `styles/style.css`
+* `src/constants.js`
+* `src/fileHandler.js`
+* `src/imageProcessor.js`
+* `src/paletteQuantizer.js`
+* `src/exporter.js`
+* `src/uiController.js`
+* `src/app.js`
+* `tests/test-cases.html`
+* `tests/testImageFactory.js`
+
+Record audit findings in:
+
+* `PLANS.md`
+* `ROADMAP_V06_TO_V09.md`
+
+Summarize the current state in Korean in:
+
+* `DEVELOPMENT_REPORT_KO.md`
+
+Do not start implementation before this audit.
+
+---
+
+# 3. Current Project Baseline
+
+The current app already supports:
+
+* PNG/JPG/JPEG input
+* drag and drop
+* default `32x32`, `median`, `png`, palette `off`
+* Custom size toggle
+* Width/Height presets: `16`, `32`, `64`, `128`, `256`
+* output size validation against original image dimensions
+* output above 256 when source dimensions allow it
+* large-output warning banner
+* result-header `미리보기 갱신`
+* sampling modes: `median`, `average`, `center`, `dominant`
+* palette modes: `off`, `auto`, numeric modes, `custom`
+* median cut palette quantization
+* palette-on alpha normalization to `0` or `255`
+* PNG export
+* JPG export with white background compositing
+* `.aseprite` RGBA binary export
+* warning banner UI
+* clean preview placeholders
+* checkerboard preview
+* result summary
+* palette summary
+* tests
+* English Codex-facing documents
+* Korean user-facing review documents
+
+Preserve all of these features unless a change is explicitly required.
+
+The default behavior must remain:
+
+* output width: `32`
+* output height: `32`
+* sampling mode: `median`
+* output format: `png`
+* palette limit: `off`
+
+---
+
+# 4. Language Policy
+
+All Codex-facing documents and technical documents must remain in English.
+
+Codex-facing English documents:
+
+* `AGENTS.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+* `ROADMAP_V06_TO_V09.md`
+
+User-facing review documents must remain in Korean.
+
+User-facing Korean documents:
+
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+
+Code identifiers, file names, folder names, function names, constants, and API names must remain in English.
+
+The app UI text may be in Korean.
+
+When writing Korean user-facing documents, do not translate code identifiers, constants, file names, or function names.
+
+---
+
+# 5. Engineering Rules
+
+Do not:
+
+* introduce React, Vite, Webpack, or other build systems
+* switch to ES Modules
+* remove normal script tag loading
+* remove existing tests
+* use browser `alert()`
+* implement conversion as a simple `drawImage(image, 0, 0, width, height)` resize
+* move image processing logic into UI code
+* move DOM manipulation into image processing code
+* break PNG/JPG/Aseprite export
+* break palette alpha normalization
+* break default `32x32 median PNG palette off`
+* break clean preview placeholders
+* break result-header output format selector
+* break result-header `미리보기 갱신`
+
+Keep the app dependency-free unless absolutely necessary.
+
+Prefer Vanilla HTML/CSS/JavaScript.
+
+If a feature seems too large or risky, implement the smaller safe version and document the limitation.
+
+---
+
+# 6. Mandatory Milestone Sync Protocol
+
+Because this task spans multiple milestones, you must not rely only on the context you read at the beginning.
+
+At the start of every milestone, reread the current command file and the current project documents.
+
+Before starting each milestone, reread:
+
+* active command `.txt` file
+* `AGENTS.md`
+* `ROADMAP_V06_TO_V09.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+
+This reread is required before:
+
+* M0 audit
+* M1 v0.6.0 Dithering
+* M2 v0.7.0 Palette Source
+* M3 v0.8.0 Palette Swatch / Editor
+* M4 v0.9.0 Preprocess / Icon Assist
+* M5 Final Stabilization
+
+Do not continue to the next milestone until the current milestone is fully synchronized.
+
+---
+
+# 7. Milestone Completion Gate
+
+A milestone is not complete until all of the following are done:
+
+1. Implementation is complete.
+2. Relevant tests are added or updated.
+3. Tests are executed.
+4. Test failures are fixed or clearly documented.
+5. `ROADMAP_V06_TO_V09.md` is updated in English.
+6. `PLANS.md` is updated in English.
+7. `DESIGN_SPEC.md` is updated in English if behavior or architecture changed.
+8. `README.md` is updated in English if usage changed.
+9. `TEST_PLAN.md` is updated in English with actual test results.
+10. `CHANGELOG.md` is updated in English under the correct version section.
+11. `USER_GUIDE_KO.md` is updated in Korean if user-facing behavior changed.
+12. `DEVELOPMENT_REPORT_KO.md` is updated in Korean with milestone progress.
+13. `TEST_SUMMARY_KO.md` is updated in Korean with actual test results.
+14. Known limitations are documented.
+15. The next milestone plan is written in both `PLANS.md` and `ROADMAP_V06_TO_V09.md`.
+
+Only after this gate is complete may you proceed to the next milestone.
+
+---
+
+# 8. Context Refresh Gate
+
+Before beginning the next milestone, perform a context refresh.
+
+Steps:
+
+1. Reread the active command `.txt` file.
+2. Reread all project MD files.
+3. Compare the latest code state against the documents.
+4. If documents are stale, update them before implementing the next milestone.
+5. If the command file conflicts with current implemented behavior, preserve working behavior and document the conflict in `PLANS.md` and `ROADMAP_V06_TO_V09.md`.
+6. If a requested change risks breaking default behavior, choose the safer smaller implementation and document the limitation.
+7. Confirm that default behavior remains:
+
+   * `32x32`
+   * `median`
+   * `png`
+   * palette `off`
+
+Do not proceed using outdated assumptions from previous milestones.
+
+---
+
+# 9. Documentation Accuracy Rule
+
+Never mark a feature as complete, verified, or passed unless it was actually implemented and tested.
+
+Do not write optimistic documentation.
+
+Documentation must reflect the current actual project state.
+
+If a feature is partially implemented, mark it as partial.
+
+If a test was not run, write that it was not run.
+
+If browser or Aseprite desktop verification was not possible, document it as pending.
+
+---
+
+# 10. Versioning Rule
+
+Use version sections consistently:
+
+* v0.6.0 for Dithering
+* v0.7.0 for Palette Source / External Palette
+* v0.8.0 for Palette Swatch / Palette Editor
+* v0.9.0 for Preprocess / Icon Assist
+
+Each version section in `CHANGELOG.md` must include:
+
+* Added
+* Changed
+* Fixed
+* Known Issues
+* Verification
+
+If a category has no entries, write `None` instead of omitting it.
+
+`ROADMAP_V06_TO_V09.md` must also track each version status as:
+
+* Not Started
+* In Progress
+* Implemented
+* Tested
+* Documented
+* Complete
+* Partial
+* Blocked
+
+---
+
+# 11. Target Pipeline
+
+The final v0.9.0 pipeline should be conceptually:
+
+```txt
+input image
+-> optional source preprocessing
+-> tile conversion using median / average / center / dominant
+-> palette source resolution
+   - generated palette
+   - imported palette
+   - built-in palette
+-> optional palette limit / nearest palette mapping
+-> optional dithering-aware mapping
+-> optional palette swatch edits / color replacement / color merge
+-> optional icon assist post-processing such as outline
+-> preview
+-> PNG / JPG / Aseprite export
+```
+
+Do not replace tile conversion with simple resizing.
+
+Dithering, palette mapping, preprocessing, palette edits, and icon assist must be integrated without breaking the existing tile-based conversion pipeline.
+
+All export formats must use the final processed canvas.
+
+---
+
+# 12. v0.6.0 — Dithering
+
+## Goal
+
+Add dithering support to improve visual quality after palette limitation or fixed-palette mapping.
+
+Dithering should help gradients and photos look better when color count is reduced.
+
+## Required Dithering Modes
+
+Add a Dithering option with:
+
+* `off`
+* `floydSteinberg`
+* `bayer4x4`
+
+Optional only if safe:
+
+* `atkinson`
+* `bayer2x2`
+
+Default:
+
+* `off`
+
+Do not make dithering enabled by default.
+
+## Dithering Behavior
+
+Dithering should apply only when palette mapping is active.
+
+Palette mapping is active when:
+
+* palette mode is not `off`, or
+* imported/fixed palette mapping is active after v0.7.0
+
+If palette is off and no fixed palette is selected, dithering should either:
+
+* be disabled, or
+* show a warning that dithering requires a palette
+
+Recommended Korean warning:
+
+```txt
+Dithering은 palette 제한 또는 외부 palette가 적용된 상태에서 사용할 수 있습니다.
+```
+
+## Floyd-Steinberg
+
+Implement Floyd-Steinberg error diffusion for RGB values.
+
+Rules:
+
+* operate on visible pixels only
+* preserve transparent pixels
+* apply existing palette alpha behavior
+* distribute error to neighboring pixels
+* do not diffuse into fully transparent pixels if it causes visible artifacts
+* keep alpha behavior consistent with palette mode
+
+## Bayer 4x4
+
+Implement ordered Bayer 4x4 dithering.
+
+Rules:
+
+* use a standard 4x4 Bayer threshold matrix
+* apply before nearest-palette mapping or during palette mapping
+* keep behavior deterministic
+* preserve transparent pixels
+
+## Dithering Strength
+
+Add a simple dithering strength control only if practical.
+
+Recommended:
+
+* range: `0` to `1`
+* default: `1`
+* UI label may be Korean: `디더링 강도`
+
+If this adds too much UI complexity, use fixed strength and document it.
+
+## Suggested File Structure
+
+You may implement dithering in:
+
+* `src/paletteQuantizer.js`
+
+or create:
+
+* `src/ditheringProcessor.js`
+
+If a new file is created, load it with normal script tags.
+
+Do not use ES Modules.
+
+## v0.6.0 Tests
+
+Add tests for:
+
+* dithering `off` preserves previous behavior
+* Floyd-Steinberg works with palette `16`
+* Bayer 4x4 works with palette `16`
+* dithering preserves transparent pixels
+* dithering does not run when palette is off unless intentionally supported
+* PNG export uses dithered result
+* JPG export uses dithered result composited on white
+* Aseprite export uses dithered result
+* default behavior remains unchanged
+
+Update docs and changelog after this milestone.
+
+---
+
+# 13. v0.7.0 — External Palette / Palette Presets / Palette Source
+
+## Goal
+
+Add palette source selection so users can reduce images to a chosen palette, not only an automatically generated median-cut palette.
+
+This is important for consistent game icon style.
+
+## Palette Source Modes
+
+Add a Palette Source option:
+
+* `generated`
+* `builtIn`
+* `imported`
+
+Default:
+
+* `generated`
+
+Existing palette behavior should map to `generated`.
+
+## Generated Palette
+
+This is the current behavior:
+
+* median cut quantization
+* auto / numeric / custom palette count
+
+Keep it.
+
+## Built-in Palettes
+
+Add a small set of safe built-in palettes.
+
+Recommended built-ins:
+
+* `grayscale4`
+* `gameboyLike4`
+* `picoLike16`
+* `warm8`
+* `cool8`
+
+Important:
+
+* Do not falsely label a palette as an official copyrighted or exact third-party palette unless exact values are verified in the repository.
+* If exact third-party palette values are not already known and verified in the repository, avoid claiming exact official palettes.
+* It is acceptable to use clearly named generic palettes such as `gameboyLike4`, `warm8`, `cool8`.
+
+Built-in palette entries should have:
+
+* id
+* display name
+* hex color list
+
+## Imported Palette
+
+Add support for importing or pasting palettes.
+
+Required import methods:
+
+1. Paste HEX list into a textarea.
+2. Parse `.txt` or `.hex` file containing HEX colors.
+
+Optional only if safe:
+
+3. Parse `.gpl` GIMP palette files.
+
+Do not implement URL fetching in this task.
+
+Avoid CORS, network, and security complexity.
+
+## HEX Parsing Rules
+
+Support:
+
+```txt
+#000000
+#ffffff
+000000
+ffffff
+#ff0000, #00ff00, #0000ff
+```
+
+Validation:
+
+* accept 3-digit HEX if easy, normalize to 6-digit
+* accept 6-digit HEX
+* reject invalid colors
+* remove duplicates
+* preserve order where possible
+* minimum colors: `2`
+* maximum imported colors: `256`
+
+Use warning banner for invalid input.
+
+Example Korean warning:
+
+```txt
+유효한 HEX 색상이 필요합니다.
+palette 색상은 2개 이상이어야 합니다.
+palette 색상은 최대 256개까지 지원합니다.
+```
+
+## Fixed Palette Mapping
+
+When palette source is `builtIn` or `imported`:
+
+* map visible pixels to nearest palette color
+* do not generate median cut palette
+* palette count comes from the selected/imported palette
+* preserve transparent pixels
+* apply alpha normalization when palette mapping is active
+
+For simplicity:
+
+* keep existing palette alpha normalization when palette mapping is active
+* document behavior clearly
+
+## v0.7.0 UI
+
+Add UI section:
+
+```txt
+Palette Source
+[Generated] [Built-in] [Imported]
+```
+
+For Built-in:
+
+* select dropdown for palette preset
+
+For Imported:
+
+* textarea for HEX input
+* file input for `.txt`, `.hex`, optionally `.gpl`
+* import/apply button
+* imported palette preview
+
+## v0.7.0 Tests
+
+Add tests for:
+
+* generated palette behavior still works
+* built-in palette mapping works
+* imported HEX list works
+* duplicate HEX colors are removed
+* invalid HEX shows warning
+* imported palette with fewer than 2 colors is rejected
+* imported palette above 256 colors is rejected
+* transparent pixels remain transparent
+* PNG/JPG/Aseprite export use fixed palette result
+* default behavior remains unchanged
+
+Update docs and changelog after this milestone.
+
+---
+
+# 14. v0.8.0 — Palette Swatch / Palette Editor / Color Merge
+
+## Goal
+
+Add palette swatch and simple editing tools so the user can inspect and clean the result before exporting to Aseprite.
+
+This improves real icon editing workflow.
+
+## Palette Swatch Display
+
+Display the current result palette.
+
+The palette swatch should show:
+
+* color chip
+* HEX value
+* usage count if practical
+* percentage usage if practical
+
+The swatch should ignore fully transparent pixels for visible RGB count.
+
+Show transparent count separately if practical.
+
+Example Korean UI labels:
+
+```txt
+결과 팔레트
+사용 색상 수
+투명 픽셀 수
+```
+
+## Required Swatch Actions
+
+Implement these actions:
+
+1. Copy HEX color.
+2. Replace color.
+3. Merge one color into another color.
+
+Optional only if safe:
+
+4. Lock color.
+5. Remove rarely used colors.
+6. Sort by usage / hue / brightness.
+
+## Replace Color
+
+User selects a swatch color and enters or picks a replacement HEX.
+
+Behavior:
+
+* all pixels matching selected visible RGB color are replaced with new RGB
+* preserve alpha according to current final canvas
+* update preview
+* update palette summary
+* export uses edited result
+
+## Merge Color
+
+User selects source color and target color.
+
+Behavior:
+
+* all source color pixels become target color
+* update preview
+* update palette summary
+* export uses edited result
+
+This is useful for reducing similar colors before Aseprite export.
+
+## Edited Result State
+
+Important:
+
+* palette edits must apply to the final processed canvas
+* export must use edited canvas
+* if user changes conversion settings, edits may be reset
+* if edits are reset, show clear UI or document it
+
+Recommended behavior:
+
+* any new conversion clears manual palette edits
+* show a small notice in Korean:
+
+```txt
+설정을 변경하면 수동 palette 편집 결과가 초기화됩니다.
+```
+
+## v0.8.0 Tests
+
+Add tests for:
+
+* swatch shows result colors
+* HEX copy action exists
+* replace color updates preview data
+* merge color reduces visible color count
+* export uses edited result
+* changing conversion settings resets edits or handles them clearly
+* transparent pixels are not incorrectly replaced as opaque colors
+* default behavior remains unchanged
+
+Update docs and changelog after this milestone.
+
+---
+
+# 15. v0.9.0 — Preprocess / Icon Assist
+
+## Goal
+
+Add lightweight preprocessing and icon-assist options that improve source images before pixel conversion and improve icon readability after conversion.
+
+Do not turn the app into a full image editor.
+
+## Required Preprocess Options
+
+Add a Preprocess section.
+
+Required controls:
+
+* brightness
+* contrast
+* saturation
+* sharpen
+
+Default:
+
+* brightness: `0`
+* contrast: `0`
+* saturation: `0`
+* sharpen: `off`
+
+Recommended ranges:
+
+* brightness: `-100` to `100`
+* contrast: `-100` to `100`
+* saturation: `-100` to `100`
+* sharpen: `off`, `low`, `medium`
+
+Apply preprocessing before tile conversion.
+
+Pipeline:
+
+```txt
+input image
+-> preprocess source canvas
+-> tile conversion
+```
+
+## Background Cleanup
+
+Add a simple background cleanup option.
+
+Required:
+
+* `off`
+* remove by picked color
+* tolerance setting
+
+Behavior:
+
+* user picks or enters a background color
+* pixels close to that RGB color become transparent
+* tolerance controls distance
+* apply before tile conversion
+* preserve transparency from original PNG
+
+Recommended UI labels:
+
+```txt
+배경 제거
+제거 색상
+허용 오차
+```
+
+Default:
+
+* background cleanup off
+
+Do not implement AI background removal.
+
+Do not add external dependencies.
+
+## Outline Assist
+
+Add simple outline assist.
+
+Required options:
+
+* `off`
+* `1px black`
+* `1px dark`
+
+Optional only if safe:
+
+* custom outline color
+* 2px outline
+
+Apply outline after conversion and palette processing, before preview/export.
+
+Behavior:
+
+* detect transparent pixels adjacent to visible pixels
+* draw outline into transparent neighbor pixels
+* preserve existing visible pixels
+* output/export uses outlined result
+
+If outline is applied after palette limiting, the outline color may add one extra color.
+
+Document this clearly.
+
+## Padding / Centering
+
+Optional only if safe:
+
+* transparent padding amount
+* center visible content
+
+If implemented, keep it simple.
+
+Do not spend too much time on this if it risks breaking the core pipeline.
+
+## v0.9.0 Tests
+
+Add tests for:
+
+* brightness changes pixel values
+* contrast changes pixel values
+* saturation changes pixel values
+* sharpen does not crash
+* background cleanup removes matching color to transparency
+* tolerance affects cleanup
+* outline adds pixels around visible alpha edges
+* outline does not overwrite visible pixels
+* PNG/JPG/Aseprite export use processed result
+* default behavior remains unchanged
+
+Update docs and changelog after this milestone.
+
+---
+
+# 16. UI Organization Requirement
+
+By the end of v0.9.0, organize controls into clear groups.
+
+Recommended groups:
+
+```txt
+Input
+Output Size
+Preprocess
+Pixel Processing
+Palette
+Dithering
+Palette Editor
+Icon Assist
+Export
+```
+
+Do not redesign the whole four-section layout.
+
+Keep the existing layout, but improve grouping and readability.
+
+If there are too many controls, use collapsible sections.
+
+Recommended default collapsed sections:
+
+* Preprocess
+* Palette Editor
+* Icon Assist
+
+Recommended default expanded sections:
+
+* Output Size
+* Pixel Processing
+* Palette
+* Export
+
+Do not hide essential export controls.
+
+---
+
+# 17. State Management Requirements
+
+As features increase, state must remain predictable.
+
+Define a clear app state object if one already exists, or improve the existing state structure.
+
+State should include:
+
+* source image
+* source dimensions
+* output size settings
+* sampling mode
+* palette mode
+* palette source
+* imported palette
+* dithering mode
+* preprocess settings
+* background cleanup settings
+* outline settings
+* final canvas
+* edited canvas if palette editor modifies result
+* export format
+
+Avoid scattered global variables.
+
+Do not over-engineer.
+
+Vanilla JS object state is enough.
+
+---
+
+# 18. Export Consistency Requirement
+
+All features must feed into the same final canvas used by export.
+
+PNG export must use the final processed canvas.
+
+JPG export must use the final processed canvas composited on white.
+
+Aseprite export must use the final processed canvas as RGBA pixel data.
+
+This must remain true after:
+
+* dithering
+* imported palette mapping
+* palette swatch edits
+* preprocessing
+* background cleanup
+* outline
+
+Do not create separate preview-only effects that do not export unless clearly documented as preview-only.
+
+---
+
+# 19. Testing Requirements
+
+Extend `tests/test-cases.html`.
+
+Do not remove existing test coverage.
+
+The final test page should cover:
+
+## Regression
+
+* default `32x32`, `median`, `png`, palette `off`
+* PNG/JPG/JPEG input
+* drag and drop
+* Custom size toggle
+* output size validation
+* performance warning
+* preview placeholders
+* warning banner
+* output format selector
+* PNG export
+* JPG export
+* Aseprite export
+* no ES Modules
+* no browser alert
+* no simple resize shortcut
+
+## v0.6.0 Dithering
+
+* Floyd-Steinberg
+* Bayer 4x4
+* transparent preservation
+* export consistency
+
+## v0.7.0 Palette Source
+
+* generated palette
+* built-in palette
+* imported HEX palette
+* invalid palette warnings
+* export consistency
+
+## v0.8.0 Palette Editor
+
+* swatch display
+* color replacement
+* color merge
+* export uses edited result
+
+## v0.9.0 Preprocess / Icon Assist
+
+* brightness
+* contrast
+* saturation
+* sharpen
+* background cleanup
+* outline
+* export consistency
+
+Run syntax checks and browser test page after each milestone.
+
+If Local Edge or another browser automation is available, verify the app flow manually or automatically.
+
+Record results in:
+
+* `TEST_PLAN.md`
+* `TEST_SUMMARY_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `ROADMAP_V06_TO_V09.md`
+
+---
+
+# 20. Milestone Execution Plan
+
+Execute in this order.
+
+## M0. Audit and Startup Documentation
+
+* Ensure active command `.txt` file exists.
+* Create `ROADMAP_V06_TO_V09.md` if it does not exist.
+* Read all required docs and source files.
+* Confirm v0.5.0 baseline.
+* Identify where to insert dithering.
+* Identify palette source architecture.
+* Identify final canvas / export flow.
+* Identify UI grouping needs.
+* Update `ROADMAP_V06_TO_V09.md`.
+* Update `PLANS.md`.
+* Update `DEVELOPMENT_REPORT_KO.md`.
+
+## M1. v0.6.0 Dithering
+
+* Reread active command `.txt` file and all MD files.
+* Add dithering state/options.
+* Add Floyd-Steinberg.
+* Add Bayer 4x4.
+* Integrate with palette mapping.
+* Preserve transparency.
+* Update UI.
+* Update tests.
+* Update docs.
+* Update `ROADMAP_V06_TO_V09.md`.
+* Pass milestone completion gate.
+
+## M2. v0.7.0 Palette Source
+
+* Reread active command `.txt` file and all MD files.
+* Add palette source state/options.
+* Add built-in palettes.
+* Add HEX paste import.
+* Add `.txt` / `.hex` file import if practical.
+* Add optional `.gpl` parsing only if safe.
+* Add palette preview.
+* Integrate fixed palette mapping.
+* Update tests.
+* Update docs.
+* Update `ROADMAP_V06_TO_V09.md`.
+* Pass milestone completion gate.
+
+## M3. v0.8.0 Palette Swatch / Editor
+
+* Reread active command `.txt` file and all MD files.
+* Display result palette swatches.
+* Show HEX and usage counts.
+* Add copy HEX.
+* Add replace color.
+* Add merge color.
+* Ensure edited canvas exports correctly.
+* Update tests.
+* Update docs.
+* Update `ROADMAP_V06_TO_V09.md`.
+* Pass milestone completion gate.
+
+## M4. v0.9.0 Preprocess / Icon Assist
+
+* Reread active command `.txt` file and all MD files.
+* Add brightness.
+* Add contrast.
+* Add saturation.
+* Add sharpen.
+* Add background cleanup by picked color.
+* Add tolerance.
+* Add outline off / 1px black / 1px dark.
+* Keep optional padding/centering only if safe.
+* Update tests.
+* Update docs.
+* Update `ROADMAP_V06_TO_V09.md`.
+* Pass milestone completion gate.
+
+## M5. Final Stabilization
+
+* Reread active command `.txt` file.
+* Reread all MD files.
+* Run all tests.
+* Verify default behavior.
+* Verify PNG/JPG/Aseprite export.
+* Verify that preview and export use the same final canvas.
+* Verify that manual palette edits, dithering, preprocessing, and outline are reflected in export.
+* Verify no ES Module `import/export`.
+* Verify no browser `alert()`.
+* Verify no simple resize shortcut conversion.
+* Update all English technical docs.
+* Update all Korean user-facing docs.
+* Add final self-evaluation to `PLANS.md`.
+* Add final roadmap summary to `ROADMAP_V06_TO_V09.md`.
+* Add final Korean summary to `DEVELOPMENT_REPORT_KO.md`.
+
+---
+
+# 21. Completion Criteria
+
+This v0.6.0 to v0.9.0 expansion is complete only if all of the following are satisfied:
+
+## Startup Documentation
+
+* [ ] Active command `.txt` file exists.
+* [ ] `ROADMAP_V06_TO_V09.md` exists.
+* [ ] Startup audit is recorded in `PLANS.md`.
+* [ ] Startup audit is recorded in `ROADMAP_V06_TO_V09.md`.
+* [ ] Korean startup summary is recorded in `DEVELOPMENT_REPORT_KO.md`.
+
+## Preservation
+
+* [ ] Current features still work.
+* [ ] Default behavior remains `32x32`, `median`, `png`, palette `off`.
+* [ ] Custom size behavior remains intact.
+* [ ] `dominant` sampling remains intact.
+* [ ] Palette alpha normalization remains intact.
+* [ ] PNG/JPG/Aseprite export still works.
+* [ ] Warning banner still works.
+* [ ] Preview placeholders still work.
+* [ ] No ES Module `import/export`.
+* [ ] No browser `alert()`.
+* [ ] No simple resize shortcut conversion.
+
+## v0.6.0
+
+* [ ] Dithering option exists.
+* [ ] Dithering default is `off`.
+* [ ] Floyd-Steinberg works.
+* [ ] Bayer 4x4 works.
+* [ ] Dithering preserves transparent pixels.
+* [ ] Dithering output is used by PNG/JPG/Aseprite export.
+
+## v0.7.0
+
+* [ ] Palette source option exists.
+* [ ] Generated palette source preserves existing behavior.
+* [ ] Built-in palette source works.
+* [ ] Imported HEX palette works.
+* [ ] Invalid imported palettes show warning.
+* [ ] Fixed palette mapping preserves transparency.
+* [ ] PNG/JPG/Aseprite export use fixed palette result.
+
+## v0.8.0
+
+* [ ] Result palette swatch is visible.
+* [ ] Swatch shows HEX values.
+* [ ] Swatch shows usage count if practical.
+* [ ] Copy HEX works or is available.
+* [ ] Replace color works.
+* [ ] Merge color works.
+* [ ] Export uses edited canvas.
+
+## v0.9.0
+
+* [ ] Brightness works.
+* [ ] Contrast works.
+* [ ] Saturation works.
+* [ ] Sharpen works or is safely documented if simplified.
+* [ ] Background cleanup by color works.
+* [ ] Background cleanup tolerance works.
+* [ ] Outline off / 1px black / 1px dark works.
+* [ ] Export uses preprocessed and icon-assisted final canvas.
+
+## Documentation and Testing
+
+* [ ] English docs are updated.
+* [ ] Korean docs are updated.
+* [ ] Tests are expanded.
+* [ ] Test results are recorded.
+* [ ] Known limitations are documented.
+* [ ] The project was extended without unnecessary recreation or overhauling.
+
+---
+
+# 22. Final Execution Instruction
+
+Start by auditing the current project and creating the required startup documentation.
+
+Do not start coding immediately.
+
+Then implement milestones sequentially from v0.6.0 to v0.9.0.
+
+At the start of every milestone:
+
+1. Reread the active command `.txt` file.
+2. Reread all MD files.
+3. Compare docs against current code.
+4. Update stale docs before implementation.
+
+After each milestone:
+
+1. run relevant tests
+2. fix failures
+3. update `ROADMAP_V06_TO_V09.md`
+4. update English Codex-facing docs
+5. update Korean user-facing docs
+6. update changelog
+7. record remaining risks
+8. continue to the next milestone only after the current milestone is stable
+
+Preserve working behavior.
+
+Make focused improvements.
+
+Avoid unnecessary project recreation.
+
+Avoid unnecessary structure changes.
+
+Keep the implementation grounded in the existing repository rules.
+
+Finally, deliver the existing Pixel Icon Generator with v0.6.0 through v0.9.0 completed, current functionality preserved, and new dithering, palette source, palette editor, and icon assist features implemented and tested.

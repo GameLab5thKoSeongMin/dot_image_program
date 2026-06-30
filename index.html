@@ -111,6 +111,45 @@
 
         <fieldset class="control-group processing-group">
           <legend>Pixel Processing</legend>
+          <details id="preprocessSection" class="option-details">
+            <summary>Preprocess</summary>
+            <div class="option-details-content">
+              <label class="range-field">
+                <span>Brightness <output id="brightnessValue">0</output></span>
+                <input id="brightnessInput" type="range" min="-100" max="100" step="1" value="0">
+              </label>
+              <label class="range-field">
+                <span>Contrast <output id="contrastValue">0</output></span>
+                <input id="contrastInput" type="range" min="-100" max="100" step="1" value="0">
+              </label>
+              <label class="range-field">
+                <span>Saturation <output id="saturationValue">0</output></span>
+                <input id="saturationInput" type="range" min="-100" max="100" step="1" value="0">
+              </label>
+              <label class="control-field">
+                <span>Sharpen</span>
+                <select id="sharpenModeSelect">
+                  <option value="off" selected>off</option>
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                </select>
+              </label>
+              <label class="custom-size-toggle">
+                <input id="backgroundCleanupToggle" type="checkbox">
+                <span>배경 제거</span>
+              </label>
+              <div id="backgroundCleanupControls" class="background-cleanup-controls is-disabled">
+                <label class="control-field">
+                  <span>제거 색상</span>
+                  <input id="backgroundCleanupColorInput" type="color" value="#ffffff" disabled>
+                </label>
+                <label class="range-field">
+                  <span>허용 오차 <output id="backgroundCleanupToleranceValue">0</output></span>
+                  <input id="backgroundCleanupToleranceInput" type="range" min="0" max="255" step="1" value="0" disabled>
+                </label>
+              </div>
+            </div>
+          </details>
           <label class="control-field">
             <span>Sampling</span>
             <select id="samplingModeSelect">
@@ -120,6 +159,46 @@
               <option value="dominant">dominant</option>
             </select>
           </label>
+          <label class="control-field">
+            <span>Dithering</span>
+            <select id="ditheringModeSelect">
+              <option value="off" selected>off</option>
+              <option value="floydSteinberg">Floyd-Steinberg</option>
+              <option value="bayer4x4">Bayer 4x4</option>
+            </select>
+          </label>
+
+          <div class="palette-source-controls">
+            <label class="control-field">
+              <span>Palette source</span>
+              <select id="paletteSourceSelect">
+                <option value="generated" selected>Generated</option>
+                <option value="builtIn">Built-in</option>
+                <option value="imported">Imported</option>
+              </select>
+            </label>
+            <label id="builtInPaletteField" class="control-field" hidden>
+              <span>Built-in palette</span>
+              <select id="builtInPaletteSelect">
+                <option value="grayscale4" selected>Grayscale 4</option>
+                <option value="gameboyLike4">Gameboy-like 4</option>
+                <option value="picoLike16">Pico-like 16</option>
+                <option value="warm8">Warm 8</option>
+                <option value="cool8">Cool 8</option>
+              </select>
+            </label>
+            <div id="importedPaletteField" class="imported-palette-field" hidden>
+              <label class="control-field">
+                <span>Imported HEX colors</span>
+                <textarea id="importedPaletteTextInput" rows="3" spellcheck="false" placeholder="#000000, #ffffff"></textarea>
+              </label>
+              <div class="palette-import-actions">
+                <input id="importedPaletteFileInput" type="file" accept=".txt,.hex,text/plain">
+                <button id="applyImportedPaletteButton" class="secondary-button" type="button">Apply palette</button>
+              </div>
+              <div id="importedPalettePreview" class="palette-preview" aria-live="polite"></div>
+            </div>
+          </div>
 
           <div class="palette-controls">
             <label class="control-field">
@@ -143,8 +222,21 @@
             </label>
           </div>
           <p id="paletteSummary" class="palette-summary">팔레트 제한: off</p>
+          <details id="iconAssistSection" class="option-details">
+            <summary>Icon Assist</summary>
+            <div class="option-details-content">
+              <label class="control-field">
+                <span>Outline</span>
+                <select id="outlineModeSelect">
+                  <option value="off" selected>off</option>
+                  <option value="black">1px black</option>
+                  <option value="dark">1px dark</option>
+                </select>
+              </label>
+              <p class="option-help">Outline은 palette/editor 결과 뒤에 적용되며 색상이 1개 추가될 수 있습니다.</p>
+            </div>
+          </details>
         </fieldset>
-
       </div>
 
       <p id="errorMessage" class="message error-message" role="alert" aria-live="polite"></p>
@@ -181,6 +273,32 @@
           <dd id="resultSummary">32x32 / median / palette off / PNG</dd>
         </div>
       </dl>
+      <details id="paletteEditorSection" class="palette-editor">
+        <summary>Palette Editor</summary>
+        <p id="paletteEditorNotice" class="palette-editor-notice">설정을 변경하거나 다시 변환하면 수동 palette 편집 결과가 초기화됩니다.</p>
+        <p id="resultPaletteStats" class="palette-editor-stats">결과를 생성하면 palette swatch가 표시됩니다.</p>
+        <div id="resultPaletteSwatches" class="result-palette-swatches" role="list" aria-label="결과 팔레트"></div>
+        <div class="palette-editor-selection">
+          <span>선택 색상</span>
+          <strong id="selectedPaletteColor">없음</strong>
+        </div>
+        <div class="palette-editor-actions">
+          <button id="copyPaletteHexButton" class="secondary-button" type="button" disabled>Copy HEX</button>
+          <label class="control-field">
+            <span>Replace HEX</span>
+            <input id="paletteReplacementInput" type="text" value="#000000" maxlength="7" spellcheck="false">
+          </label>
+          <button id="replacePaletteColorButton" class="secondary-button" type="button" disabled>Replace color</button>
+          <label class="control-field">
+            <span>Merge target</span>
+            <select id="paletteMergeTargetSelect" disabled>
+              <option value="">Select target</option>
+            </select>
+          </label>
+          <button id="mergePaletteColorButton" class="secondary-button" type="button" disabled>Merge color</button>
+        </div>
+        <p id="paletteEditorStatus" class="palette-editor-status" aria-live="polite"></p>
+      </details>
       <button id="downloadButton" class="download-button" type="button" disabled>다운로드</button>
     </section>
   </main>
@@ -189,6 +307,7 @@
   <script src="./src/fileHandler.js"></script>
   <script src="./src/imageProcessor.js"></script>
   <script src="./src/paletteQuantizer.js"></script>
+  <script src="./src/iconAssistProcessor.js"></script>
   <script src="./src/exporter.js"></script>
   <script src="./src/uiController.js"></script>
   <script src="./src/app.js"></script>

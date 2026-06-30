@@ -1,5 +1,132 @@
 # Changelog
 
+## [0.9.0] - Source Preprocess and Icon Assist
+
+### Added
+- Collapsed Preprocess controls for brightness, contrast, saturation, and sharpen.
+- Background cleanup toggle, picked color, and RGB-distance tolerance.
+- `src/iconAssistProcessor.js`.
+- Outline modes `off`, `1px black`, and `1px dark`.
+- Preprocess and outline state in the final result flow.
+- Tests for neutral defaults, adjustments, sharpen, cleanup, outline, and processed export.
+
+### Changed
+- Source preprocessing now runs before tile conversion.
+- Background cleanup runs before source adjustments.
+- Manual palette edits update the pre-outline canvas and regenerate outline.
+- Palette summary reports outline mode and added pixel count.
+- Result summary reports active preprocess and outline state without changing neutral defaults.
+
+### Fixed
+- Preprocess operations preserve alpha on visible pixels.
+- Background cleanup preserves existing transparent pixels.
+- Outline does not overwrite visible pixels.
+- PNG/JPG/Aseprite export use the preprocessed and outlined final canvas.
+
+### Known Issues
+- Preprocess, sharpen, and outline run on the main browser thread.
+- Background cleanup is RGB-distance based and is not AI segmentation.
+- Outline is limited to a one-pixel 8-neighbor layer.
+
+### Verification
+- JS syntax checks passed for all app JS files.
+- Local Edge headless test page reported `94 / 94 cases passed.`
+- Local Edge loaded `index.html` with neutral defaults, collapsed Preprocess/Icon Assist, default summary, result-header refresh, and PNG/JPG/Aseprite selector.
+- Static checks found no ES module syntax, no `alert()`, and no fixed `drawImage(image, 0, 0, 32, 32)` conversion shortcut.
+- M5 reran syntax checks for every app JS file and the complete browser suite, again producing `94 / 94 cases passed.` with zero failures.
+- M5 passed a generated 64x64 PNG through the real app file-processing path and verified `sample_32x32_median.png`, visible previews, final-canvas PNG/JPG blobs, and a valid 32-bit RGBA Aseprite buffer.
+- The obsolete `Dotprogram.html` duplicate was removed; `index.html` is the sole maintained application entry point.
+- External Aseprite desktop/CLI open/save validation remains pending.
+
+## [0.8.0] - Palette Swatches and Manual Color Editor
+
+### Added
+- Collapsed Palette Editor in the output panel.
+- Result swatches with HEX, usage count, percentage, visible pixel total, and transparent pixel count.
+- Copy HEX action with clipboard API and local fallback.
+- Replace color action using exact visible RGB matching.
+- Merge color action using another result swatch as the target.
+- Manual edit count in palette summaries.
+- Tests for swatches, reset behavior, replacement, merge, transparency, and edited export.
+
+### Changed
+- App state now keeps `convertedCanvas`, final `resultCanvas`, current `resultPalette`, and `paletteEditCount`.
+- Manual edits replace `state.resultCanvas` and immediately refresh preview and palette summary.
+- Every new conversion clears manual Palette Editor state.
+
+### Fixed
+- Manual color replacement preserves existing alpha values.
+- Transparent pixels are skipped during replacement and merge.
+- PNG/JPG/Aseprite export use the manually edited final canvas.
+
+### Known Issues
+- Clipboard writes may be blocked by browser permission policy; the selected HEX remains visible.
+- v0.8.0 does not include undo/redo, color locking, or fuzzy color matching.
+
+### Verification
+- JS syntax checks passed for all app JS files.
+- Local Edge headless test page reported `84 / 84 cases passed.`
+- Local Edge loaded `index.html` with default behavior, collapsed Palette Editor, disabled pre-conversion edit actions, result-header refresh, and PNG/JPG/Aseprite selector.
+- Static checks found no ES module syntax, no `alert()`, and no fixed `drawImage(image, 0, 0, 32, 32)` conversion shortcut.
+
+## [0.7.0] - Palette Source and Fixed Palette Mapping
+
+### Added
+- Palette source selector with `generated`, `builtIn`, and `imported`.
+- Generic built-in palettes: `grayscale4`, `gameboyLike4`, `picoLike16`, `warm8`, and `cool8`.
+- Pasted HEX palette input with 3-digit/6-digit normalization, duplicate removal, and validation.
+- Local `.txt` / `.hex` palette file loading.
+- Imported palette preview.
+- Fixed nearest-color mapping for built-in and imported palettes.
+- Tests for source selection, parsing, validation, transparency, dithering, and export consistency.
+
+### Changed
+- `generated` remains the default median-cut path.
+- Built-in and imported palette sources can activate palette mapping while generated palette limit is `off`.
+- Dithering now works with fixed palette mapping.
+- Palette summaries identify fixed palette source and effective color count.
+
+### Fixed
+- Fixed palette mapping preserves transparent pixels and keeps palette-on binary alpha normalization.
+- PNG/JPG/Aseprite export use the fixed-palette final canvas.
+
+### Known Issues
+- Palette import is local only; URL fetching and `.gpl` parsing are not included.
+- Manual palette swatch editing is deferred to v0.8.0.
+
+### Verification
+- JS syntax checks passed for updated app files.
+- Local Edge headless test page reported `78 / 78 cases passed.`
+- Static checks found no ES module syntax, no `alert()`, and no fixed `drawImage(image, 0, 0, 32, 32)` conversion shortcut.
+
+## [0.6.0] - Dithering
+
+### Added
+- Dithering mode selector with `off`, `floydSteinberg`, and `bayer4x4`.
+- Floyd-Steinberg RGB error diffusion for palette-mapped output.
+- Deterministic Bayer 4x4 ordered dithering for palette-mapped output.
+- Dithering state in result summaries and palette summaries when active.
+- Warning banner message when dithering is selected while palette mode is `off`.
+- Tests for dithering off regression, Floyd-Steinberg, Bayer 4x4, transparency preservation, palette-off skip behavior, and dithered PNG/JPG/Aseprite export.
+
+### Changed
+- Palette mapping can now use optional dithering while preserving median-cut generated palettes.
+- PNG/JPG/Aseprite export continue to use the final processed canvas, including dithered output.
+- Documentation now describes the dithering pipeline and palette-dependent behavior.
+
+### Fixed
+- None.
+
+### Known Issues
+- Dithering strength is fixed at `1`; no strength UI is included in v0.6.0.
+- Dithering only runs when palette mapping is active. It is skipped when palette mode is `off`.
+- Floyd-Steinberg can add processing cost for large output sizes; existing large-output warnings remain the mitigation.
+
+### Verification
+- JS syntax checks passed for updated app files.
+- Local Edge headless test page reported `70 / 70 cases passed.`
+- Static checks found no ES module syntax, no `alert()`, and no fixed `drawImage(image, 0, 0, 32, 32)` conversion shortcut.
+
 ## [0.5.0] - Custom Size, Dominant Sampling, and Palette Alpha Update
 
 ### Added

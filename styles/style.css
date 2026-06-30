@@ -378,6 +378,7 @@ select {
 
 .control-field input,
 .control-field select,
+.control-field textarea,
 .custom-size-field input {
   width: 100%;
   min-height: 34px;
@@ -388,9 +389,147 @@ select {
   padding: 0 10px;
 }
 
+.control-field textarea {
+  min-height: 76px;
+  padding: 8px 10px;
+  resize: vertical;
+  line-height: 1.35;
+}
+
 .processing-group {
   display: grid;
   gap: 8px;
+}
+
+.option-details {
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+  background: #fbfcfa;
+}
+
+.option-details > summary {
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.option-details[open] > summary {
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.option-details-content {
+  display: grid;
+  gap: 8px;
+  padding: 9px 10px 10px;
+}
+
+.range-field {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.range-field > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.range-field output {
+  color: var(--text);
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.range-field input[type="range"] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.background-cleanup-controls {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.7fr) minmax(150px, 1fr);
+  gap: 8px;
+  align-items: end;
+}
+
+.background-cleanup-controls.is-disabled {
+  opacity: 0.58;
+}
+
+.control-field input[type="color"] {
+  min-height: 36px;
+  padding: 3px;
+}
+
+.option-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.palette-source-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.imported-palette-field {
+  display: grid;
+  gap: 8px;
+}
+
+.palette-import-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.palette-import-actions input {
+  min-width: 0;
+}
+
+.secondary-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid #aab5a5;
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.secondary-button:hover,
+.secondary-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.palette-preview {
+  display: flex;
+  min-height: 24px;
+  flex-wrap: wrap;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.palette-preview-chip {
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(32, 37, 31, 0.24);
+  border-radius: 4px;
 }
 
 .palette-controls {
@@ -408,6 +547,118 @@ select {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.35;
+}
+
+.palette-editor {
+  margin: 0 14px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+  background: #fbfcfa;
+}
+
+.palette-editor > summary {
+  padding: 9px 10px;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.palette-editor[open] > summary {
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.palette-editor-notice,
+.palette-editor-stats,
+.palette-editor-status {
+  margin: 8px 10px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.palette-editor-status {
+  min-height: 18px;
+  margin-bottom: 10px;
+  color: var(--accent-strong);
+}
+
+.result-palette-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 6px;
+  max-height: 156px;
+  margin: 8px 10px;
+  overflow-y: auto;
+}
+
+.result-palette-swatch {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 7px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 4px 6px;
+  align-items: center;
+  border: 1px solid #c6cdc2;
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.result-palette-swatch.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(47, 125, 86, 0.16);
+}
+
+.result-palette-chip {
+  width: 28px;
+  height: 24px;
+  border: 1px solid rgba(32, 37, 31, 0.28);
+  border-radius: 4px;
+}
+
+.result-palette-label {
+  min-width: 0;
+  overflow: hidden;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-editor-selection {
+  display: flex;
+  gap: 8px;
+  margin: 8px 10px;
+  align-items: baseline;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.palette-editor-selection strong {
+  color: var(--text);
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.palette-editor-actions {
+  display: grid;
+  grid-template-columns: auto minmax(110px, 1fr) auto;
+  gap: 8px;
+  margin: 8px 10px;
+  align-items: end;
+}
+
+.palette-editor-actions .control-field {
+  min-width: 0;
+}
+
+.palette-editor-actions .secondary-button:disabled {
+  border-color: #d7dcd1;
+  background: #eef0eb;
+  color: #939b90;
+  cursor: not-allowed;
 }
 
 .file-input {
@@ -574,7 +825,10 @@ select {
   }
 
   .axis-buttons,
-  .palette-controls {
+  .palette-controls,
+  .palette-import-actions,
+  .palette-editor-actions,
+  .background-cleanup-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

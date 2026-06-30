@@ -4,6 +4,8 @@
   var constants = window.PixelIconConstants;
   var elements = {};
   var resultPreviewCanvas = null;
+  var resultPaletteData = null;
+  var selectedPaletteHex = "";
 
   function requireElement(id) {
     var element = document.getElementById(id);
@@ -44,11 +46,46 @@
       customWidthField: requireElement("customWidthField"),
       customHeightField: requireElement("customHeightField"),
       samplingModeSelect: requireElement("samplingModeSelect"),
+      ditheringModeSelect: requireElement("ditheringModeSelect"),
+      preprocessSection: requireElement("preprocessSection"),
+      brightnessInput: requireElement("brightnessInput"),
+      brightnessValue: requireElement("brightnessValue"),
+      contrastInput: requireElement("contrastInput"),
+      contrastValue: requireElement("contrastValue"),
+      saturationInput: requireElement("saturationInput"),
+      saturationValue: requireElement("saturationValue"),
+      sharpenModeSelect: requireElement("sharpenModeSelect"),
+      backgroundCleanupToggle: requireElement("backgroundCleanupToggle"),
+      backgroundCleanupControls: requireElement("backgroundCleanupControls"),
+      backgroundCleanupColorInput: requireElement("backgroundCleanupColorInput"),
+      backgroundCleanupToleranceInput: requireElement("backgroundCleanupToleranceInput"),
+      backgroundCleanupToleranceValue: requireElement("backgroundCleanupToleranceValue"),
+      iconAssistSection: requireElement("iconAssistSection"),
+      outlineModeSelect: requireElement("outlineModeSelect"),
+      paletteSourceSelect: requireElement("paletteSourceSelect"),
+      builtInPaletteSelect: requireElement("builtInPaletteSelect"),
+      builtInPaletteField: requireElement("builtInPaletteField"),
+      importedPaletteField: requireElement("importedPaletteField"),
+      importedPaletteTextInput: requireElement("importedPaletteTextInput"),
+      importedPaletteFileInput: requireElement("importedPaletteFileInput"),
+      applyImportedPaletteButton: requireElement("applyImportedPaletteButton"),
+      importedPalettePreview: requireElement("importedPalettePreview"),
       outputFormatSelect: requireElement("outputFormatSelect"),
       paletteModeSelect: requireElement("paletteModeSelect"),
       customPaletteCountInput: requireElement("customPaletteCountInput"),
       customPaletteField: requireElement("customPaletteField"),
       paletteSummary: requireElement("paletteSummary"),
+      paletteEditorSection: requireElement("paletteEditorSection"),
+      paletteEditorNotice: requireElement("paletteEditorNotice"),
+      resultPaletteStats: requireElement("resultPaletteStats"),
+      resultPaletteSwatches: requireElement("resultPaletteSwatches"),
+      selectedPaletteColor: requireElement("selectedPaletteColor"),
+      copyPaletteHexButton: requireElement("copyPaletteHexButton"),
+      paletteReplacementInput: requireElement("paletteReplacementInput"),
+      replacePaletteColorButton: requireElement("replacePaletteColorButton"),
+      paletteMergeTargetSelect: requireElement("paletteMergeTargetSelect"),
+      mergePaletteColorButton: requireElement("mergePaletteColorButton"),
+      paletteEditorStatus: requireElement("paletteEditorStatus"),
       widthAxisButtons: queryButtons("width"),
       heightAxisButtons: queryButtons("height"),
       sizeAxisButtons: Array.prototype.slice.call(document.querySelectorAll(".size-axis-button")),
@@ -63,13 +100,24 @@
     elements.customSizeToggle.checked = constants.DEFAULT_CUSTOM_SIZE_ENABLED;
     elements.outputWidthInput.value = constants.DEFAULT_OUTPUT_WIDTH;
     elements.outputHeightInput.value = constants.DEFAULT_OUTPUT_HEIGHT;
+    elements.brightnessInput.value = constants.DEFAULT_BRIGHTNESS;
+    elements.contrastInput.value = constants.DEFAULT_CONTRAST;
+    elements.saturationInput.value = constants.DEFAULT_SATURATION;
+    elements.sharpenModeSelect.value = constants.DEFAULT_SHARPEN_MODE;
+    elements.backgroundCleanupToggle.checked = constants.DEFAULT_BACKGROUND_CLEANUP_ENABLED;
+    elements.backgroundCleanupColorInput.value = constants.DEFAULT_BACKGROUND_CLEANUP_COLOR;
+    elements.backgroundCleanupToleranceInput.value = constants.DEFAULT_BACKGROUND_CLEANUP_TOLERANCE;
+    elements.outlineModeSelect.value = constants.DEFAULT_OUTLINE_MODE;
     setDownloadEnabled(false);
     setConvertEnabled(false);
     updateSizeControls(0, 0);
     updateCustomSizeVisibility();
     updatePaletteControls();
+    updatePreprocessControls();
+    updateImportedPalettePreview(null);
     clearOriginalPreview();
     clearResultPreview();
+    resetPaletteEditor();
     updateFileInfo(null);
     hideWarning();
     return elements;
@@ -164,6 +212,18 @@
       customWidth: elements.outputWidthInput.value,
       customHeight: elements.outputHeightInput.value,
       samplingMode: elements.samplingModeSelect.value,
+      ditheringMode: elements.ditheringModeSelect.value,
+      brightness: elements.brightnessInput.value,
+      contrast: elements.contrastInput.value,
+      saturation: elements.saturationInput.value,
+      sharpenMode: elements.sharpenModeSelect.value,
+      backgroundCleanupEnabled: elements.backgroundCleanupToggle.checked,
+      backgroundCleanupColor: elements.backgroundCleanupColorInput.value,
+      backgroundCleanupTolerance: elements.backgroundCleanupToleranceInput.value,
+      outlineMode: elements.outlineModeSelect.value,
+      paletteSource: elements.paletteSourceSelect.value,
+      builtInPaletteId: elements.builtInPaletteSelect.value,
+      importedPaletteText: elements.importedPaletteTextInput.value,
       outputFormat: elements.outputFormatSelect.value,
       paletteMode: elements.paletteModeSelect.value,
       customPaletteCount: elements.customPaletteCountInput.value
@@ -228,9 +288,225 @@
   }
 
   function updatePaletteControls() {
-    var isCustom = elements.paletteModeSelect.value === "custom";
+    var paletteSource = elements.paletteSourceSelect.value;
+    var isGenerated = paletteSource === constants.DEFAULT_PALETTE_SOURCE;
+    var isBuiltIn = paletteSource === "builtIn";
+    var isImported = paletteSource === "imported";
+    var isCustom = isGenerated && elements.paletteModeSelect.value === "custom";
+
+    elements.builtInPaletteField.hidden = !isBuiltIn;
+    elements.builtInPaletteSelect.disabled = !isBuiltIn;
+    elements.importedPaletteField.hidden = !isImported;
+    elements.importedPaletteTextInput.disabled = !isImported;
+    elements.importedPaletteFileInput.disabled = !isImported;
+    elements.applyImportedPaletteButton.disabled = !isImported;
+    elements.paletteModeSelect.disabled = !isGenerated;
     elements.customPaletteCountInput.disabled = !isCustom;
     elements.customPaletteField.classList.toggle("is-disabled", !isCustom);
+  }
+
+  function updatePreprocessControls() {
+    var cleanupEnabled = !!elements.backgroundCleanupToggle.checked;
+
+    elements.brightnessValue.textContent = elements.brightnessInput.value;
+    elements.contrastValue.textContent = elements.contrastInput.value;
+    elements.saturationValue.textContent = elements.saturationInput.value;
+    elements.backgroundCleanupToleranceValue.textContent = elements.backgroundCleanupToleranceInput.value;
+    elements.backgroundCleanupColorInput.disabled = !cleanupEnabled;
+    elements.backgroundCleanupToleranceInput.disabled = !cleanupEnabled;
+    elements.backgroundCleanupControls.classList.toggle("is-disabled", !cleanupEnabled);
+  }
+
+  function setImportedPaletteText(text) {
+    elements.importedPaletteTextInput.value = text || "";
+  }
+
+  function updateImportedPalettePreview(parseResult) {
+    elements.importedPalettePreview.textContent = "";
+
+    if (!parseResult || !parseResult.colors || !parseResult.colors.length) {
+      elements.importedPalettePreview.textContent = "Imported palette: none";
+      return;
+    }
+
+    if (!parseResult.valid) {
+      elements.importedPalettePreview.textContent = parseResult.message || "Invalid imported palette";
+      return;
+    }
+
+    parseResult.colors.slice(0, 32).forEach(function (hexColor) {
+      var chip = document.createElement("span");
+      chip.className = "palette-preview-chip";
+      chip.style.backgroundColor = hexColor;
+      chip.title = hexColor;
+      elements.importedPalettePreview.appendChild(chip);
+    });
+
+    var label = document.createElement("span");
+    label.textContent = parseResult.colors.length + " colors";
+    elements.importedPalettePreview.appendChild(label);
+  }
+
+  function setPaletteEditorActionState(enabled) {
+    elements.copyPaletteHexButton.disabled = !enabled;
+    elements.replacePaletteColorButton.disabled = !enabled;
+    elements.paletteMergeTargetSelect.disabled = !enabled;
+    elements.mergePaletteColorButton.disabled = !enabled ||
+      elements.paletteMergeTargetSelect.options.length <= 1 ||
+      !elements.paletteMergeTargetSelect.value;
+  }
+
+  function updatePaletteMergeActionState() {
+    setPaletteEditorActionState(!!selectedPaletteHex);
+  }
+
+  function populatePaletteMergeTargets() {
+    elements.paletteMergeTargetSelect.textContent = "";
+
+    var placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Select target";
+    elements.paletteMergeTargetSelect.appendChild(placeholder);
+
+    if (!resultPaletteData || !resultPaletteData.colors) {
+      return;
+    }
+
+    resultPaletteData.colors.forEach(function (color) {
+      if (color.hex === selectedPaletteHex) {
+        return;
+      }
+
+      var option = document.createElement("option");
+      option.value = color.hex;
+      option.textContent = color.hex + " (" + color.count + ")";
+      elements.paletteMergeTargetSelect.appendChild(option);
+    });
+  }
+
+  function selectPaletteSwatch(hexColor) {
+    var normalized = String(hexColor || "").toLowerCase();
+    var exists = resultPaletteData && resultPaletteData.colors && resultPaletteData.colors.some(function (color) {
+      return color.hex === normalized;
+    });
+
+    selectedPaletteHex = exists ? normalized : "";
+
+    Array.prototype.slice.call(elements.resultPaletteSwatches.querySelectorAll(".result-palette-swatch")).forEach(function (button) {
+      button.classList.toggle("is-selected", button.getAttribute("data-hex") === selectedPaletteHex);
+      button.setAttribute("aria-pressed", button.getAttribute("data-hex") === selectedPaletteHex ? "true" : "false");
+    });
+
+    elements.selectedPaletteColor.textContent = selectedPaletteHex || "없음";
+    populatePaletteMergeTargets();
+    setPaletteEditorActionState(!!selectedPaletteHex);
+  }
+
+  function updatePaletteEditor(paletteData, options) {
+    var safeOptions = options || {};
+    var requestedSelection = String(safeOptions.selectedHex || "").toLowerCase();
+
+    resultPaletteData = paletteData || null;
+    selectedPaletteHex = "";
+    elements.resultPaletteSwatches.textContent = "";
+    elements.paletteEditorStatus.textContent = safeOptions.status || "";
+
+    if (!paletteData || !paletteData.colors || !paletteData.colors.length) {
+      elements.resultPaletteStats.textContent = paletteData
+        ? "사용 색상 0개 / 투명 픽셀 " + paletteData.transparentPixelCount + "개"
+        : "결과를 생성하면 palette swatch가 표시됩니다.";
+      elements.selectedPaletteColor.textContent = "없음";
+      populatePaletteMergeTargets();
+      setPaletteEditorActionState(false);
+      return;
+    }
+
+    elements.resultPaletteStats.textContent =
+      "사용 색상 " + paletteData.visibleColorCount + "개 / visible pixel " +
+      paletteData.visiblePixelCount + "개 / 투명 픽셀 " + paletteData.transparentPixelCount + "개";
+
+    paletteData.colors.forEach(function (color) {
+      var button = document.createElement("button");
+      var chip = document.createElement("span");
+      var label = document.createElement("span");
+
+      button.className = "result-palette-swatch";
+      button.type = "button";
+      button.setAttribute("data-hex", color.hex);
+      button.setAttribute("aria-pressed", "false");
+      button.title = color.hex + " / " + color.count + " pixels / " + color.percentage + "%";
+
+      chip.className = "result-palette-chip";
+      chip.style.backgroundColor = color.hex;
+      label.className = "result-palette-label";
+      label.textContent = color.hex + " · " + color.count + " · " + color.percentage + "%";
+
+      button.appendChild(chip);
+      button.appendChild(label);
+      elements.resultPaletteSwatches.appendChild(button);
+    });
+
+    var initialSelection = paletteData.colors.some(function (color) {
+      return color.hex === requestedSelection;
+    }) ? requestedSelection : paletteData.colors[0].hex;
+
+    selectPaletteSwatch(initialSelection);
+  }
+
+  function resetPaletteEditor() {
+    resultPaletteData = null;
+    selectedPaletteHex = "";
+    elements.resultPaletteStats.textContent = "결과를 생성하면 palette swatch가 표시됩니다.";
+    elements.resultPaletteSwatches.textContent = "";
+    elements.selectedPaletteColor.textContent = "없음";
+    elements.paletteReplacementInput.value = "#000000";
+    elements.paletteEditorStatus.textContent = "";
+    populatePaletteMergeTargets();
+    setPaletteEditorActionState(false);
+  }
+
+  function getSelectedPaletteHex() {
+    return selectedPaletteHex;
+  }
+
+  function getPaletteReplacementHex() {
+    return elements.paletteReplacementInput.value;
+  }
+
+  function getPaletteMergeTargetHex() {
+    return elements.paletteMergeTargetSelect.value;
+  }
+
+  function setPaletteEditorStatus(message) {
+    elements.paletteEditorStatus.textContent = message || "";
+  }
+
+  function copyTextToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+
+    return new Promise(function (resolve, reject) {
+      var textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+
+      try {
+        if (document.execCommand && document.execCommand("copy")) {
+          resolve();
+        } else {
+          reject(new Error("Clipboard copy failed."));
+        }
+      } catch (error) {
+        reject(error);
+      } finally {
+        textarea.remove();
+      }
+    });
   }
 
   function showOriginalPreview(dataURL, width, height) {
@@ -333,6 +609,7 @@
 
   function resetResult() {
     clearResultPreview();
+    resetPaletteEditor();
     updateFileInfo(null);
     setDownloadEnabled(false);
   }
@@ -343,9 +620,14 @@
     var samplingMode = fileInfo ? fileInfo.samplingMode : constants.DEFAULT_SAMPLING_MODE;
     var outputFormat = fileInfo ? fileInfo.outputFormat : constants.DEFAULT_OUTPUT_FORMAT;
     var paletteText = fileInfo && fileInfo.paletteText ? fileInfo.paletteText : "off";
+    var ditheringMode = fileInfo && fileInfo.ditheringMode ? fileInfo.ditheringMode : constants.DEFAULT_DITHERING_MODE;
+    var ditheringText = ditheringMode === constants.DEFAULT_DITHERING_MODE ? "" : " / dither " + ditheringMode;
+    var preprocessText = fileInfo && fileInfo.preprocessApplied ? " / preprocess" : "";
+    var outlineMode = fileInfo && fileInfo.outlineMode ? fileInfo.outlineMode : constants.DEFAULT_OUTLINE_MODE;
+    var outlineText = outlineMode === constants.DEFAULT_OUTLINE_MODE ? "" : " / outline " + outlineMode;
 
-    return width + "x" + height + " / " + samplingMode + " / palette " +
-      paletteText + " / " + constants.FORMAT_LABELS[outputFormat];
+    return width + "x" + height + " / " + samplingMode + preprocessText + ditheringText + " / palette " +
+      paletteText + outlineText + " / " + constants.FORMAT_LABELS[outputFormat];
   }
 
   function updateFileInfo(fileInfo) {
@@ -375,13 +657,22 @@
   }
 
   function updatePaletteSummary(paletteInfo) {
-    if (!paletteInfo || paletteInfo.paletteMode === "off") {
-      elements.paletteSummary.textContent = "팔레트 제한: off";
+    if (!paletteInfo || !paletteInfo.paletteApplied) {
+      var offParts = ["팔레트 제한: off"];
+      if (paletteInfo && paletteInfo.outlineApplied) {
+        offParts.push("outline " + paletteInfo.outlineMode + " +" + paletteInfo.outlineAddedPixelCount + "px");
+      }
+      if (paletteInfo && paletteInfo.manualEditCount) {
+        offParts.push("manual edits " + paletteInfo.manualEditCount);
+      }
+      elements.paletteSummary.textContent = offParts.join(" / ");
       return;
     }
 
     var parts = [];
-    if (paletteInfo.paletteMode === "auto") {
+    if (paletteInfo.fixedPaletteApplied) {
+      parts.push((paletteInfo.paletteSourceLabel || "fixed palette") + " " + paletteInfo.effectivePaletteCount + "색");
+    } else if (paletteInfo.paletteMode === "auto") {
       parts.push("자동 추천 팔레트 " + paletteInfo.effectivePaletteCount + "색");
     } else {
       parts.push("제한 색상 수 " + paletteInfo.effectivePaletteCount);
@@ -395,6 +686,18 @@
 
     if (paletteInfo.alphaMode === constants.PALETTE_LIMIT_ALPHA_MODE) {
       parts.push("alpha 0/255");
+    }
+
+    if (paletteInfo.ditheringApplied) {
+      parts.push("dither " + paletteInfo.ditheringMode);
+    }
+
+    if (paletteInfo.manualEditCount) {
+      parts.push("manual edits " + paletteInfo.manualEditCount);
+    }
+
+    if (paletteInfo.outlineApplied) {
+      parts.push("outline " + paletteInfo.outlineMode + " +" + paletteInfo.outlineAddedPixelCount + "px");
     }
 
     elements.paletteSummary.textContent = parts.join(" / ");
@@ -416,6 +719,18 @@
     updatePresetAvailability: updatePresetAvailability,
     updateInputMaximums: updateInputMaximums,
     updatePaletteControls: updatePaletteControls,
+    updatePreprocessControls: updatePreprocessControls,
+    setImportedPaletteText: setImportedPaletteText,
+    updateImportedPalettePreview: updateImportedPalettePreview,
+    updatePaletteEditor: updatePaletteEditor,
+    resetPaletteEditor: resetPaletteEditor,
+    selectPaletteSwatch: selectPaletteSwatch,
+    getSelectedPaletteHex: getSelectedPaletteHex,
+    getPaletteReplacementHex: getPaletteReplacementHex,
+    getPaletteMergeTargetHex: getPaletteMergeTargetHex,
+    updatePaletteMergeActionState: updatePaletteMergeActionState,
+    setPaletteEditorStatus: setPaletteEditorStatus,
+    copyTextToClipboard: copyTextToClipboard,
     updatePaletteSummary: updatePaletteSummary,
     showOriginalPreview: showOriginalPreview,
     clearOriginalPreview: clearOriginalPreview,

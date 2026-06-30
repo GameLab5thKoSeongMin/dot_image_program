@@ -5,6 +5,7 @@
   var fileHandler = window.PixelIconFileHandler;
   var imageProcessor = window.PixelIconImageProcessor;
   var paletteQuantizer = window.PixelIconPaletteQuantizer;
+  var iconAssistProcessor = window.PixelIconIconAssistProcessor;
   var exporter = window.PixelIconExporter;
   var ui = window.PixelIconUIController;
 
@@ -14,11 +15,20 @@
     sourceDataURL: "",
     sourceWidth: 0,
     sourceHeight: 0,
+    convertedCanvas: null,
     resultCanvas: null,
+    resultPalette: null,
+    paletteEditCount: 0,
     resultHasTransparency: false,
     outputFilename: "",
     outputFormat: constants.DEFAULT_OUTPUT_FORMAT,
     samplingMode: constants.DEFAULT_SAMPLING_MODE,
+    ditheringMode: constants.DEFAULT_DITHERING_MODE,
+    paletteSource: constants.DEFAULT_PALETTE_SOURCE,
+    preprocessOptions: null,
+    outlineMode: constants.DEFAULT_OUTLINE_MODE,
+    outlineInfo: null,
+    outlineColorOverride: null,
     paletteInfo: null,
     isProcessing: false
   };
@@ -29,9 +39,18 @@
   }
 
   function resetForNewInput() {
+    state.convertedCanvas = null;
     state.resultCanvas = null;
+    state.resultPalette = null;
+    state.paletteEditCount = 0;
     state.resultHasTransparency = false;
     state.outputFilename = "";
+    state.ditheringMode = constants.DEFAULT_DITHERING_MODE;
+    state.paletteSource = constants.DEFAULT_PALETTE_SOURCE;
+    state.preprocessOptions = null;
+    state.outlineMode = constants.DEFAULT_OUTLINE_MODE;
+    state.outlineInfo = null;
+    state.outlineColorOverride = null;
     state.paletteInfo = null;
     ui.clearError();
     ui.hideWarning();
@@ -44,6 +63,9 @@
     var outputHeight = selectedOptions.customSizeEnabled ? selectedOptions.customHeight : selectedOptions.heightOption;
     var outputFormat = fileHandler.normalizeOutputFormat(selectedOptions.outputFormat);
     var samplingMode = fileHandler.normalizeSamplingMode(selectedOptions.samplingMode);
+    var ditheringMode = fileHandler.normalizeDitheringMode(selectedOptions.ditheringMode);
+    var paletteSource = fileHandler.normalizePaletteSource(selectedOptions.paletteSource);
+    var backgroundCleanupColor = fileHandler.hexToRgb(selectedOptions.backgroundCleanupColor);
 
     return {
       customSizeEnabled: selectedOptions.customSizeEnabled,
@@ -52,7 +74,31 @@
       outputWidth: outputWidth,
       outputHeight: outputHeight,
       samplingMode: samplingMode,
+      ditheringMode: ditheringMode,
+      brightness: fileHandler.normalizePreprocessAdjustment(
+        selectedOptions.brightness,
+        constants.DEFAULT_BRIGHTNESS
+      ),
+      contrast: fileHandler.normalizePreprocessAdjustment(
+        selectedOptions.contrast,
+        constants.DEFAULT_CONTRAST
+      ),
+      saturation: fileHandler.normalizePreprocessAdjustment(
+        selectedOptions.saturation,
+        constants.DEFAULT_SATURATION
+      ),
+      sharpenMode: fileHandler.normalizeSharpenMode(selectedOptions.sharpenMode),
+      backgroundCleanupEnabled: !!selectedOptions.backgroundCleanupEnabled,
+      backgroundCleanupColor: selectedOptions.backgroundCleanupColor,
+      backgroundCleanupRgb: backgroundCleanupColor,
+      backgroundCleanupTolerance: fileHandler.normalizeBackgroundCleanupTolerance(
+        selectedOptions.backgroundCleanupTolerance
+      ),
+      outlineMode: fileHandler.normalizeOutlineMode(selectedOptions.outlineMode),
       outputFormat: outputFormat,
+      paletteSource: paletteSource,
+      builtInPaletteId: fileHandler.normalizeBuiltInPaletteId(selectedOptions.builtInPaletteId),
+      importedPaletteText: selectedOptions.importedPaletteText,
       paletteMode: fileHandler.normalizePaletteMode(selectedOptions.paletteMode),
       customPaletteCount: selectedOptions.customPaletteCount
     };
@@ -67,12 +113,74 @@
     );
   }
 
-  function buildPaletteText(paletteResult) {
+  function applyOutline(canvas, outlineMode, colorOverride) {
+    return iconAssistProcessor.applyOutlineToCanvas(canvas, {
+      mode: outlineMode,
+      colorOverride: colorOverride
+    });
+  }
+
+  function buildPaletteText(paletteResult, paletteSourceOptions) {
+    if (paletteResult.fixedPaletteApplied) {
+      return paletteSourceOptions.label + " (" + paletteResult.effectivePaletteCount + " colors)";
+    }
+
     if (paletteResult.paletteMode === "off") {
       return "off";
     }
 
     return paletteResult.paletteMode + " (" + paletteResult.effectivePaletteCount + " colors)";
+  }
+
+  function resolvePaletteSourceOptions(options) {
+    var paletteSource = options.paletteSource || constants.DEFAULT_PALETTE_SOURCE;
+    var builtInPalette;
+    var importedPalette;
+
+    if (paletteSource === "builtIn") {
+      builtInPalette = fileHandler.getBuiltInPaletteById(options.builtInPaletteId);
+      return {
+        valid: !!builtInPalette,
+        message: builtInPalette ? "" : "Built-in palette을 찾을 수 없습니다.",
+        paletteSource: paletteSource,
+        paletteId: builtInPalette && builtInPalette.id,
+        label: builtInPalette ? builtInPalette.label : "Built-in palette",
+        fixedPaletteColors: builtInPalette ? fileHandler.createRgbPaletteFromHexColors(builtInPalette.colors) : []
+      };
+    }
+
+    if (paletteSource === "imported") {
+      importedPalette = fileHandler.parseHexPaletteText(options.importedPaletteText);
+      ui.updateImportedPalettePreview(importedPalette);
+
+      if (!importedPalette.valid) {
+        return {
+          valid: false,
+          message: importedPalette.message,
+          paletteSource: paletteSource,
+          label: "Imported palette",
+          fixedPaletteColors: []
+        };
+      }
+
+      return {
+        valid: true,
+        message: "",
+        paletteSource: paletteSource,
+        paletteId: "imported",
+        label: "Imported palette",
+        fixedPaletteColors: importedPalette.rgbColors
+      };
+    }
+
+    return {
+      valid: true,
+      message: "",
+      paletteSource: constants.DEFAULT_PALETTE_SOURCE,
+      paletteId: "generated",
+      label: "generated",
+      fixedPaletteColors: []
+    };
   }
 
   function buildWarningMessage(outputFormat, resultHasTransparency, paletteInfo, performanceWarning) {
@@ -87,10 +195,15 @@
     }
 
     if (paletteInfo &&
-      paletteInfo.paletteMode !== "off" &&
+      paletteInfo.paletteApplied &&
+      !paletteInfo.fixedPaletteApplied &&
       paletteInfo.beforeColorCount > 0 &&
       paletteInfo.effectivePaletteCount >= paletteInfo.beforeColorCount) {
       messages.push("현재 이미지의 실제 색상 수보다 팔레트 제한값이 큽니다. 결과가 거의 변하지 않을 수 있습니다.");
+    }
+
+    if (paletteInfo && paletteInfo.ditheringSkipped) {
+      messages.push("Dithering은 palette 제한이 적용된 상태에서 사용할 수 있습니다.");
     }
 
     return messages.join(" ");
@@ -108,20 +221,37 @@
   }
 
   function updateResultState(result, options, filename, performanceWarning) {
+    state.convertedCanvas = result.editableCanvas || result.canvas;
     state.resultCanvas = result.canvas;
+    state.resultPalette = paletteQuantizer.getResultPaletteFromCanvas(result.canvas);
+    state.paletteEditCount = 0;
     state.resultHasTransparency = result.resultHasTransparency;
     state.outputFilename = filename;
     state.outputFormat = options.outputFormat;
     state.samplingMode = options.samplingMode;
+    state.ditheringMode = options.ditheringMode;
+    state.paletteSource = options.paletteSource;
+    state.preprocessOptions = result.preprocessOptions || null;
+    state.outlineMode = options.outlineMode;
+    state.outlineInfo = result.outlineInfo || null;
+    state.outlineColorOverride = null;
     state.paletteInfo = result.paletteInfo || null;
+    if (state.paletteInfo) {
+      state.paletteInfo.manualEditCount = 0;
+    }
 
     ui.showResultPreview(result.canvas);
+    ui.updatePaletteEditor(state.resultPalette);
     ui.updateFileInfo({
       outputFilename: filename,
       outputWidth: result.width,
       outputHeight: result.height,
       samplingMode: options.samplingMode,
+      ditheringMode: options.ditheringMode,
+      preprocessApplied: !!result.preprocessApplied,
+      outlineMode: options.outlineMode,
       outputFormat: options.outputFormat,
+      paletteSource: options.paletteSource,
       paletteInfo: result.paletteInfo,
       paletteText: result.paletteText
     });
@@ -132,8 +262,17 @@
   }
 
   function resetResultWithWarning(message, status) {
+    state.convertedCanvas = null;
     state.resultCanvas = null;
+    state.resultPalette = null;
+    state.paletteEditCount = 0;
     state.outputFilename = "";
+    state.ditheringMode = constants.DEFAULT_DITHERING_MODE;
+    state.paletteSource = constants.DEFAULT_PALETTE_SOURCE;
+    state.preprocessOptions = null;
+    state.outlineMode = constants.DEFAULT_OUTLINE_MODE;
+    state.outlineInfo = null;
+    state.outlineColorOverride = null;
     state.paletteInfo = null;
     ui.resetResult();
     ui.showWarning(message);
@@ -150,6 +289,7 @@
 
     ui.updateSizeControls(state.sourceWidth, state.sourceHeight);
     ui.updatePaletteControls();
+    ui.updatePreprocessControls();
 
     var options = getNormalizedOptions();
     var sizeValidation = validateCurrentOptions(options);
@@ -173,9 +313,28 @@
     }
 
     var paletteValidation = fileHandler.validatePaletteOptions(options.paletteMode, options.customPaletteCount);
+    var paletteSourceOptions = resolvePaletteSourceOptions(options);
+
+    if (options.paletteSource !== constants.DEFAULT_PALETTE_SOURCE) {
+      paletteValidation = {
+        valid: true,
+        paletteMode: options.paletteMode,
+        customPaletteCount: null
+      };
+    }
+
+    if (!paletteSourceOptions.valid) {
+      resetResultWithWarning(paletteSourceOptions.message, "palette source를 확인하세요.");
+      return;
+    }
 
     if (!paletteValidation.valid) {
       resetResultWithWarning(paletteValidation.message, "팔레트 색상 수를 확인하세요.");
+      return;
+    }
+
+    if (options.backgroundCleanupEnabled && !options.backgroundCleanupRgb) {
+      resetResultWithWarning("유효한 배경 제거 HEX 색상이 필요합니다.", "배경 제거 색상을 확인하세요.");
       return;
     }
 
@@ -185,26 +344,56 @@
       var conversionOptions = {
         outputWidth: sizeValidation.width,
         outputHeight: sizeValidation.height,
-        samplingMode: options.samplingMode
+        samplingMode: options.samplingMode,
+        preprocess: {
+          brightness: options.brightness,
+          contrast: options.contrast,
+          saturation: options.saturation,
+          sharpenMode: options.sharpenMode,
+          backgroundCleanupEnabled: options.backgroundCleanupEnabled,
+          backgroundCleanupColor: options.backgroundCleanupRgb,
+          backgroundCleanupTolerance: options.backgroundCleanupTolerance
+        }
       };
       var result = imageProcessor.convertImageToPixelIcon(state.sourceImage, conversionOptions);
       var paletteResult = paletteQuantizer.applyPaletteLimitToCanvas(result.canvas, {
         paletteMode: paletteValidation.paletteMode,
-        customPaletteCount: paletteValidation.customPaletteCount
+        customPaletteCount: paletteValidation.customPaletteCount,
+        paletteSource: paletteSourceOptions.paletteSource,
+        fixedPaletteColors: paletteSourceOptions.fixedPaletteColors,
+        ditheringMode: options.ditheringMode
       });
-      var paletteText = buildPaletteText(paletteResult);
+      var paletteText = buildPaletteText(paletteResult, paletteSourceOptions);
+      var outlineResult = applyOutline(paletteResult.canvas, options.outlineMode, null);
 
-      result.canvas = paletteResult.canvas;
+      result.editableCanvas = paletteResult.canvas;
+      result.canvas = outlineResult.canvas;
+      result.outlineInfo = outlineResult;
       result.resultHasTransparency = exporter.canvasHasTransparency(result.canvas);
       result.paletteInfo = {
         paletteMode: paletteResult.paletteMode,
+        paletteSource: paletteResult.paletteSource,
+        paletteSourceId: paletteSourceOptions.paletteId,
+        paletteSourceLabel: paletteSourceOptions.label,
         paletteApplied: paletteResult.paletteApplied,
+        fixedPaletteApplied: paletteResult.fixedPaletteApplied,
         effectivePaletteCount: paletteResult.effectivePaletteCount,
         beforeColorCount: paletteResult.beforeColorCount,
         afterColorCount: paletteResult.afterColorCount,
         beforeRgbaColorCount: paletteResult.beforeRgbaColorCount,
         afterRgbaColorCount: paletteResult.afterRgbaColorCount,
-        alphaMode: paletteResult.alphaMode
+        alphaMode: paletteResult.alphaMode,
+        ditheringMode: paletteResult.ditheringMode,
+        ditheringApplied: paletteResult.ditheringApplied,
+        ditheringSkipped: paletteResult.ditheringSkipped,
+        outlineMode: outlineResult.outlineMode,
+        outlineApplied: outlineResult.outlineApplied,
+        outlineAddedPixelCount: outlineResult.outlineAddedPixelCount,
+        outlineColorHex: outlineResult.outlineColorHex,
+        finalColorCount: paletteQuantizer.countUniqueVisibleColors(
+          result.canvas.getContext("2d", { willReadFrequently: true })
+            .getImageData(0, 0, result.canvas.width, result.canvas.height)
+        )
       };
       result.paletteText = paletteText;
 
@@ -213,13 +402,16 @@
         outputHeight: result.height,
         samplingMode: options.samplingMode,
         outputFormat: options.outputFormat,
-        paletteMode: paletteResult.paletteMode,
+        paletteMode: paletteResult.paletteApplied ? "custom" : paletteResult.paletteMode,
         paletteCount: paletteResult.effectivePaletteCount
       });
 
       updateResultState(result, {
         outputFormat: options.outputFormat,
-        samplingMode: options.samplingMode
+        samplingMode: options.samplingMode,
+        ditheringMode: options.ditheringMode,
+        paletteSource: options.paletteSource,
+        outlineMode: options.outlineMode
       }, filename, performanceWarning);
     } catch (error) {
       resetResultWithWarning(
@@ -269,8 +461,17 @@
       state.sourceDataURL = "";
       state.sourceWidth = 0;
       state.sourceHeight = 0;
+      state.convertedCanvas = null;
       state.resultCanvas = null;
+      state.resultPalette = null;
+      state.paletteEditCount = 0;
       state.outputFilename = "";
+      state.ditheringMode = constants.DEFAULT_DITHERING_MODE;
+      state.paletteSource = constants.DEFAULT_PALETTE_SOURCE;
+      state.preprocessOptions = null;
+      state.outlineMode = constants.DEFAULT_OUTLINE_MODE;
+      state.outlineInfo = null;
+      state.outlineColorOverride = null;
       state.paletteInfo = null;
       ui.clearOriginalPreview();
       ui.resetResult();
@@ -333,10 +534,189 @@
   function handleOptionChange() {
     ui.updateSizeControls(state.sourceWidth, state.sourceHeight);
     ui.updatePaletteControls();
+    ui.updatePreprocessControls();
 
     if (state.sourceImage) {
       processCurrentImage({ auto: true });
     }
+  }
+
+  function updateImportedPalettePreviewFromInput() {
+    var options = ui.getSelectedOptions();
+    var parsed = fileHandler.parseHexPaletteText(options.importedPaletteText);
+    ui.updateImportedPalettePreview(parsed);
+    return parsed;
+  }
+
+  function handleImportedPaletteApply() {
+    var parsed = updateImportedPalettePreviewFromInput();
+
+    if (!parsed.valid) {
+      ui.showWarning(parsed.message);
+    } else if (!state.sourceImage) {
+      ui.hideWarning();
+    }
+
+    handleOptionChange();
+  }
+
+  async function handleImportedPaletteFile(event) {
+    var file = event.target.files && event.target.files[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      var text = await fileHandler.readFileAsText(file);
+      ui.setImportedPaletteText(text);
+      handleImportedPaletteApply();
+    } catch (error) {
+      ui.showWarning(error.message || "palette 파일을 읽을 수 없습니다.");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  function applyPaletteColorEdit(targetHex, actionLabel) {
+    var sourceHex = ui.getSelectedPaletteHex();
+    var sourceColor = fileHandler.hexToRgb(sourceHex);
+    var targetColor = fileHandler.hexToRgb(targetHex);
+
+    if (!state.resultCanvas) {
+      ui.showWarning("먼저 변환 결과를 생성하세요.");
+      return false;
+    }
+
+    if (!sourceColor) {
+      ui.showWarning("편집할 palette swatch를 선택하세요.");
+      return false;
+    }
+
+    if (!targetColor) {
+      ui.showWarning("유효한 HEX 색상을 입력하세요.");
+      return false;
+    }
+
+    if (sourceColor.hex === targetColor.hex) {
+      ui.showWarning("원본 색상과 대상 색상이 같습니다.");
+      return false;
+    }
+
+    var editableCanvas = state.convertedCanvas || state.resultCanvas;
+    var editResult = paletteQuantizer.replaceColorInCanvas(
+      editableCanvas,
+      sourceColor,
+      targetColor
+    );
+
+    if (!editResult.replacedPixelCount) {
+      if (state.outlineInfo &&
+        state.outlineInfo.outlineApplied &&
+        state.outlineInfo.outlineColorHex === sourceColor.hex) {
+        state.outlineColorOverride = targetColor;
+        editResult = {
+          canvas: editableCanvas,
+          imageData: editableCanvas.getContext("2d", { willReadFrequently: true })
+            .getImageData(0, 0, editableCanvas.width, editableCanvas.height),
+          replacedPixelCount: state.outlineInfo.outlineAddedPixelCount
+        };
+      } else {
+        ui.showWarning("선택한 색상과 일치하는 visible pixel이 없습니다.");
+        return false;
+      }
+    } else {
+      state.convertedCanvas = editResult.canvas;
+    }
+
+    var outlineResult = applyOutline(
+      state.convertedCanvas || editResult.canvas,
+      state.outlineMode,
+      state.outlineColorOverride
+    );
+
+    state.resultCanvas = outlineResult.canvas;
+    state.outlineInfo = outlineResult;
+    state.resultPalette = paletteQuantizer.getResultPaletteFromCanvas(state.resultCanvas);
+    state.paletteEditCount += 1;
+    state.resultHasTransparency = exporter.canvasHasTransparency(state.resultCanvas);
+
+    if (!state.paletteInfo) {
+      state.paletteInfo = {
+        paletteApplied: false,
+        manualEditCount: state.paletteEditCount
+      };
+    }
+
+    state.paletteInfo.afterColorCount = state.resultPalette.visibleColorCount;
+    var finalImageData = state.resultCanvas.getContext("2d", { willReadFrequently: true })
+      .getImageData(0, 0, state.resultCanvas.width, state.resultCanvas.height);
+    state.paletteInfo.afterRgbaColorCount = paletteQuantizer.countUniqueRgbaColors(finalImageData);
+    state.paletteInfo.manualEditCount = state.paletteEditCount;
+    state.paletteInfo.outlineMode = outlineResult.outlineMode;
+    state.paletteInfo.outlineApplied = outlineResult.outlineApplied;
+    state.paletteInfo.outlineAddedPixelCount = outlineResult.outlineAddedPixelCount;
+    state.paletteInfo.outlineColorHex = outlineResult.outlineColorHex;
+    state.paletteInfo.finalColorCount = state.resultPalette.visibleColorCount;
+
+    ui.showResultPreview(state.resultCanvas);
+    ui.updatePaletteEditor(state.resultPalette, {
+      selectedHex: targetColor.hex,
+      status: actionLabel + ": " + sourceColor.hex + " → " + targetColor.hex +
+        " / " + editResult.replacedPixelCount + " pixels"
+    });
+    ui.updatePaletteSummary(state.paletteInfo);
+    ui.hideWarning();
+    ui.setStatus("수동 palette 편집이 최종 canvas에 적용되었습니다.");
+    return true;
+  }
+
+  function handleCopyPaletteHex() {
+    var selectedHex = ui.getSelectedPaletteHex();
+
+    if (!selectedHex) {
+      ui.showWarning("복사할 palette swatch를 선택하세요.");
+      return;
+    }
+
+    ui.copyTextToClipboard(selectedHex).then(function () {
+      ui.setPaletteEditorStatus(selectedHex + " copied.");
+      ui.hideWarning();
+    }).catch(function () {
+      ui.showWarning("클립보드에 복사할 수 없습니다. HEX 값을 직접 선택해 주세요.");
+    });
+  }
+
+  function bindPaletteEditor(elements) {
+    elements.resultPaletteSwatches.addEventListener("click", function (event) {
+      var button = event.target.closest(".result-palette-swatch");
+
+      if (button) {
+        ui.selectPaletteSwatch(button.getAttribute("data-hex"));
+        ui.setPaletteEditorStatus("");
+      }
+    });
+
+    elements.copyPaletteHexButton.addEventListener("click", handleCopyPaletteHex);
+
+    elements.replacePaletteColorButton.addEventListener("click", function () {
+      applyPaletteColorEdit(ui.getPaletteReplacementHex(), "Replace color");
+    });
+
+    elements.mergePaletteColorButton.addEventListener("click", function () {
+      var targetHex = ui.getPaletteMergeTargetHex();
+
+      if (!targetHex) {
+        ui.showWarning("Merge target 색상을 선택하세요.");
+        return;
+      }
+
+      applyPaletteColorEdit(targetHex, "Merge color");
+    });
+
+    elements.paletteMergeTargetSelect.addEventListener("change", function () {
+      ui.updatePaletteMergeActionState();
+    });
   }
 
   function bindOptions(elements) {
@@ -355,6 +735,17 @@
       elements.outputWidthInput,
       elements.outputHeightInput,
       elements.samplingModeSelect,
+      elements.ditheringModeSelect,
+      elements.brightnessInput,
+      elements.contrastInput,
+      elements.saturationInput,
+      elements.sharpenModeSelect,
+      elements.backgroundCleanupToggle,
+      elements.backgroundCleanupColorInput,
+      elements.backgroundCleanupToleranceInput,
+      elements.outlineModeSelect,
+      elements.paletteSourceSelect,
+      elements.builtInPaletteSelect,
       elements.outputFormatSelect,
       elements.paletteModeSelect,
       elements.customPaletteCountInput
@@ -362,8 +753,13 @@
       element.addEventListener("change", handleOptionChange);
       element.addEventListener("input", function () {
         ui.updatePaletteControls();
+        ui.updatePreprocessControls();
       });
     });
+
+    elements.importedPaletteTextInput.addEventListener("change", handleImportedPaletteApply);
+    elements.applyImportedPaletteButton.addEventListener("click", handleImportedPaletteApply);
+    elements.importedPaletteFileInput.addEventListener("change", handleImportedPaletteFile);
 
     elements.previewRefreshButton.addEventListener("click", function () {
       processCurrentImage({ auto: false });
@@ -410,6 +806,7 @@
     bindFileInput(elements);
     bindDropZone(elements);
     bindOptions(elements);
+    bindPaletteEditor(elements);
     bindDownload(elements);
   }
 
@@ -418,6 +815,7 @@
   window.PixelIconApp = {
     handleFile: handleFile,
     processCurrentImage: processCurrentImage,
+    applyPaletteColorEdit: applyPaletteColorEdit,
     getNormalizedOptions: getNormalizedOptions,
     validateCurrentOptions: validateCurrentOptions,
     getState: function () {

@@ -1,7 +1,7 @@
 # Test Plan
 
 ## 1. Test Goal
-Verify that the pixel icon generator preserves default behavior while adding the v0.5.0 Custom size flow, `dominant` sampling, palette alpha normalization, source-dimension validation, large-output warnings, result-header refresh behavior, and clean preview placeholders.
+Verify that the pixel icon generator preserves default behavior while adding Custom size, dithering, palette sources, Palette Editor, and v0.9.0 Preprocess / Icon Assist.
 
 ## 2. Regression Tests
 - [x] Default `32x32`, `median`, `png`, palette `off` still works.
@@ -113,12 +113,26 @@ Result: Pass.
 
 Result: Pass.
 
-## 11. Test Page Result
+## 11. Dithering Tests
+- [x] Dithering option list is `off`, `floydSteinberg`, `bayer4x4`.
+- [x] Dithering default is `off`.
+- [x] Explicit dithering `off` matches previous palette mapping output.
+- [x] Floyd-Steinberg works with palette `16`.
+- [x] Bayer 4x4 works with palette `16`.
+- [x] Dithering preserves transparent pixels.
+- [x] Dithering is skipped when palette mode is `off`.
+- [x] Dithered PNG export uses the final dithered canvas.
+- [x] Dithered JPG export uses the final dithered canvas with white compositing.
+- [x] Dithered `.aseprite` export uses the final dithered canvas.
+
+Result: Pass. Dithering strength is fixed at `1`; no strength UI was tested because it was not implemented in v0.6.0.
+
+## 12. Test Page Result
 - [x] `tests/test-cases.html`
   - Result: Pass
-  - Note: Local Edge reported `64 / 64 cases passed.`
+  - Note: Local Edge headless reported `94 / 94 cases passed.`
 
-## 12. Browser App Flow Result
+## 13. Browser App Flow Result
 - [x] `index.html`
   - Result: Pass
   - Notes:
@@ -129,6 +143,8 @@ Result: Pass.
     - The lower duplicate preview refresh button was absent.
     - Output selector was visible in the result preview header with `png,jpg,aseprite`.
     - Sampling selector exposed `median,average,center,dominant`.
+    - Dithering selector exposed `off`, `floydSteinberg`, and `bayer4x4`.
+    - Initial result summary stayed `32x32 / median / palette off / PNG`.
     - After loading a generated 512x384 PNG, default output was `sample_32x32_median.png`.
     - Custom inputs defaulted to `512` and `384`.
     - Custom source-size output showed a warning and deferred automatic conversion.
@@ -136,10 +152,101 @@ Result: Pass.
     - `dominant + palette 4 + Aseprite` produced `sample_32x32_dominant_p4.aseprite`.
     - Palette summary included unique RGBA and `alpha 0/255`.
 
-## 13. Verification Notes
+## 14. Verification Notes
 - Static syntax checks passed for app JS files.
 - The implementation keeps normal script tags and does not use ES Modules.
 - Source search found no `alert(` usage.
 - Source search found no fixed `drawImage(image, 0, 0, 32, 32)` conversion shortcut.
 - The conversion code still directly reads and writes `ImageData`.
 - Palette quantization remains post-processing and does not replace tile conversion.
+- v0.6.0 syntax checks passed for `constants.js`, `fileHandler.js`, `paletteQuantizer.js`, `uiController.js`, and `app.js`.
+- v0.6.0 static checks found no ES module syntax, no `alert()`, and no fixed `drawImage(image, 0, 0, 32, 32)` shortcut.
+- v0.7.0 syntax checks passed for `constants.js`, `fileHandler.js`, `paletteQuantizer.js`, `uiController.js`, and `app.js`.
+- v0.7.0 static checks found no ES module syntax, no `alert()`, and no fixed `drawImage(image, 0, 0, 32, 32)` shortcut.
+
+## 15. Palette Source Tests
+- [x] Palette source options are `generated`, `builtIn`, and `imported`.
+- [x] Palette source defaults to `generated`.
+- [x] Generated source preserves existing median-cut behavior.
+- [x] Built-in fixed palette mapping works.
+- [x] Imported pasted HEX mapping works.
+- [x] 3-digit and 6-digit HEX values normalize correctly.
+- [x] Duplicate imported colors are removed while preserving order.
+- [x] Invalid imported HEX tokens are rejected.
+- [x] Imported palettes below 2 or above 256 colors are rejected.
+- [x] Fixed palette mapping preserves transparent pixels.
+- [x] Dithering works with imported fixed palettes.
+- [x] PNG/JPG/Aseprite export use the fixed-palette final canvas.
+
+Result: Pass. Included in the Local Edge headless `78 / 78 cases passed.` result.
+
+## 16. Palette Editor Tests
+- [x] Result palette swatches expose visible HEX colors.
+- [x] Swatches report usage count and percentage.
+- [x] Transparent pixel count is reported separately.
+- [x] Copy HEX action exists and enables after palette render.
+- [x] Replace color updates exact matching visible RGB pixels.
+- [x] Replace color preserves current alpha.
+- [x] Merge color reduces visible color count.
+- [x] Transparent pixels remain transparent and are not RGB-replaced.
+- [x] Palette Editor reset clears swatches and disables actions.
+- [x] The reset policy is visible in the UI.
+- [x] PNG/JPG/Aseprite export use the manually edited canvas.
+
+Result: Pass. Included in the Local Edge headless `84 / 84 cases passed.` result.
+
+## 17. v0.8.0 Browser App Result
+- [x] `index.html` loads with the default `32x32 / median / palette off / PNG` summary.
+- [x] Palette Editor exists and is collapsed by default.
+- [x] Copy HEX, Replace color, and Merge color start disabled before conversion.
+- [x] Result-header `미리보기 갱신` remains visible.
+- [x] PNG/JPG/Aseprite output selector remains visible.
+
+Result: Pass.
+
+## 18. Preprocess and Icon Assist Tests
+- [x] Neutral preprocess defaults preserve the original `ImageData` path.
+- [x] Brightness changes visible RGB and preserves alpha.
+- [x] Contrast increases channel separation.
+- [x] Saturation `-100` produces grayscale.
+- [x] Sharpen `medium` completes and increases local edge contrast.
+- [x] Background cleanup removes exact picked color.
+- [x] Cleanup tolerance removes nearby RGB colors.
+- [x] Existing transparent pixels remain transparent during cleanup.
+- [x] Black outline fills transparent 8-neighbors.
+- [x] Dark outline derives a darker non-black RGB color.
+- [x] Outline does not overwrite visible pixels.
+- [x] PNG/JPG/Aseprite export use the preprocessed and outlined final canvas.
+
+Result: Pass. Included in the Local Edge headless `94 / 94 cases passed.` result.
+
+## 19. v0.9.0 Browser App Result
+- [x] `index.html` retains `32x32 / median / palette off / PNG`.
+- [x] Brightness, contrast, and saturation default to `0`.
+- [x] Sharpen defaults to `off`.
+- [x] Background cleanup defaults to off and its controls are disabled.
+- [x] Preprocess and Icon Assist are collapsed by default.
+- [x] Outline options expose `off`, `black`, and `dark`.
+- [x] Result-header refresh and PNG/JPG/Aseprite selector remain visible.
+
+Result: Pass.
+
+## 20. M5 Final Stabilization Result
+- [x] The active command file and all Markdown documents were reread.
+- [x] Syntax checks passed for every file in `src/*.js`.
+- [x] No ES Module `import/export`, browser `alert()`, framework, or build system was found.
+- [x] Tile-based conversion remains intact. The source `drawImage` call copies into a same-size preprocessing canvas and is not the output conversion path.
+- [x] Normal ordered script-tag loading works in `index.html` and the test page.
+- [x] The final local-browser test run reported `94 / 94 cases passed.` with zero failures.
+- [x] `index.html` loaded without console errors and showed clean placeholders without broken image sources.
+- [x] Custom size defaulted off, preset controls were visible, and custom numeric fields were hidden.
+- [x] Sampling exposed `median`, `average`, `center`, and `dominant`.
+- [x] Dithering, palette source, palette editor, neutral Preprocess, and Icon Assist controls were present with safe defaults.
+- [x] A generated 64x64 PNG passed through `PixelIconApp.handleFile` and produced a visible 32x32 result named `sample_32x32_median.png`.
+- [x] The actual app result canvas produced a non-empty PNG blob and JPG blob.
+- [x] The actual app result canvas produced an Aseprite buffer with one frame, 32x32 dimensions, 32-bit RGBA color depth, and valid file/frame magic values.
+- [x] The test suite verified final-canvas export consistency for dithering, built-in/imported palettes, Replace/Merge, brightness, contrast, saturation, sharpen, cleanup, and black/dark outline.
+- [x] The obsolete `Dotprogram.html` duplicate was removed; `index.html` is the maintained entry point.
+- [x] English and Korean documents were synchronized to the final verified state.
+
+Result: Pass. Final automated browser result: `94 / 94 cases passed.` External Aseprite desktop/CLI open/save validation remains pending.

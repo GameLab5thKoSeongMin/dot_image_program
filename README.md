@@ -20,7 +20,18 @@ The conversion is not a simple resize. The source image is divided into an outpu
 - Output format selector in the result preview header with PNG, JPG, and Aseprite options
 - Sampling modes: `median`, `average`, `center`, `dominant`
 - Palette limit modes: `off`, `auto`, `4`, `8`, `16`, `32`, `64`, `128`, `256`, `custom`
+- Palette source modes: `generated`, `builtIn`, `imported`
+- Generic built-in palettes and local pasted/file-based HEX palette import
+- Fixed nearest-color palette mapping
+- Result palette swatches with HEX, usage count, percentage, and transparent pixel count
+- Palette Editor actions: Copy HEX, Replace color, and Merge color
+- Manual palette edits reflected in preview and PNG/JPG/Aseprite export
+- Collapsed source Preprocess controls for brightness, contrast, saturation, and sharpen
+- Background cleanup by picked RGB color and tolerance
+- Collapsed Icon Assist with `off`, `1px black`, and `1px dark` outline
 - Median cut palette quantization
+- Dithering modes: `off`, `floydSteinberg`, `bayer4x4`
+- Palette-dependent Floyd-Steinberg and Bayer 4x4 mapping
 - Palette-on alpha normalization to `0` or `255`
 - Transparent PNG handling
 - Checkerboard preview backgrounds
@@ -60,9 +71,16 @@ http://localhost:8000/
 7. Select PNG, JPG, or Aseprite output from the result preview header.
 8. Choose palette mode. Leave it `off` for original behavior.
 9. For palette `custom`, enter a color count from 2 to 256.
-10. Use result-header `미리보기 갱신` when an explicit refresh is needed.
-11. Check the generated preview, result summary, and palette summary.
-12. Download the result.
+10. Keep Palette source at `Generated` for median-cut behavior, or choose `Built-in` / `Imported` for fixed palette mapping.
+11. For Imported, paste HEX colors or load a local `.txt` / `.hex` file, then apply the palette.
+12. Choose Dithering only when palette mapping is active. Leave it `off` for original behavior.
+13. Use result-header `미리보기 갱신` when an explicit refresh is needed.
+14. Open Preprocess when source adjustment or background cleanup is needed.
+15. Open Icon Assist to add a black or derived dark outline.
+16. Open the collapsed Palette Editor to inspect result swatches.
+17. Select a swatch to copy its HEX, replace it with another HEX, or merge it into another result color.
+18. Check the generated preview, result summary, and palette summary.
+19. Download the result.
 
 Large valid output sizes may show a warning and ask you to use `미리보기 갱신` to avoid repeated heavy auto-conversions. The warning does not block explicit conversion.
 
@@ -91,7 +109,7 @@ If output pixels exceed `65,536`, the app shows a moderate performance warning. 
 Palette limiting is a post-processing step:
 
 ```txt
-input image -> tile conversion -> palette limit -> preview/export
+input image -> tile conversion -> palette limit -> optional dithering-aware mapping -> preview/export
 ```
 
 Palette `off` preserves the converted canvas alpha behavior.
@@ -112,12 +130,73 @@ This keeps unique RGBA output controlled, generally within the effective palette
 
 The larger of output width and height is used.
 
-## 8. Output Formats
+## 8. Dithering
+Dithering is available after palette mapping.
+
+Modes:
+- `off`: default. Preserves previous palette behavior.
+- `floydSteinberg`: uses RGB error diffusion on visible pixels only.
+- `bayer4x4`: uses deterministic ordered Bayer 4x4 mapping.
+
+Dithering runs only when palette mapping is active. In v0.6.0 this means palette mode is not `off`. If dithering is selected while palette mode is `off`, the app skips dithering and shows a warning banner.
+
+Transparent pixels remain transparent. Palette-enabled alpha normalization still applies before dithering, so visible pixels use alpha `255` and transparent pixels use alpha `0`.
+
+Dithering strength is fixed at `1`; there is no strength control in v0.6.0.
+
+## 9. Palette Sources
+- `generated`: default. Uses the existing `off` / `auto` / numeric / `custom` median-cut palette limit.
+- `builtIn`: maps visible pixels to one of the included generic fixed palettes.
+- `imported`: maps visible pixels to a pasted or locally loaded HEX palette.
+
+Imported text accepts 3-digit or 6-digit HEX values with optional `#`, separated by whitespace, commas, or semicolons. Duplicate colors are removed while preserving order. Imported palettes must contain 2 to 256 unique valid colors.
+
+Built-in and imported palettes perform fixed nearest-color mapping, preserve transparent pixels, and normalize mapped alpha to `0` or `255`. Palette import is local only; no URL fetching is performed.
+
+## 10. Output Formats
 - PNG: Preserves transparency.
 - JPG: Does not preserve transparency. Transparent pixels are composited over white and a warning is shown.
 - `.aseprite`: Exports a binary Aseprite file with one frame, one layer, and raw RGBA cel data.
 
-## 9. Output Filename
+## 11. Palette Editor
+The collapsed Palette Editor analyzes the current final canvas and shows:
+- visible RGB swatches
+- normalized lowercase HEX
+- pixel usage count
+- percentage of visible pixels
+- total visible pixels
+- transparent pixel count
+
+Select a swatch before using an action:
+- `Copy HEX`: writes the selected HEX to the clipboard when browser permission allows it.
+- `Replace color`: replaces every visible pixel with the selected exact RGB value using the entered HEX.
+- `Merge color`: replaces the selected source color with another current result swatch.
+
+Manual edits preserve current alpha and skip transparent pixels. The edited canvas becomes `state.resultCanvas`, so preview and PNG/JPG/Aseprite export use the edited result.
+
+Any new conversion, including conversion triggered by a settings change, clears manual edits. This reset policy is shown in the Palette Editor.
+
+## 12. Preprocess and Background Cleanup
+Preprocess is collapsed by default. Neutral defaults preserve previous output:
+- brightness: `0`
+- contrast: `0`
+- saturation: `0`
+- sharpen: `off`
+- background cleanup: `off`
+
+Brightness, contrast, and saturation operate on visible source RGB and preserve alpha. Sharpen supports `low` and `medium` using a lightweight blended cross-neighbor convolution.
+
+Background cleanup runs before the adjustments. Choose a color and tolerance from `0` to `255`; visible source pixels whose Euclidean RGB distance is within the tolerance become transparent. Existing transparent pixels remain transparent.
+
+## 13. Icon Assist
+Outline options:
+- `off`: default, no post-processing.
+- `1px black`: fills transparent 8-neighbors of visible output pixels with black.
+- `1px dark`: derives one darker color from the average visible RGB and fills the same neighbors.
+
+Outline is applied after palette/manual-edit processing and before preview/export. It never overwrites existing visible pixels. When palette limiting is enabled, outline may add one extra visible color.
+
+## 14. Output Filename
 Palette `off`:
 
 ```txt
@@ -138,16 +217,25 @@ Custom source-size output uses the resolved numeric size:
 sample_512x384_median.png
 ```
 
-## 10. Testing
+## 15. Testing
 Open `tests/test-cases.html` to run generated test cases.
 
-The current test page verifies legacy conversion behavior, separate size controls, Custom size toggle behavior, source-size custom defaults, source-dimension validation, output above 256, performance warnings, placeholder behavior, sampling modes including `dominant`, PNG/JPG/Aseprite export, palette rules, palette custom validation, transparency preservation, palette alpha normalization, and palette filename suffixes.
+The current test page verifies legacy conversion behavior, size controls, validation, placeholders, sampling, palette limiting, dithering, palette sources, Palette Editor, neutral preprocess regression, brightness, contrast, saturation, sharpen, cleanup tolerance, black/dark outline, transparency, and final-canvas PNG/JPG/Aseprite export consistency.
 
-Recorded test results are in `TEST_PLAN.md`.
+The final M5 browser run reported `94 / 94 cases passed.` The real app file-processing path was also checked with a generated PNG and produced the default `sample_32x32_median.png` result plus non-empty PNG/JPG and structurally valid 32-bit RGBA Aseprite output.
 
-## 11. Known Limitations
-- Palette limiting uses median cut only.
-- Dithering and external palette import are not included.
+Recorded test results are in `TEST_PLAN.md`. `index.html` is the maintained application entry point; the obsolete `Dotprogram.html` duplicate was removed.
+
+## 16. Known Limitations
+- Generated palette limiting uses median cut only.
+- Dithering strength is fixed at `1`.
+- Dithering requires active palette mapping; it is skipped when palette mode is `off`.
+- Palette import supports local HEX text and `.txt` / `.hex` files only; URL fetch and `.gpl` parsing are not included.
+- Clipboard copy depends on browser clipboard permission. The selected HEX remains visible when copying is blocked.
+- Palette edits use exact RGB matching and do not provide undo/redo in v0.8.0.
+- Preprocess, sharpen, and outline run on the browser main thread.
+- Background cleanup uses RGB distance only and does not perform AI segmentation.
+- Outline is limited to one 8-neighbor pixel layer.
 - Aseprite export remains RGBA, not indexed color.
 - Very large images are processed on the main browser thread after explicit conversion.
 - `.aseprite` export is structurally validated, but this environment did not include the Aseprite desktop app or CLI for external open/save validation.
