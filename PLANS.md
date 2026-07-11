@@ -1,13 +1,13 @@
 # PLANS.md
 
 ## 1. Current Objective
-The controlled v0.6.0 to v0.9.0 expansion from `program_make6_to_9.txt` is complete with the existing Pixel Icon Generator behavior preserved.
+Complete the controlled v1.0.0 to v1.3.0 expansion from `program_make10_to_13.txt` while preserving the existing v0.9.0-stable Pixel Icon Generator behavior.
 
 ## 2. Current Step
-M5 Final Stabilization is complete. No later milestone or new feature is active.
+M5 final stabilization for v1.0.0 through v1.3.0 is complete with available non-browser verification. Browser execution remains blocked by local headless GPU initialization failures.
 
 ## 3. Active Command File
-- `program_make6_to_9.txt`
+- `program_make10_to_13.txt`
 
 ## 4. Baseline Preservation Requirements
 - Default output width: `32`
@@ -20,32 +20,128 @@ M5 Final Stabilization is complete. No later milestone or new feature is active.
 - Keep Custom size behavior.
 - Keep `dominant` sampling.
 - Keep palette alpha normalization.
+- Keep dithering default `off`.
+- Keep neutral preprocess defaults.
+- Keep outline default `off`.
 - Keep warning banners and clean preview placeholders.
-- Do not add Web Worker, batch conversion, ZIP export, backend, cloud login, OpenAI API integration, animation/GIF editing, or Aseprite indexed-color export in this task.
+- Do not add backend, Google login, OpenAI API integration, cloud storage, AI image generation, AI background removal, PSD import, GIF animation editing, indexed-color Aseprite export, standalone batch conversion, ZIP export, multi-frame animation export, per-layer animation, or network URL palette fetching.
 
 ## 5. M0 Audit Findings
-- The v0.5.0 baseline is implemented in the source files and tests.
-- `ROADMAP_V06_TO_V09.md` was missing and has been created.
-- The active command file exists as `program_make6_to_9.txt`.
+- The v0.9.0-stable baseline is implemented and documented in `ROADMAP_V06_TO_V09.md`.
+- The active command file was created as `program_make10_to_13.txt`.
+- `ROADMAP_V10_TO_V13.md` was missing and has been created.
 - Required English and Korean documents exist.
-- The repository had `Dotprogram.html` as the tracked app entry file during M0, while the command file and documentation referred to `index.html`.
-- `index.html` was missing at audit time. It has been restored from the current app HTML and cleaned up with valid Korean UI text.
-- M5 removed the obsolete `Dotprogram.html` duplicate; `index.html` is the maintained entry point.
-- `src/paletteQuantizer.js` is the best integration point for v0.6.0 dithering and v0.7.0 fixed palette mapping.
-- `src/app.js` owns final result state through `state.resultCanvas`; every new feature must feed into this final canvas.
-- `src/uiController.js` owns DOM state and should remain the only DOM update layer.
+- `index.html` is the maintained app entry point and still uses normal script tags with no build system.
+- Current conversion is tile-based: `src/imageProcessor.js` reads source pixels, applies optional preprocess, divides the source into output tiles, and samples representative colors.
+- The only full-size `drawImage` call copies the source into a same-size canvas for pixel reads; it is not an output resize shortcut.
+- `src/app.js` owns the single-image state and assigns `state.resultCanvas` as the final preview/export canvas.
+- `state.convertedCanvas` stores the pre-outline editable canvas for Palette Editor replacement/merge.
+- `src/paletteQuantizer.js` is the integration point for palette limit, fixed palette mapping, dithering, palette analysis, and exact RGB edits.
+- `src/iconAssistProcessor.js` applies outline after palette/manual edits and before preview/export.
+- `src/exporter.js` currently exports single-canvas PNG/JPG and one-frame/one-layer RGBA Aseprite files.
+- `src/uiController.js` owns DOM updates and should remain the only DOM update layer.
 - `tests/test-cases.html` is the existing browser test runner and should be extended rather than replaced.
+- `tests/testImageFactory.js` already provides deterministic generated images suitable for v1.2.0 examples and QA.
+- Current main-thread processing cost is the primary M1 target. Source image decoding and source `ImageData` extraction may stay on the main thread, while preprocess, tile conversion, palette mapping/dithering, palette analysis, and outline are candidates for worker-compatible data processing.
+- Preset state for M2 should be derived from settings only and must exclude file objects, data URLs, canvases, blobs, clipboard data, and local file paths.
+- Layered mode for M4 should use separate `layeredState` and leave single-image mode unchanged while disabled.
 
 ## 6. Sequential Milestone Plan
 
 ### M0. Audit and Startup Documentation
 - [x] Read active command file.
 - [x] Read required docs and source files.
-- [x] Create `ROADMAP_V06_TO_V09.md`.
-- [x] Record audit findings in `ROADMAP_V06_TO_V09.md`.
+- [x] Create `program_make10_to_13.txt`.
+- [x] Create `ROADMAP_V10_TO_V13.md`.
+- [x] Record audit findings in `ROADMAP_V10_TO_V13.md`.
 - [x] Record audit findings in `PLANS.md`.
 - [x] Record Korean audit summary in `DEVELOPMENT_REPORT_KO.md`.
-- [x] Restore or document the app entry point mismatch.
+- [x] Confirm v0.9.0-stable baseline and extension points.
+
+### M1. v1.0.0 Performance Stabilization / Web Worker
+- [x] Reread command file and all Markdown documents before coding.
+- [x] Add optional worker-backed conversion with main-thread fallback.
+- [x] Move safe expensive processing to a serializable worker pipeline.
+- [x] Add processing status UI and disable conflicting controls during active processing where needed.
+- [x] Add cancel support for active worker requests.
+- [x] Add worker/fallback equivalence tests.
+- [x] Preserve direct `index.html` behavior through main-thread fallback.
+- [x] Document local-server recommendation for full worker behavior.
+
+M1 notes:
+- Worker compatibility with `file://` is a known risk and must not break direct opening of `index.html`.
+- Cancellation must not allow a stale worker result to overwrite the current valid result.
+- Exports must continue to use the final worker-produced or fallback-produced canvas.
+- Browser execution was attempted with local HTTP serving, but both Edge and Chrome failed before page execution because the local headless GPU process could not initialize. This is recorded in `TEST_PLAN.md` and `CHANGELOG.md`.
+
+### M2. v1.1.0 Settings Preset Save / Load
+- [x] Reread command file and all Markdown documents before coding.
+- [x] Add settings-only preset schema.
+- [x] Add localStorage save/load/delete/reset.
+- [x] Add preset JSON export/import.
+- [x] Validate stale or partial presets safely.
+- [x] Add tests and docs.
+
+M2 notes:
+- `src/presetManager.js` owns schema sanitization, built-in recommended templates, `localStorage`, JSON export, and JSON import.
+- Presets serialize settings only and exclude file objects, uploaded image data, data URLs, canvases, blobs, generated output, clipboard data, and local paths.
+- Loading a preset applies existing UI controls and then uses the normal option-change validation/conversion path, so source-dimension validation still applies.
+- Added tests cover storage, load/delete, JSON export/import, invalid JSON, stale normalization, data exclusion, and UI restore.
+- Browser execution remains blocked by the local headless GPU process initialization failure. Syntax, inline parser, static, and Node VM preset checks passed.
+
+### M3. v1.2.0 Example Gallery / QA Set
+- [x] Reread command file and all Markdown documents before coding.
+- [x] Add generated/repository-owned examples.
+- [x] Add apply-settings flow and deterministic QA checks.
+- [x] Keep `index.html` as the main entry point.
+- [x] Add tests and docs.
+
+M3 notes:
+- `src/exampleGallery.js` defines generated example canvases, settings recipes, preview data URLs, and deterministic QA conversion checks.
+- The main UI includes a collapsed Examples / QA section with generated thumbnails and a QA button.
+- Selecting an example clears the previous source, applies the example settings through the preset sanitizer, loads the generated source, and uses the normal conversion path.
+- Examples do not fetch network images or reference external files.
+- Added test-page coverage for generated example metadata, QA conversion, and example UI rendering.
+- Browser execution remains blocked by the local headless GPU process initialization failure. Syntax, inline parser, and static checks passed.
+
+### M4. v1.3.0 Layered PNG Input / Layered Aseprite Export
+- [x] Reread command file and all Markdown documents before coding.
+- [x] Add Layered Mode state and UI default off.
+- [x] Add multiple image layer input, rename, reorder, visibility, and delete.
+- [x] Process each layer independently using global settings.
+- [x] Add visible-layer composite preview and flattened PNG/JPG export.
+- [x] Extend Aseprite export for visible processed layers.
+- [x] Add tests and docs.
+
+M4 notes:
+- `state.layered` stores Layered Mode state separately from single-image state.
+- Layered Mode defaults off and keeps the single-image path active while off.
+- Multiple local image files can be added as layers; layer names are derived from file names and can be renamed.
+- Layers can be reordered, hidden/shown, and deleted.
+- Each layer is processed independently with shared global settings, then visible processed layers are composited at top-left.
+- PNG/JPG export uses the flattened visible-layer composite.
+- Aseprite export uses visible processed layers as separate RGBA layer/cel records and omits hidden layers.
+- Added tests cover UI default/actions, composite order/visibility, and layered Aseprite binary layer/cel counts and names.
+- Browser execution remains blocked by the local headless GPU process initialization failure. Syntax, inline parser, and static checks passed.
+
+### M5. Final Stabilization
+- [x] Reread command file and all Markdown documents.
+- [x] Run all available tests and document browser execution blocker.
+- [x] Verify default behavior and single-image mode by static/default review and parser checks.
+- [x] Verify worker fallback, presets, examples, layered mode, and exports through syntax, parser, VM, static, and test-page coverage.
+- [x] Verify no ES Modules, no `alert()`, and no resize shortcut.
+- [x] Update all English and Korean documents with final results.
+
+M5 notes:
+- Syntax checks passed for every app JS file and `tests/testImageFactory.js`.
+- `tests/test-cases.html` inline script parsed successfully.
+- Preset manager VM checks passed for save/load/delete/import/export/sanitization and exclusion of image/path fields.
+- Static checks found no ES Module syntax, no browser `alert()`, and no fixed `32x32` resize shortcut.
+- Full browser assertion execution remains blocked because headless Edge/Chrome exit before page execution with GPU process initialization failures.
+
+## 6A. Completed Previous Scope
+
+The v0.6.0-to-v0.9.0 expansion from `program_make6_to_9.txt` is complete and remains the preservation baseline for this task. The historical notes below are retained for context.
 
 ### M1. v0.6.0 Dithering
 - [x] Reread command file and docs before coding.

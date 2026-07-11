@@ -576,6 +576,7 @@
 
   window.PixelIconImageProcessor = {
     loadImageFromDataURL: loadImageFromDataURL,
+    createSourceImageData: createSourceImageData,
     convertImageToPixelIcon: convertImageToPixelIcon,
     calculateTileBounds: calculateTileBounds,
     calculateTileMedianColor: calculateTileMedianColor,

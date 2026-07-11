@@ -8,6 +8,9 @@
   var iconAssistProcessor = window.PixelIconIconAssistProcessor;
   var exporter = window.PixelIconExporter;
   var ui = window.PixelIconUIController;
+  var presetManager = window.PixelIconPresetManager;
+  var exampleGallery = window.PixelIconExampleGallery;
+  var WorkerClient = window.PixelIconWorkerClient;
 
   var state = {
     currentFile: null,
@@ -30,12 +33,51 @@
     outlineInfo: null,
     outlineColorOverride: null,
     paletteInfo: null,
-    isProcessing: false
+    isProcessing: false,
+    processingRequestId: 0,
+    workerClient: WorkerClient ? new WorkerClient() : null,
+    layered: {
+      enabled: false,
+      layers: [],
+      compositeCanvas: null
+    }
   };
 
-  function setProcessing(isProcessing) {
+  function refreshPresetControls(selectedId) {
+    if (!presetManager) {
+      return;
+    }
+
+    ui.updatePresetControls(presetManager.getAllPresets(), selectedId);
+  }
+
+  function getRenderableExamples() {
+    if (!exampleGallery) {
+      return [];
+    }
+
+    return exampleGallery.getExamples().map(function (example) {
+      example.previewDataURL = exampleGallery.createExampleDataURL(example.id);
+      return example;
+    });
+  }
+
+  function setProcessing(isProcessing, status, canCancel) {
+    var processingOptions = {
+      canCancel: !!canCancel,
+      canConvert: !!state.sourceImage,
+      sourceWidth: state.sourceWidth,
+      sourceHeight: state.sourceHeight
+    };
+
     state.isProcessing = isProcessing;
-    ui.setStatus(isProcessing ? "이미지를 처리하는 중입니다." : "이미지를 기다리는 중입니다.");
+    if (status !== null) {
+      processingOptions.stage = status || (isProcessing ? "이미지를 처리하는 중입니다." : "이미지를 기다리는 중입니다.");
+    }
+    ui.setProcessingState(isProcessing, processingOptions);
+    if (!isProcessing) {
+      refreshPresetControls(ui.getSelectedPresetId && ui.getSelectedPresetId());
+    }
   }
 
   function resetForNewInput() {
@@ -220,6 +262,124 @@
     ui.hideWarning();
   }
 
+  function imageDataToCanvas(imageData) {
+    var canvas = document.createElement("canvas");
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+    canvas.getContext("2d").putImageData(imageData, 0, 0);
+    return canvas;
+  }
+
+  function getConversionOptions(options, sizeValidation) {
+    return {
+      outputWidth: sizeValidation.width,
+      outputHeight: sizeValidation.height,
+      samplingMode: options.samplingMode,
+      preprocess: {
+        brightness: options.brightness,
+        contrast: options.contrast,
+        saturation: options.saturation,
+        sharpenMode: options.sharpenMode,
+        backgroundCleanupEnabled: options.backgroundCleanupEnabled,
+        backgroundCleanupColor: options.backgroundCleanupRgb,
+        backgroundCleanupTolerance: options.backgroundCleanupTolerance
+      }
+    };
+  }
+
+  function getPaletteProcessingOptions(options, paletteValidation, paletteSourceOptions) {
+    return {
+      paletteMode: paletteValidation.paletteMode,
+      customPaletteCount: paletteValidation.customPaletteCount,
+      paletteSource: paletteSourceOptions.paletteSource,
+      fixedPaletteColors: paletteSourceOptions.fixedPaletteColors,
+      ditheringMode: options.ditheringMode
+    };
+  }
+
+  function createOutputFilename(result, options) {
+    var paletteInfo = result.paletteInfo || {};
+
+    return fileHandler.createOutputFilename(state.currentFile && state.currentFile.name, {
+      outputWidth: result.width,
+      outputHeight: result.height,
+      samplingMode: options.samplingMode,
+      outputFormat: options.outputFormat,
+      paletteMode: paletteInfo.paletteApplied ? "custom" : paletteInfo.paletteMode,
+      paletteCount: paletteInfo.effectivePaletteCount
+    });
+  }
+
+  function normalizeWorkerResult(workerResult, paletteSourceOptions) {
+    var result = workerResult || {};
+    result.canvas = imageDataToCanvas(result.imageData);
+    result.editableCanvas = imageDataToCanvas(result.editableImageData || result.imageData);
+    result.paletteText = buildPaletteText(result.paletteInfo || { paletteMode: "off" }, paletteSourceOptions);
+    return result;
+  }
+
+  function processImageElementOnMainThread(sourceImage, conversionOptions, paletteOptions, paletteSourceOptions, options) {
+    var result = imageProcessor.convertImageToPixelIcon(sourceImage, conversionOptions);
+    var paletteResult = paletteQuantizer.applyPaletteLimitToCanvas(result.canvas, paletteOptions);
+    var paletteText = buildPaletteText(paletteResult, paletteSourceOptions);
+    var outlineResult = applyOutline(paletteResult.canvas, options.outlineMode, null);
+
+    result.editableCanvas = paletteResult.canvas;
+    result.canvas = outlineResult.canvas;
+    result.outlineInfo = outlineResult;
+    result.resultHasTransparency = exporter.canvasHasTransparency(result.canvas);
+    result.paletteInfo = {
+      paletteMode: paletteResult.paletteMode,
+      paletteSource: paletteResult.paletteSource,
+      paletteSourceId: paletteSourceOptions.paletteId,
+      paletteSourceLabel: paletteSourceOptions.label,
+      paletteApplied: paletteResult.paletteApplied,
+      fixedPaletteApplied: paletteResult.fixedPaletteApplied,
+      effectivePaletteCount: paletteResult.effectivePaletteCount,
+      beforeColorCount: paletteResult.beforeColorCount,
+      afterColorCount: paletteResult.afterColorCount,
+      beforeRgbaColorCount: paletteResult.beforeRgbaColorCount,
+      afterRgbaColorCount: paletteResult.afterRgbaColorCount,
+      alphaMode: paletteResult.alphaMode,
+      ditheringMode: paletteResult.ditheringMode,
+      ditheringApplied: paletteResult.ditheringApplied,
+      ditheringSkipped: paletteResult.ditheringSkipped,
+      outlineMode: outlineResult.outlineMode,
+      outlineApplied: outlineResult.outlineApplied,
+      outlineAddedPixelCount: outlineResult.outlineAddedPixelCount,
+      outlineColorHex: outlineResult.outlineColorHex,
+      finalColorCount: paletteQuantizer.countUniqueVisibleColors(
+        result.canvas.getContext("2d", { willReadFrequently: true })
+          .getImageData(0, 0, result.canvas.width, result.canvas.height)
+      )
+    };
+    result.paletteText = paletteText;
+    result.workerUsed = false;
+    return result;
+  }
+
+  function processImageOnMainThread(conversionOptions, paletteOptions, paletteSourceOptions, options) {
+    return processImageElementOnMainThread(
+      state.sourceImage,
+      conversionOptions,
+      paletteOptions,
+      paletteSourceOptions,
+      options
+    );
+  }
+
+  function createWorkerPayload(conversionOptions, paletteOptions, paletteSourceOptions, options) {
+    return {
+      conversion: conversionOptions,
+      palette: paletteOptions,
+      paletteSource: {
+        paletteId: paletteSourceOptions.paletteId,
+        label: paletteSourceOptions.label
+      },
+      outlineMode: options.outlineMode
+    };
+  }
+
   function updateResultState(result, options, filename, performanceWarning) {
     state.convertedCanvas = result.editableCanvas || result.canvas;
     state.resultCanvas = result.canvas;
@@ -279,11 +439,285 @@
     ui.setStatus(status);
   }
 
-  function processCurrentImage(runOptions) {
+  function createLayerId() {
+    return "layer-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  }
+
+  function getLayerNameFromFile(file) {
+    return String(file && file.name ? file.name : "Layer").replace(/\.[^.]+$/, "").slice(0, 80) || "Layer";
+  }
+
+  function updateLayeredSourceBounds() {
+    if (!state.layered.layers.length) {
+      state.sourceWidth = 0;
+      state.sourceHeight = 0;
+      ui.updateSizeControls(0, 0);
+      return;
+    }
+
+    state.sourceWidth = Math.min.apply(null, state.layered.layers.map(function (layer) {
+      return layer.sourceWidth;
+    }));
+    state.sourceHeight = Math.min.apply(null, state.layered.layers.map(function (layer) {
+      return layer.sourceHeight;
+    }));
+    ui.updateSizeControls(state.sourceWidth, state.sourceHeight);
+  }
+
+  function getVisibleProcessedLayers() {
+    return state.layered.layers.filter(function (layer) {
+      return layer.visible !== false && layer.processedCanvas;
+    }).map(function (layer) {
+      return {
+        id: layer.id,
+        name: layer.name,
+        visible: layer.visible,
+        canvas: layer.processedCanvas
+      };
+    });
+  }
+
+  function refreshLayerList() {
+    ui.renderLayerList(state.layered.layers, {
+      onRename: handleLayerRename,
+      onToggleVisibility: handleLayerVisibilityToggle,
+      onMove: handleLayerMove,
+      onDelete: handleLayerDelete
+    });
+  }
+
+  function refreshLayerComposite() {
+    var visibleLayers = getVisibleProcessedLayers();
+
+    if (!visibleLayers.length) {
+      state.layered.compositeCanvas = null;
+      state.resultCanvas = null;
+      ui.clearResultPreview();
+      ui.setDownloadEnabled(false);
+      ui.setLayeredStatus("No visible processed layers.");
+      return;
+    }
+
+    state.layered.compositeCanvas = exporter.createLayeredCompositeCanvas(
+      visibleLayers,
+      visibleLayers[0].canvas.width,
+      visibleLayers[0].canvas.height
+    );
+    state.resultCanvas = state.layered.compositeCanvas;
+    state.resultHasTransparency = exporter.canvasHasTransparency(state.resultCanvas);
+    ui.showResultPreview(state.resultCanvas);
+    ui.setDownloadEnabled(true);
+    ui.setLayeredStatus("Composite updated from " + visibleLayers.length + " visible layer(s).");
+  }
+
+  function updateLayeredResultInfo(result, options, performanceWarning) {
+    var visibleLayers = getVisibleProcessedLayers();
+    var filename = fileHandler.createOutputFilename("layered.png", {
+      outputWidth: result.width,
+      outputHeight: result.height,
+      samplingMode: options.samplingMode,
+      outputFormat: options.outputFormat,
+      paletteMode: "off",
+      paletteCount: null
+    });
+
+    state.outputFilename = filename;
+    state.outputFormat = options.outputFormat;
+    state.samplingMode = options.samplingMode;
+    state.ditheringMode = options.ditheringMode;
+    state.paletteSource = options.paletteSource;
+    state.outlineMode = options.outlineMode;
+    state.paletteInfo = {
+      paletteApplied: false,
+      layerCount: state.layered.layers.length,
+      visibleLayerCount: visibleLayers.length
+    };
+
+    ui.resetPaletteEditor();
+    ui.updateFileInfo({
+      outputFilename: filename,
+      outputWidth: result.width,
+      outputHeight: result.height,
+      samplingMode: options.samplingMode,
+      ditheringMode: options.ditheringMode,
+      preprocessApplied: !!result.preprocessApplied,
+      outlineMode: options.outlineMode,
+      outputFormat: options.outputFormat,
+      paletteInfo: state.paletteInfo,
+      paletteText: "layered (" + visibleLayers.length + " visible)"
+    });
+    updateResultWarning(options.outputFormat, state.resultHasTransparency, null, performanceWarning);
+    ui.setStatus("Layered composite generated from " + visibleLayers.length + " visible layer(s).");
+  }
+
+  async function processLayeredImages(runOptions) {
     var executionOptions = runOptions || {};
+    var requestId;
+    var options;
+    var firstSizeValidation;
+    var performanceWarning;
+    var paletteValidation;
+    var paletteSourceOptions;
+    var paletteOptions;
+    var resultMetadata = null;
+
+    if (!state.layered.enabled) {
+      return false;
+    }
+
+    if (state.isProcessing) {
+      return true;
+    }
+
+    if (!state.layered.layers.length) {
+      resetResultWithWarning("Layered Mode is on. Add image layers first.", "Layered Mode is waiting for layers.");
+      return true;
+    }
+
+    updateLayeredSourceBounds();
+    ui.updatePaletteControls();
+    ui.updatePreprocessControls();
+
+    options = getNormalizedOptions();
+    firstSizeValidation = validateCurrentOptions(options);
+
+    if (!firstSizeValidation.valid) {
+      resetResultWithWarning(firstSizeValidation.message, "Check layered output size.");
+      return true;
+    }
+
+    for (var layerIndex = 0; layerIndex < state.layered.layers.length; layerIndex += 1) {
+      var layer = state.layered.layers[layerIndex];
+      var layerSizeValidation = fileHandler.validateOutputSize(
+        firstSizeValidation.width,
+        firstSizeValidation.height,
+        layer.sourceWidth,
+        layer.sourceHeight
+      );
+
+      if (!layerSizeValidation.valid) {
+        resetResultWithWarning(layer.name + ": " + layerSizeValidation.message, "Check layer source dimensions.");
+        return true;
+      }
+    }
+
+    performanceWarning = fileHandler.getOutputSizePerformanceWarning(
+      firstSizeValidation.width,
+      firstSizeValidation.height
+    );
+
+    if (executionOptions.auto && performanceWarning) {
+      resetResultWithWarning(
+        performanceWarning.message + " Use the preview refresh button to process layered output.",
+        "Layered preview refresh is required for large output."
+      );
+      return true;
+    }
+
+    paletteValidation = fileHandler.validatePaletteOptions(options.paletteMode, options.customPaletteCount);
+    paletteSourceOptions = resolvePaletteSourceOptions(options);
+
+    if (options.paletteSource !== constants.DEFAULT_PALETTE_SOURCE) {
+      paletteValidation = {
+        valid: true,
+        paletteMode: options.paletteMode,
+        customPaletteCount: null
+      };
+    }
+
+    if (!paletteSourceOptions.valid) {
+      resetResultWithWarning(paletteSourceOptions.message, "Check layered palette source.");
+      return true;
+    }
+
+    if (!paletteValidation.valid) {
+      resetResultWithWarning(paletteValidation.message, "Check layered palette count.");
+      return true;
+    }
+
+    requestId = state.processingRequestId + 1;
+    state.processingRequestId = requestId;
+    setProcessing(true, "Processing layered output...", false);
+
+    try {
+      paletteOptions = getPaletteProcessingOptions(options, paletteValidation, paletteSourceOptions);
+
+      for (var processIndex = 0; processIndex < state.layered.layers.length; processIndex += 1) {
+        var currentLayer = state.layered.layers[processIndex];
+        var conversionOptions = getConversionOptions(options, firstSizeValidation);
+        var layerResult;
+
+        setProcessing(true, "Processing layer " + (processIndex + 1) + " / " + state.layered.layers.length, false);
+        layerResult = processImageElementOnMainThread(
+          currentLayer.sourceImage,
+          conversionOptions,
+          paletteOptions,
+          paletteSourceOptions,
+          options
+        );
+        currentLayer.processedCanvas = layerResult.canvas;
+        currentLayer.resultHasTransparency = layerResult.resultHasTransparency;
+        resultMetadata = layerResult;
+      }
+
+      if (requestId !== state.processingRequestId) {
+        return true;
+      }
+
+      refreshLayerComposite();
+
+      if (state.resultCanvas && resultMetadata) {
+        updateLayeredResultInfo({
+          width: firstSizeValidation.width,
+          height: firstSizeValidation.height,
+          preprocessApplied: resultMetadata.preprocessApplied
+        }, {
+          outputFormat: options.outputFormat,
+          samplingMode: options.samplingMode,
+          ditheringMode: options.ditheringMode,
+          paletteSource: options.paletteSource,
+          outlineMode: options.outlineMode
+        }, performanceWarning);
+      }
+    } catch (error) {
+      resetResultWithWarning(
+        error.message || "Layered conversion failed.",
+        "Layered conversion failed."
+      );
+    } finally {
+      if (requestId === state.processingRequestId) {
+        setProcessing(false, null, false);
+      }
+    }
+
+    return true;
+  }
+
+  async function processCurrentImage(runOptions) {
+    var executionOptions = runOptions || {};
+    var requestId;
+    var options;
+    var sizeValidation;
+    var performanceWarning;
+    var paletteValidation;
+    var paletteSourceOptions;
+    var conversionOptions;
+    var paletteOptions;
+    var sourceImageData;
+    var result;
+    var filename;
+
+    if (state.layered.enabled) {
+      await processLayeredImages(runOptions);
+      return;
+    }
 
     if (!state.sourceImage) {
       ui.resetResult();
+      return;
+    }
+
+    if (state.isProcessing) {
       return;
     }
 
@@ -291,15 +725,15 @@
     ui.updatePaletteControls();
     ui.updatePreprocessControls();
 
-    var options = getNormalizedOptions();
-    var sizeValidation = validateCurrentOptions(options);
+    options = getNormalizedOptions();
+    sizeValidation = validateCurrentOptions(options);
 
     if (!sizeValidation.valid) {
       resetResultWithWarning(sizeValidation.message, "출력 크기 설정을 확인하세요.");
       return;
     }
 
-    var performanceWarning = fileHandler.getOutputSizePerformanceWarning(
+    performanceWarning = fileHandler.getOutputSizePerformanceWarning(
       sizeValidation.width,
       sizeValidation.height
     );
@@ -312,8 +746,8 @@
       return;
     }
 
-    var paletteValidation = fileHandler.validatePaletteOptions(options.paletteMode, options.customPaletteCount);
-    var paletteSourceOptions = resolvePaletteSourceOptions(options);
+    paletteValidation = fileHandler.validatePaletteOptions(options.paletteMode, options.customPaletteCount);
+    paletteSourceOptions = resolvePaletteSourceOptions(options);
 
     if (options.paletteSource !== constants.DEFAULT_PALETTE_SOURCE) {
       paletteValidation = {
@@ -338,74 +772,58 @@
       return;
     }
 
+    requestId = state.processingRequestId + 1;
+    state.processingRequestId = requestId;
+    setProcessing(true, "이미지 준비 중", !!state.workerClient);
+
     try {
-      ui.setStatus("이미지를 변환하는 중입니다.");
+      conversionOptions = getConversionOptions(options, sizeValidation);
+      paletteOptions = getPaletteProcessingOptions(options, paletteValidation, paletteSourceOptions);
+      sourceImageData = imageProcessor.createSourceImageData(state.sourceImage);
 
-      var conversionOptions = {
-        outputWidth: sizeValidation.width,
-        outputHeight: sizeValidation.height,
-        samplingMode: options.samplingMode,
-        preprocess: {
-          brightness: options.brightness,
-          contrast: options.contrast,
-          saturation: options.saturation,
-          sharpenMode: options.sharpenMode,
-          backgroundCleanupEnabled: options.backgroundCleanupEnabled,
-          backgroundCleanupColor: options.backgroundCleanupRgb,
-          backgroundCleanupTolerance: options.backgroundCleanupTolerance
+      if (state.workerClient) {
+        try {
+          result = await state.workerClient.process(
+            sourceImageData,
+            createWorkerPayload(conversionOptions, paletteOptions, paletteSourceOptions, options),
+            {
+              onStage: function (stage) {
+                if (requestId === state.processingRequestId) {
+                  setProcessing(true, stage, true);
+                }
+              },
+              onFallback: function () {
+                ui.showWarning("Web Worker를 사용할 수 없어 main thread fallback으로 변환합니다.");
+              }
+            }
+          );
+          result = normalizeWorkerResult(result, paletteSourceOptions);
+        } catch (workerError) {
+          if (workerError && workerError.canceled) {
+            if (requestId === state.processingRequestId) {
+              ui.setStatus("변환을 취소했습니다.");
+            }
+            return;
+          }
+
+          if (!workerError || !workerError.fallback) {
+            ui.showWarning("Worker 변환에 실패해 main thread fallback으로 변환합니다.");
+          }
+
+          setProcessing(true, "main thread fallback 처리 중", false);
+          result = processImageOnMainThread(conversionOptions, paletteOptions, paletteSourceOptions, options);
         }
-      };
-      var result = imageProcessor.convertImageToPixelIcon(state.sourceImage, conversionOptions);
-      var paletteResult = paletteQuantizer.applyPaletteLimitToCanvas(result.canvas, {
-        paletteMode: paletteValidation.paletteMode,
-        customPaletteCount: paletteValidation.customPaletteCount,
-        paletteSource: paletteSourceOptions.paletteSource,
-        fixedPaletteColors: paletteSourceOptions.fixedPaletteColors,
-        ditheringMode: options.ditheringMode
-      });
-      var paletteText = buildPaletteText(paletteResult, paletteSourceOptions);
-      var outlineResult = applyOutline(paletteResult.canvas, options.outlineMode, null);
+      } else {
+        ui.showWarning("Web Worker를 사용할 수 없어 main thread fallback으로 변환합니다.");
+        setProcessing(true, "main thread fallback 처리 중", false);
+        result = processImageOnMainThread(conversionOptions, paletteOptions, paletteSourceOptions, options);
+      }
 
-      result.editableCanvas = paletteResult.canvas;
-      result.canvas = outlineResult.canvas;
-      result.outlineInfo = outlineResult;
-      result.resultHasTransparency = exporter.canvasHasTransparency(result.canvas);
-      result.paletteInfo = {
-        paletteMode: paletteResult.paletteMode,
-        paletteSource: paletteResult.paletteSource,
-        paletteSourceId: paletteSourceOptions.paletteId,
-        paletteSourceLabel: paletteSourceOptions.label,
-        paletteApplied: paletteResult.paletteApplied,
-        fixedPaletteApplied: paletteResult.fixedPaletteApplied,
-        effectivePaletteCount: paletteResult.effectivePaletteCount,
-        beforeColorCount: paletteResult.beforeColorCount,
-        afterColorCount: paletteResult.afterColorCount,
-        beforeRgbaColorCount: paletteResult.beforeRgbaColorCount,
-        afterRgbaColorCount: paletteResult.afterRgbaColorCount,
-        alphaMode: paletteResult.alphaMode,
-        ditheringMode: paletteResult.ditheringMode,
-        ditheringApplied: paletteResult.ditheringApplied,
-        ditheringSkipped: paletteResult.ditheringSkipped,
-        outlineMode: outlineResult.outlineMode,
-        outlineApplied: outlineResult.outlineApplied,
-        outlineAddedPixelCount: outlineResult.outlineAddedPixelCount,
-        outlineColorHex: outlineResult.outlineColorHex,
-        finalColorCount: paletteQuantizer.countUniqueVisibleColors(
-          result.canvas.getContext("2d", { willReadFrequently: true })
-            .getImageData(0, 0, result.canvas.width, result.canvas.height)
-        )
-      };
-      result.paletteText = paletteText;
+      if (requestId !== state.processingRequestId) {
+        return;
+      }
 
-      var filename = fileHandler.createOutputFilename(state.currentFile && state.currentFile.name, {
-        outputWidth: result.width,
-        outputHeight: result.height,
-        samplingMode: options.samplingMode,
-        outputFormat: options.outputFormat,
-        paletteMode: paletteResult.paletteApplied ? "custom" : paletteResult.paletteMode,
-        paletteCount: paletteResult.effectivePaletteCount
-      });
-
+      filename = createOutputFilename(result, options);
       updateResultState(result, {
         outputFormat: options.outputFormat,
         samplingMode: options.samplingMode,
@@ -414,13 +832,21 @@
         outlineMode: options.outlineMode
       }, filename, performanceWarning);
     } catch (error) {
+      if (error && error.canceled) {
+        ui.setStatus("변환을 취소했습니다.");
+        return;
+      }
+
       resetResultWithWarning(
         error.message || "이미지 변환 중 오류가 발생했습니다.",
         "변환에 실패했습니다."
       );
+    } finally {
+      if (requestId === state.processingRequestId) {
+        setProcessing(false, null, false);
+      }
     }
   }
-
   async function handleFile(file) {
     if (state.isProcessing) {
       return;
@@ -443,7 +869,7 @@
     }
 
     try {
-      setProcessing(true);
+      setProcessing(true, "이미지 준비 중", false);
       var dataURL = await fileHandler.readFileAsDataURL(file);
       var image = await imageProcessor.loadImageFromDataURL(dataURL);
 
@@ -454,7 +880,8 @@
       state.sourceHeight = image.naturalHeight || image.height;
 
       ui.showOriginalPreview(dataURL, state.sourceWidth, state.sourceHeight);
-      processCurrentImage({ auto: true });
+      setProcessing(false, "이미지를 기다리는 중입니다.", false);
+      await processCurrentImage({ auto: true });
     } catch (error) {
       state.currentFile = null;
       state.sourceImage = null;
@@ -478,8 +905,209 @@
       ui.showError(error.message || "이미지 처리 중 오류가 발생했습니다.");
       ui.showWarning(error.message || "이미지 처리 중 오류가 발생했습니다.");
       ui.setStatus("처리에 실패했습니다.");
+      setProcessing(false, "처리에 실패했습니다.", false);
     } finally {
-      state.isProcessing = false;
+      if (!state.sourceImage) {
+        setProcessing(false, "이미지를 기다리는 중입니다.", false);
+      }
+    }
+  }
+
+  async function handleExampleSelect(exampleId) {
+    var example;
+    var dataURL;
+    var image;
+
+    if (!exampleGallery || state.isProcessing) {
+      return;
+    }
+
+    example = exampleGallery.getExampleById(exampleId);
+    if (!example) {
+      ui.showWarning("Example could not be found.");
+      ui.setExampleStatus("Example could not be found.");
+      return;
+    }
+
+    resetForNewInput();
+    state.currentFile = null;
+    state.sourceImage = null;
+    state.sourceDataURL = "";
+    state.sourceWidth = 0;
+    state.sourceHeight = 0;
+    ui.clearOriginalPreview();
+    applyPresetSettings(example.settings, "Applied example settings: " + example.title);
+
+    try {
+      setProcessing(true, "Example source loading...", false);
+      dataURL = exampleGallery.createExampleDataURL(example.id);
+      image = await imageProcessor.loadImageFromDataURL(dataURL);
+
+      state.currentFile = {
+        name: example.fileName || (example.id + ".png"),
+        type: "image/png"
+      };
+      state.sourceImage = image;
+      state.sourceDataURL = dataURL;
+      state.sourceWidth = image.naturalWidth || image.width;
+      state.sourceHeight = image.naturalHeight || image.height;
+
+      ui.showOriginalPreview(dataURL, state.sourceWidth, state.sourceHeight);
+      setProcessing(false, null, false);
+      ui.setExampleStatus("Loaded example: " + example.title);
+      await processCurrentImage({ auto: false });
+    } catch (error) {
+      resetForNewInput();
+      ui.showWarning(error.message || "Example could not be loaded.");
+      ui.setExampleStatus("Example load failed.");
+      setProcessing(false, null, false);
+    }
+  }
+
+  async function handleExampleQa() {
+    if (!exampleGallery || state.isProcessing) {
+      return;
+    }
+
+    try {
+      ui.setExampleStatus("Running generated example QA...");
+      var results = await exampleGallery.runQa({
+        imageProcessor: imageProcessor,
+        fileHandler: fileHandler
+      });
+      ui.setExampleStatus("QA passed for " + results.length + " generated examples.");
+      ui.hideWarning();
+    } catch (error) {
+      ui.showWarning(error.message || "Example QA failed.");
+      ui.setExampleStatus("Example QA failed.");
+    }
+  }
+
+  async function handleLayerFiles(event) {
+    var files = Array.prototype.slice.call(event.target.files || []);
+    var addedCount = 0;
+
+    if (!files.length || !state.layered.enabled || state.isProcessing) {
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      setProcessing(true, "Loading layers...", false);
+
+      for (var index = 0; index < files.length; index += 1) {
+        var file = files[index];
+        var validation = fileHandler.validateImageFile(file);
+        var dataURL;
+        var image;
+
+        if (!validation.valid) {
+          ui.showWarning(validation.message);
+          continue;
+        }
+
+        dataURL = await fileHandler.readFileAsDataURL(file);
+        image = await imageProcessor.loadImageFromDataURL(dataURL);
+        state.layered.layers.push({
+          id: createLayerId(),
+          name: getLayerNameFromFile(file),
+          visible: true,
+          sourceImage: image,
+          sourceDataURL: dataURL,
+          sourceWidth: image.naturalWidth || image.width,
+          sourceHeight: image.naturalHeight || image.height,
+          processedCanvas: null,
+          resultHasTransparency: false
+        });
+        addedCount += 1;
+      }
+
+      refreshLayerList();
+      updateLayeredSourceBounds();
+      ui.setLayeredStatus("Added " + addedCount + " layer(s).");
+      setProcessing(false, null, false);
+
+      if (addedCount) {
+        await processCurrentImage({ auto: true });
+      }
+    } catch (error) {
+      ui.showWarning(error.message || "Layer files could not be loaded.");
+      ui.setLayeredStatus("Layer load failed.");
+      setProcessing(false, null, false);
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  function handleLayerRename(layerId, name) {
+    var layer = state.layered.layers.find(function (candidate) {
+      return candidate.id === layerId;
+    });
+
+    if (layer) {
+      layer.name = String(name || layer.name || "Layer").slice(0, 80);
+      refreshLayerList();
+      ui.setLayeredStatus("Layer renamed.");
+    }
+  }
+
+  function handleLayerVisibilityToggle(layerId) {
+    var layer = state.layered.layers.find(function (candidate) {
+      return candidate.id === layerId;
+    });
+
+    if (layer) {
+      layer.visible = layer.visible === false;
+      refreshLayerList();
+      refreshLayerComposite();
+      ui.setLayeredStatus("Layer visibility updated.");
+    }
+  }
+
+  function handleLayerMove(layerId, direction) {
+    var index = state.layered.layers.findIndex(function (layer) {
+      return layer.id === layerId;
+    });
+    var targetIndex = index + direction;
+    var layer;
+
+    if (index < 0 || targetIndex < 0 || targetIndex >= state.layered.layers.length) {
+      return;
+    }
+
+    layer = state.layered.layers.splice(index, 1)[0];
+    state.layered.layers.splice(targetIndex, 0, layer);
+    refreshLayerList();
+    refreshLayerComposite();
+    ui.setLayeredStatus("Layer order updated.");
+  }
+
+  function handleLayerDelete(layerId) {
+    state.layered.layers = state.layered.layers.filter(function (layer) {
+      return layer.id !== layerId;
+    });
+    refreshLayerList();
+    updateLayeredSourceBounds();
+    refreshLayerComposite();
+    ui.setLayeredStatus("Layer deleted.");
+  }
+
+  function handleLayeredModeToggle() {
+    state.layered.enabled = ui.isLayeredModeEnabled();
+    ui.updateLayeredControls(state.layered.enabled);
+    refreshLayerList();
+
+    if (state.layered.enabled) {
+      ui.setLayeredStatus("Layered Mode is on. Add image layers.");
+      processCurrentImage({ auto: true });
+    } else {
+      ui.setLayeredStatus("Layered Mode is off.");
+      state.layered.compositeCanvas = null;
+      if (state.sourceImage) {
+        processCurrentImage({ auto: true });
+      } else {
+        ui.resetResult();
+      }
     }
   }
 
@@ -541,6 +1169,94 @@
     }
   }
 
+  function applyPresetSettings(settings, statusMessage) {
+    var sanitized = presetManager.sanitizeSettings(settings);
+
+    ui.setSelectedOptions(sanitized);
+    updateImportedPalettePreviewFromInput();
+    ui.setPresetStatus(statusMessage || "Preset loaded.");
+    handleOptionChange();
+  }
+
+  function handleSavePreset() {
+    var name = ui.getPresetName();
+    var result = presetManager.savePreset(name, ui.getSelectedOptions());
+
+    if (!result.valid) {
+      ui.showWarning(result.message);
+      ui.setPresetStatus(result.message);
+      return;
+    }
+
+    refreshPresetControls(result.preset.id);
+    ui.setPresetStatus("Saved preset: " + result.preset.name);
+    ui.hideWarning();
+  }
+
+  function handleLoadPreset() {
+    var presetId = ui.getSelectedPresetId();
+    var preset = presetManager.findPreset(presetId);
+
+    if (!preset) {
+      ui.showWarning("Preset could not be found.");
+      ui.setPresetStatus("Preset could not be found.");
+      return;
+    }
+
+    applyPresetSettings(preset.settings, "Loaded preset: " + preset.name);
+  }
+
+  function handleDeletePreset() {
+    var presetId = ui.getSelectedPresetId();
+    var result = presetManager.deletePreset(presetId);
+
+    if (!result.valid) {
+      ui.showWarning(result.message);
+      ui.setPresetStatus(result.message);
+      return;
+    }
+
+    refreshPresetControls();
+    ui.setPresetStatus("Preset deleted.");
+    ui.hideWarning();
+  }
+
+  function handleResetPreset() {
+    applyPresetSettings(presetManager.getDefaultSettings(), "Restored default settings.");
+  }
+
+  function handleExportPresets() {
+    ui.setPresetJsonText(presetManager.exportPresets());
+    ui.setPresetStatus("Preset JSON exported.");
+    ui.hideWarning();
+  }
+
+  function handleImportPresets() {
+    var result = presetManager.importPresets(ui.getPresetJsonText());
+
+    if (!result.valid) {
+      ui.showWarning(result.message);
+      ui.setPresetStatus(result.message);
+      return;
+    }
+
+    refreshPresetControls();
+    ui.setPresetStatus("Imported " + result.importedCount + " preset(s).");
+    ui.hideWarning();
+  }
+
+  function handleCancelProcessing() {
+    state.processingRequestId += 1;
+
+    if (state.workerClient && state.workerClient.cancel()) {
+      ui.setStatus("변환을 취소했습니다.");
+    } else {
+      ui.setStatus("현재 취소할 worker 변환이 없습니다.");
+    }
+
+    setProcessing(false, "변환을 취소했습니다.", false);
+  }
+
   function updateImportedPalettePreviewFromInput() {
     var options = ui.getSelectedOptions();
     var parsed = fileHandler.parseHexPaletteText(options.importedPaletteText);
@@ -582,6 +1298,11 @@
     var sourceHex = ui.getSelectedPaletteHex();
     var sourceColor = fileHandler.hexToRgb(sourceHex);
     var targetColor = fileHandler.hexToRgb(targetHex);
+
+    if (state.layered.enabled) {
+      ui.showWarning("Manual Palette Editor edits are not available in Layered Mode.");
+      return false;
+    }
 
     if (!state.resultCanvas) {
       ui.showWarning("먼저 변환 결과를 생성하세요.");
@@ -662,12 +1383,12 @@
     ui.showResultPreview(state.resultCanvas);
     ui.updatePaletteEditor(state.resultPalette, {
       selectedHex: targetColor.hex,
-      status: actionLabel + ": " + sourceColor.hex + " → " + targetColor.hex +
+      status: actionLabel + ": " + sourceColor.hex + " ->" + targetColor.hex +
         " / " + editResult.replacedPixelCount + " pixels"
     });
     ui.updatePaletteSummary(state.paletteInfo);
     ui.hideWarning();
-    ui.setStatus("수동 palette 편집이 최종 canvas에 적용되었습니다.");
+    ui.setStatus("수동 palette 편집을 최종 canvas에 적용했습니다.");
     return true;
   }
 
@@ -765,6 +1486,22 @@
       processCurrentImage({ auto: false });
     });
 
+    elements.processingCancelButton.addEventListener("click", handleCancelProcessing);
+    elements.layeredModeToggle.addEventListener("change", handleLayeredModeToggle);
+    elements.layerFileInput.addEventListener("change", handleLayerFiles);
+
+    if (presetManager) {
+      elements.savePresetButton.addEventListener("click", handleSavePreset);
+      elements.loadPresetButton.addEventListener("click", handleLoadPreset);
+      elements.deletePresetButton.addEventListener("click", handleDeletePreset);
+      elements.resetPresetButton.addEventListener("click", handleResetPreset);
+      elements.exportPresetsButton.addEventListener("click", handleExportPresets);
+      elements.importPresetsButton.addEventListener("click", handleImportPresets);
+      elements.presetSelect.addEventListener("change", function () {
+        refreshPresetControls(ui.getSelectedPresetId());
+      });
+    }
+
     elements.customSizeToggle.addEventListener("change", handleOptionChange);
 
     elements.resultZoomSelect.addEventListener("change", function () {
@@ -774,6 +1511,17 @@
     elements.warningCloseButton.addEventListener("click", function () {
       ui.hideWarning();
     });
+  }
+
+  function bindExamples(elements) {
+    if (!exampleGallery) {
+      return;
+    }
+
+    ui.renderExampleGallery(getRenderableExamples(), {
+      onSelect: handleExampleSelect
+    });
+    elements.runExampleQaButton.addEventListener("click", handleExampleQa);
   }
 
   function downloadBlob(blob, filename) {
@@ -793,7 +1541,22 @@
     }
 
     var filename = state.outputFilename || constants.DEFAULT_OUTPUT_FILENAME;
-    var blob = await exporter.exportCanvas(state.resultCanvas, state.outputFormat);
+    var blob;
+
+    if (state.layered.enabled && state.outputFormat === "aseprite") {
+      var visibleLayers = getVisibleProcessedLayers();
+      if (!visibleLayers.length) {
+        ui.showWarning("No visible processed layers are available for Aseprite export.");
+        return;
+      }
+      blob = exporter.createAsepriteBlobFromLayers(
+        visibleLayers,
+        state.resultCanvas.width,
+        state.resultCanvas.height
+      );
+    } else {
+      blob = await exporter.exportCanvas(state.resultCanvas, state.outputFormat);
+    }
     downloadBlob(blob, filename);
   }
 
@@ -807,7 +1570,9 @@
     bindDropZone(elements);
     bindOptions(elements);
     bindPaletteEditor(elements);
+    bindExamples(elements);
     bindDownload(elements);
+    refreshPresetControls();
   }
 
   document.addEventListener("DOMContentLoaded", initApp);
@@ -816,6 +1581,9 @@
     handleFile: handleFile,
     processCurrentImage: processCurrentImage,
     applyPaletteColorEdit: applyPaletteColorEdit,
+    applyPresetSettings: applyPresetSettings,
+    handleExampleSelect: handleExampleSelect,
+    runExampleQa: handleExampleQa,
     getNormalizedOptions: getNormalizedOptions,
     validateCurrentOptions: validateCurrentOptions,
     getState: function () {

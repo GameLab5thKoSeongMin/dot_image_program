@@ -167,3 +167,130 @@ v0.6.0~v0.9.0의 승인된 범위는 모두 완료되었습니다. 기본 `32x32
 - Aseprite 데스크톱 앱/CLI 직접 열기 검증 미수행
 
 새 범위를 승인하는 경우 첫 후보는 Aseprite 데스크톱/CLI 호환성 검증입니다. 이후 성능 개선이 필요하면 Web Worker 적용을 우선 검토할 수 있습니다. 이번 작업에서는 v1.0이나 새 기능을 시작하지 않았습니다.
+
+---
+
+## v1.0.0~v1.3.0 M0 시작 점검 요약
+
+새 작업 범위는 `program_make10_to_13.txt` 기준 v1.0.0부터 v1.3.0까지의 순차 확장입니다. 첨부 지시문을 프로젝트 루트의 `program_make10_to_13.txt`로 저장했고, 새 동기화 문서 `ROADMAP_V10_TO_V13.md`를 생성했습니다.
+
+현재 기준선은 v0.9.0 안정 버전입니다. 기본값 `32x32`, `median`, `png`, palette `off`, dithering `off`, preprocess 중립값, outline `off`가 보존되어야 합니다. 기존 변환은 단순 resize가 아니라 `ImageData`를 읽은 뒤 tile 단위 대표 색상을 계산하는 방식입니다.
+
+점검 결과:
+- `index.html`은 계속 유지되는 메인 진입점이며 normal script tag 로딩을 사용합니다.
+- `src/app.js`의 `state.resultCanvas`가 단일 이미지 모드 preview/export의 최종 canvas입니다.
+- `state.convertedCanvas`는 Palette Editor 편집 후 outline을 다시 적용하기 위한 pre-outline canvas로 사용됩니다.
+- `src/imageProcessor.js`, `src/paletteQuantizer.js`, `src/iconAssistProcessor.js`가 v1.0.0 Web Worker 분리 후보입니다.
+- `src/exporter.js`의 Aseprite export는 현재 1 frame, 1 layer, 1 cel RGBA 구조입니다. v1.3.0에서 layered Aseprite export 확장이 필요합니다.
+- `tests/testImageFactory.js`의 생성형 test canvas는 v1.2.0 Example Gallery / QA Set의 기반으로 재사용할 수 있습니다.
+- `node --check`로 현재 `src/*.js`와 `tests/testImageFactory.js` syntax check를 통과했습니다.
+- 정적 검색에서 ES Module `import/export`, browser `alert()`, 단순 output resize shortcut은 발견되지 않았습니다.
+
+다음 단계는 M1 v1.0.0 Performance Stabilization / Web Worker입니다. Web Worker가 `file://` 환경에서 제한될 수 있으므로 main-thread fallback과 직접 `index.html` 실행 호환성을 반드시 유지해야 합니다.
+
+---
+
+## v1.0.0 M1 진행 요약
+
+M1 Performance Stabilization / Web Worker 구현을 완료했습니다.
+
+구현 내용:
+- `src/conversionWorker.js` 추가
+- `src/workerClient.js` 추가
+- worker 사용 가능 시 preprocess, tile conversion, palette/dithering, palette 분석, outline 처리를 worker에서 수행
+- worker 생성 또는 실행 실패 시 main-thread fallback 수행
+- worker 처리 단계 status 표시
+- worker 변환 취소 버튼 추가
+- 취소된 worker 결과가 기존 preview/export 결과를 덮어쓰지 않도록 request id guard 추가
+- 기존 `state.resultCanvas` 기반 PNG/JPG/Aseprite export 흐름 유지
+
+검증 내용:
+- 전체 `src/*.js` syntax check: Pass
+- `tests/test-cases.html` inline script parse: Pass
+- ES Module `import/export`, browser `alert()`, 고정 `32x32` resize shortcut 정적 검색: Pass
+
+제한 및 참고:
+- source image decode와 source `ImageData` 추출은 main thread에 남아 있습니다.
+- PNG/JPG/Aseprite export blob 준비도 main thread에 남아 있습니다.
+- 로컬 headless Edge/Chrome 실행은 GPU process 초기화 실패로 page 실행 전에 종료되어 browser autorun 결과를 기록하지 못했습니다. 이 환경 문제는 `TEST_PLAN.md`와 `CHANGELOG.md`에 기록했습니다.
+
+다음 단계는 M5 Final Stabilization입니다.
+
+## v1.3.0 M4 진행 요약
+
+M4에서 Layered PNG Input / Layered Aseprite Export를 구현했습니다.
+
+완료 내용:
+- Layered Mode UI를 추가했고 기본값은 off입니다.
+- `state.layered`를 추가해 단일 이미지 상태와 layer 상태를 분리했습니다.
+- 여러 이미지 파일을 layer로 추가할 수 있고, layer 이름 변경, 순서 변경, 표시/숨김, 삭제를 지원합니다.
+- 각 layer는 전역 설정을 공유하며 독립적으로 변환됩니다.
+- visible processed layer를 순서대로 top-left 기준 합성해 preview와 flattened PNG/JPG export에 사용합니다.
+- Aseprite export는 visible processed layer를 별도 RGBA layer/cel로 저장합니다.
+- 숨긴 layer는 v1.3.0 Aseprite export와 flattened composite에서 제외됩니다.
+
+검증 내용:
+- `src/app.js`, `src/uiController.js`, `src/exporter.js` syntax check가 통과했습니다.
+- `tests/test-cases.html` inline script parse가 통과했습니다.
+- Layered Mode default off, layer row action, visible composite, hidden layer 제외, layered Aseprite layer/cel count와 layer name 검사를 browser test page에 추가했습니다.
+- ES Module `import/export`, browser `alert()`, 고정 `32x32` resize shortcut 정적 검색에서 문제가 없었습니다.
+
+제한 사항:
+- 이 환경에서는 headless Edge/Chrome이 GPU process initialization 실패로 page 실행 전에 종료되어 전체 browser assertion count는 기록하지 못했습니다.
+
+## v1.0.0~v1.3.0 M5 최종 안정화 요약
+
+사용 가능한 비브라우저 검증은 통과했습니다.
+
+완료한 검증:
+- 활성 command 파일과 Markdown 문서를 다시 확인했습니다.
+- 모든 app JavaScript 파일 syntax check가 통과했습니다.
+- `tests/testImageFactory.js` syntax check가 통과했습니다.
+- `tests/test-cases.html` inline script parse가 통과했습니다.
+- preset manager Node VM 검증이 통과했습니다.
+- ES Module `import/export`, browser `alert()`, 고정 `32x32` resize shortcut 정적 검색에서 문제가 없었습니다.
+- 영어 기술 문서와 한국어 사용자-facing 문서를 업데이트했습니다.
+
+남은 제한:
+- 이 환경에서는 headless Edge/Chrome이 GPU process initialization 실패로 page 실행 전에 종료되어 최종 browser assertion pass count를 기록하지 못했습니다.
+- v1.0.0~v1.3.0 browser test 항목은 `tests/test-cases.html`에 추가되어 있지만, 실제 브라우저 실행 검증은 GPU 문제가 해결된 환경에서 다시 실행해야 합니다.
+
+## v1.2.0 M3 진행 요약
+
+M3에서 생성형 Example Gallery / QA Set을 구현했습니다.
+
+완료 내용:
+- `src/exampleGallery.js`를 추가해 외부 파일 없이 생성되는 예제 canvas와 설정 recipe를 관리합니다.
+- 앱 UI에 접힌 `Examples / QA` 섹션을 추가했습니다.
+- 예제를 선택하면 이전 원본 상태를 지우고, 예제 설정을 적용한 뒤, 생성된 예제 이미지를 기존 변환 흐름으로 처리합니다.
+- 예제 QA 버튼은 네트워크 없이 생성 예제를 검사하는 흐름으로 연결했습니다.
+- 예제는 네트워크 이미지, 외부 파일, 비공개 경로를 참조하지 않습니다.
+
+검증 내용:
+- `src/exampleGallery.js`, `src/uiController.js`, `src/app.js` syntax check가 통과했습니다.
+- `tests/test-cases.html` inline script parse가 통과했습니다.
+- example metadata, generated canvas, settings 적용, QA conversion, UI render/click 테스트를 browser test page에 추가했습니다.
+- ES Module `import/export`, browser `alert()`, 고정 `32x32` resize shortcut 정적 검색에서 문제가 없었습니다.
+
+제한 사항:
+- 이 환경에서는 headless Edge/Chrome이 GPU process initialization 실패로 page 실행 전에 종료되어 전체 browser assertion count는 기록하지 못했습니다.
+## v1.1.0 M2 진행 요약
+
+M2에서 설정 프리셋 저장/불러오기를 구현했습니다.
+
+완료 내용:
+- `src/presetManager.js`를 추가해 프리셋 schema, 안전한 정규화, `localStorage` 저장, JSON export/import를 담당하게 했습니다.
+- 앱 UI에 접힌 `설정 프리셋` 섹션을 추가했습니다.
+- 현재 설정 저장, 프리셋 불러오기, 사용자 프리셋 삭제, 기본값 복원, JSON 내보내기/가져오기를 지원합니다.
+- 기본 제공 추천 프리셋을 추가했습니다.
+- 프리셋은 설정만 저장하며 이미지 파일, 이미지 데이터, data URL, canvas, blob, 생성 결과, 로컬 파일 경로를 저장하지 않습니다.
+- 프리셋을 불러온 뒤에도 기존 출력 크기 검증과 큰 출력 경고 정책을 그대로 사용합니다.
+
+검증 내용:
+- preset 관련 JavaScript syntax check가 통과했습니다.
+- `tests/test-cases.html` inline script parse가 통과했습니다.
+- Node VM에서 save/load/delete/import/export, invalid JSON 처리, stale preset 정규화, private image/path field 제외를 확인했습니다.
+- ES Module `import/export`, browser `alert()`, 고정 `32x32` resize shortcut 정적 검색에서 문제가 없었습니다.
+
+제한 사항:
+- 이 환경에서는 headless Edge/Chrome이 GPU process initialization 실패로 page 실행 전에 종료되어 전체 browser assertion count는 기록하지 못했습니다.

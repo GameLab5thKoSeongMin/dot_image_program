@@ -41,6 +41,7 @@
             </select>
           </label>
           <button id="previewRefreshButton" class="convert-button preview-refresh-button" type="button" disabled>미리보기 갱신</button>
+          <button id="processingCancelButton" class="secondary-button processing-cancel-button" type="button" hidden disabled>취소</button>
           <label class="zoom-control">
             <span>Zoom</span>
             <select id="resultZoomSelect">
@@ -71,6 +72,72 @@
       </div>
 
       <div class="control-grid" aria-label="변환 옵션">
+        <fieldset class="control-group preset-group">
+          <legend>Presets</legend>
+          <details id="presetsSection" class="option-details">
+            <summary>설정 프리셋</summary>
+            <div class="option-details-content">
+              <label class="control-field">
+                <span>Preset</span>
+                <select id="presetSelect"></select>
+              </label>
+              <div class="preset-actions">
+                <button id="loadPresetButton" class="secondary-button" type="button">프리셋 불러오기</button>
+                <button id="deletePresetButton" class="secondary-button" type="button">프리셋 삭제</button>
+                <button id="resetPresetButton" class="secondary-button" type="button">기본값</button>
+              </div>
+              <label class="control-field">
+                <span>Preset name</span>
+                <input id="presetNameInput" type="text" maxlength="80" placeholder="My pixel recipe">
+              </label>
+              <button id="savePresetButton" class="secondary-button" type="button">현재 설정 저장</button>
+              <label class="control-field">
+                <span>Preset JSON</span>
+                <textarea id="presetJsonTextInput" rows="4" spellcheck="false" placeholder="{ &quot;presets&quot;: [] }"></textarea>
+              </label>
+              <div class="preset-actions">
+                <button id="exportPresetsButton" class="secondary-button" type="button">Export JSON</button>
+                <button id="importPresetsButton" class="secondary-button" type="button">Import JSON</button>
+              </div>
+              <p id="presetStatus" class="preset-status" aria-live="polite"></p>
+            </div>
+          </details>
+        </fieldset>
+
+        <fieldset class="control-group examples-group">
+          <legend>Examples / QA</legend>
+          <details id="examplesSection" class="option-details">
+            <summary>Example Gallery</summary>
+            <div class="option-details-content">
+              <div id="exampleGallery" class="example-gallery" aria-label="Generated examples"></div>
+              <button id="runExampleQaButton" class="secondary-button" type="button">Run QA</button>
+              <p id="exampleStatus" class="preset-status" aria-live="polite"></p>
+            </div>
+          </details>
+        </fieldset>
+
+        <fieldset class="control-group layered-group">
+          <legend>Layered Mode</legend>
+          <details id="layeredSection" class="option-details">
+            <summary>Layered PNG Input</summary>
+            <div class="option-details-content">
+              <label class="custom-size-toggle">
+                <input id="layeredModeToggle" type="checkbox">
+                <span>Layered Mode</span>
+              </label>
+              <div id="layeredControls" class="layered-controls is-disabled">
+                <label class="control-field">
+                  <span>Add image layers</span>
+                  <input id="layerFileInput" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" multiple disabled>
+                </label>
+                <div id="layerList" class="layer-list" aria-label="Layer list"></div>
+                <p class="option-help">Visible layers are processed independently with shared settings, composited at top-left, and exported as flattened PNG/JPG or visible Aseprite layers.</p>
+              </div>
+              <p id="layeredStatus" class="preset-status" aria-live="polite"></p>
+            </div>
+          </details>
+        </fieldset>
+
         <fieldset class="control-group size-axis-group">
           <legend>Output Size</legend>
           <label class="custom-size-toggle">
@@ -305,11 +372,14 @@
 
   <script src="./src/constants.js"></script>
   <script src="./src/fileHandler.js"></script>
+  <script src="./src/presetManager.js"></script>
+  <script src="./src/exampleGallery.js"></script>
   <script src="./src/imageProcessor.js"></script>
   <script src="./src/paletteQuantizer.js"></script>
   <script src="./src/iconAssistProcessor.js"></script>
   <script src="./src/exporter.js"></script>
   <script src="./src/uiController.js"></script>
+  <script src="./src/workerClient.js"></script>
   <script src="./src/app.js"></script>
 </body>
 </html>

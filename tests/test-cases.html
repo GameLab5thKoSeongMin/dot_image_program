@@ -139,11 +139,14 @@
 
   <script src="../src/constants.js"></script>
   <script src="../src/fileHandler.js"></script>
+  <script src="../src/presetManager.js"></script>
+  <script src="../src/exampleGallery.js"></script>
   <script src="../src/imageProcessor.js"></script>
   <script src="../src/paletteQuantizer.js"></script>
   <script src="../src/iconAssistProcessor.js"></script>
   <script src="../src/exporter.js"></script>
   <script src="../src/uiController.js"></script>
+  <script src="../src/workerClient.js"></script>
   <script src="./testImageFactory.js"></script>
   <script>
     (function () {
@@ -157,8 +160,11 @@
       var quantizer = window.PixelIconPaletteQuantizer;
       var iconAssist = window.PixelIconIconAssistProcessor;
       var fileHandler = window.PixelIconFileHandler;
+      var presetManager = window.PixelIconPresetManager;
+      var exampleGallery = window.PixelIconExampleGallery;
       var exporter = window.PixelIconExporter;
       var constants = window.PixelIconConstants;
+      var WorkerClient = window.PixelIconWorkerClient;
 
       function canvasToImage(canvas, className, alt) {
         var image = new Image();
@@ -212,6 +218,14 @@
 
       function getCanvasImageData(canvas) {
         return canvas.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height);
+      }
+
+      function imageDataToCanvas(imageData) {
+        var canvas = document.createElement("canvas");
+        canvas.width = imageData.width;
+        canvas.height = imageData.height;
+        canvas.getContext("2d").putImageData(imageData, 0, 0);
+        return canvas;
       }
 
       function assertCanvasPixelsEqual(canvasA, canvasB, message) {
@@ -354,6 +368,27 @@
           '<span id="resultSummary"></span>' +
           '<button id="downloadButton" type="button"></button>' +
           '<button id="previewRefreshButton" type="button"></button>' +
+          '<button id="processingCancelButton" type="button" hidden></button>' +
+          '<select id="presetSelect"></select>' +
+          '<input id="presetNameInput" type="text">' +
+          '<button id="savePresetButton" type="button"></button>' +
+          '<button id="loadPresetButton" type="button"></button>' +
+          '<button id="deletePresetButton" type="button"></button>' +
+          '<button id="resetPresetButton" type="button"></button>' +
+          '<button id="exportPresetsButton" type="button"></button>' +
+          '<button id="importPresetsButton" type="button"></button>' +
+          '<textarea id="presetJsonTextInput"></textarea>' +
+          '<p id="presetStatus"></p>' +
+          '<details id="examplesSection"></details>' +
+          '<div id="exampleGallery"></div>' +
+          '<button id="runExampleQaButton" type="button"></button>' +
+          '<p id="exampleStatus"></p>' +
+          '<details id="layeredSection"></details>' +
+          '<input id="layeredModeToggle" type="checkbox">' +
+          '<div id="layeredControls"></div>' +
+          '<input id="layerFileInput" type="file" multiple>' +
+          '<div id="layerList"></div>' +
+          '<p id="layeredStatus"></p>' +
           '<label><input id="customSizeToggle" type="checkbox">Custom size</label>' +
           '<div id="widthAxisButtons">' +
           '<button class="size-axis-button" type="button" data-axis="width" data-value="16">16</button>' +
@@ -489,6 +524,14 @@
         assert(elements.copyPaletteHexButton.disabled, "Copy HEX should be disabled before result palette exists");
         assert(elements.replacePaletteColorButton.disabled, "Replace color should be disabled before result palette exists");
         assert(elements.mergePaletteColorButton.disabled, "Merge color should be disabled before result palette exists");
+        ui.setProcessingState(true, { stage: "Worker stage", canCancel: true, canConvert: true });
+        assert(elements.processingCancelButton.hidden === false, "Cancel button should show during processing");
+        assert(!elements.processingCancelButton.disabled, "Cancel button should enable during worker processing");
+        assert(elements.samplingModeSelect.disabled, "Processing should disable conflicting controls");
+        assert(elements.statusMessage.textContent === "Worker stage", "Processing stage should update status text");
+        ui.setProcessingState(false, { canConvert: true, sourceWidth: 96, sourceHeight: 96 });
+        assert(elements.processingCancelButton.hidden, "Cancel button should hide after processing");
+        assert(!elements.samplingModeSelect.disabled, "Controls should re-enable after processing");
         assert(elements.paletteEditorNotice.textContent.indexOf("초기화") !== -1, "Palette edit reset policy should be visible");
 
         elements.backgroundCleanupToggle.checked = true;
@@ -637,6 +680,354 @@
             note: "broken image icon is prevented."
           }
         ];
+      }
+
+      function withPresetStorageReset(callback) {
+        var key = presetManager.STORAGE_KEY;
+        var previous = null;
+        var hadPrevious = false;
+        var result;
+
+        try {
+          previous = window.localStorage.getItem(key);
+          hadPrevious = previous !== null;
+          window.localStorage.removeItem(key);
+          result = callback();
+        } finally {
+          if (hadPrevious) {
+            window.localStorage.setItem(key, previous);
+          } else {
+            window.localStorage.removeItem(key);
+          }
+        }
+
+        return result;
+      }
+
+      function runPresetManagerCases() {
+        return withPresetStorageReset(function () {
+          var saved = presetManager.savePreset("QA imported palette", {
+            customSizeEnabled: true,
+            widthOption: "256",
+            heightOption: "128",
+            customWidth: 48,
+            customHeight: 32,
+            samplingMode: "dominant",
+            ditheringMode: "bayer4x4",
+            brightness: 12,
+            contrast: -8,
+            saturation: 16,
+            sharpenMode: "low",
+            backgroundCleanupEnabled: true,
+            backgroundCleanupColor: "#ffeecc",
+            backgroundCleanupTolerance: 18,
+            outlineMode: "dark",
+            paletteSource: "imported",
+            builtInPaletteId: "picoLike16",
+            importedPaletteText: "#000000, #ffffff",
+            outputFormat: "aseprite",
+            paletteMode: "custom",
+            customPaletteCount: 12,
+            sourceDataURL: "data:image/png;base64,private",
+            localPath: "C:\\private\\source.png"
+          });
+          var storageText = window.localStorage.getItem(presetManager.STORAGE_KEY);
+          var loaded;
+          var exported;
+          var invalid;
+          var imported;
+          var stale;
+          var deleted;
+
+          assert(saved.valid, "Preset save should succeed");
+          assert(storageText.indexOf("sourceDataURL") === -1, "Preset storage should not include image data keys");
+          assert(storageText.indexOf("localPath") === -1, "Preset storage should not include local paths");
+
+          loaded = presetManager.findPreset(saved.preset.id);
+          assert(loaded.settings.customSizeEnabled, "Loaded preset should preserve custom size");
+          assert(loaded.settings.customWidth === 48 && loaded.settings.customHeight === 32, "Loaded preset should restore custom dimensions");
+          assert(loaded.settings.paletteSource === "imported", "Loaded preset should restore palette source");
+          assert(loaded.settings.importedPaletteText.indexOf("#ffffff") !== -1, "Loaded preset should restore imported palette text");
+
+          exported = presetManager.exportPresets();
+          assert(exported.indexOf("QA imported palette") !== -1, "Preset export should include saved preset");
+
+          invalid = presetManager.importPresets("{not json");
+          assert(!invalid.valid, "Invalid preset JSON should fail");
+
+          imported = presetManager.importPresets(JSON.stringify({
+            presets: [
+              {
+                name: "Partial stale preset",
+                settings: {
+                  widthOption: "999",
+                  samplingMode: "unknown",
+                  customPaletteCount: 9999,
+                  outputFormat: "bad"
+                }
+              }
+            ]
+          }));
+          stale = presetManager.getAllPresets().find(function (preset) {
+            return preset.name === "Partial stale preset";
+          });
+          assert(imported.valid && imported.importedCount === 1, "Preset import should accept partial stale presets safely");
+          assert(stale.settings.widthOption === "32", "Stale width preset should fall back to default");
+          assert(stale.settings.samplingMode === "median", "Stale sampling should fall back to default");
+          assert(stale.settings.customPaletteCount === 256, "Stale palette count should clamp");
+          assert(stale.settings.outputFormat === "png", "Stale format should fall back to default");
+
+          deleted = presetManager.deletePreset(saved.preset.id);
+          assert(deleted.valid, "Preset delete should remove user preset");
+          assert(!presetManager.findPreset(saved.preset.id), "Deleted preset should not be found");
+
+          return [
+            {
+              name: "Preset save/load/delete",
+              description: "User presets persist settings only and can be restored or removed.",
+              pass: true,
+              note: "saved preset restored settings and excluded image data."
+            },
+            {
+              name: "Preset JSON import/export",
+              description: "Preset JSON can be exported, imported, and invalid JSON is rejected.",
+              pass: true,
+              note: "partial stale presets normalized without crashing."
+            }
+          ];
+        });
+      }
+
+      function runPresetUiRestoreCase() {
+        var ui = window.PixelIconUIController;
+        var fixture = createUiFixture();
+        var elements = ui.initUI();
+        var settings = presetManager.sanitizeSettings({
+          customSizeEnabled: true,
+          customWidth: 72,
+          customHeight: 40,
+          samplingMode: "center",
+          paletteSource: "builtIn",
+          builtInPaletteId: "gameboyLike4",
+          paletteMode: "16",
+          ditheringMode: "floydSteinberg",
+          brightness: 9,
+          contrast: 4,
+          saturation: -3,
+          sharpenMode: "medium",
+          backgroundCleanupEnabled: true,
+          backgroundCleanupColor: "#abcdef",
+          backgroundCleanupTolerance: 30,
+          outlineMode: "black",
+          outputFormat: "jpg"
+        });
+
+        ui.updatePresetControls(presetManager.getAllPresets());
+        ui.setSelectedOptions(settings);
+
+        assert(ui.isCustomSizeEnabled(), "Preset restore should enable custom size");
+        assert(!elements.customWidthField.hidden && !elements.customHeightField.hidden, "Preset restore should show custom size inputs");
+        assert(elements.outputWidthInput.value === "72" && elements.outputHeightInput.value === "40", "Preset restore should apply dimensions");
+        assert(elements.samplingModeSelect.value === "center", "Preset restore should apply sampling");
+        assert(elements.paletteSourceSelect.value === "builtIn", "Preset restore should apply palette source");
+        assert(!elements.builtInPaletteField.hidden, "Preset restore should show built-in palette field");
+        assert(elements.backgroundCleanupToggle.checked, "Preset restore should apply cleanup toggle");
+        assert(!elements.backgroundCleanupColorInput.disabled, "Preset restore should enable cleanup color");
+        assert(elements.outlineModeSelect.value === "black", "Preset restore should apply outline");
+        assert(elements.outputFormatSelect.value === "jpg", "Preset restore should apply output format");
+
+        fixture.remove();
+        return {
+          name: "Preset UI restore",
+          description: "Loading preset settings updates existing controls without image data.",
+          pass: true,
+          note: "custom size, palette, preprocess, outline, and format controls restored."
+        };
+      }
+
+      async function runExampleGalleryCases() {
+        var examples = exampleGallery.getExamples();
+        var ids = {};
+        var qaResults;
+
+        assert(examples.length >= 4, "Example gallery should expose at least four examples");
+
+        examples.forEach(function (example) {
+          var canvas = exampleGallery.createExampleCanvas(example.id);
+          var dataURL = exampleGallery.createExampleDataURL(example.id);
+          var settings = presetManager.sanitizeSettings(example.settings);
+
+          assert(!ids[example.id], "Example ids should be unique");
+          ids[example.id] = true;
+          assert(canvas && canvas.width > 0 && canvas.height > 0, "Example canvas should be generated");
+          assert(dataURL.indexOf("data:image/png") === 0, "Example preview should be generated as a PNG data URL");
+          assert(!example.url && !example.path && !example.file, "Examples should not reference external files");
+          assert(settings.outputFormat === "png", "Example settings should normalize safely");
+          assert(Number(settings.customSizeEnabled ? settings.customWidth : settings.widthOption) <= canvas.width, "Example width must fit source");
+          assert(Number(settings.customSizeEnabled ? settings.customHeight : settings.heightOption) <= canvas.height, "Example height must fit source");
+        });
+
+        qaResults = await exampleGallery.runQa({
+          imageProcessor: processor,
+          fileHandler: fileHandler
+        });
+        assert(qaResults.length === examples.length, "Example QA should cover every example");
+
+        return {
+          name: "Generated example gallery QA",
+          description: "Examples use generated canvases and deterministic settings without network assets.",
+          pass: true,
+          note: "QA converted " + qaResults.length + " generated examples."
+        };
+      }
+
+      function runExampleGalleryUiCase() {
+        var ui = window.PixelIconUIController;
+        var fixture = createUiFixture();
+        var elements = ui.initUI();
+        var selectedId = "";
+        var examples = exampleGallery.getExamples().map(function (example) {
+          example.previewDataURL = exampleGallery.createExampleDataURL(example.id);
+          return example;
+        });
+
+        ui.renderExampleGallery(examples, {
+          onSelect: function (exampleId) {
+            selectedId = exampleId;
+          }
+        });
+        assert(elements.exampleGallery.children.length === examples.length, "Example gallery should render every example");
+        elements.exampleGallery.querySelector(".example-button").click();
+        assert(selectedId === examples[0].id, "Example click should report the selected id");
+        ui.setExampleStatus("QA passed");
+        assert(elements.exampleStatus.textContent === "QA passed", "Example status should update");
+
+        fixture.remove();
+        return {
+          name: "Example gallery UI",
+          description: "Generated examples render as selectable UI items.",
+          pass: true,
+          note: "example buttons and status updates are wired."
+        };
+      }
+
+      function fillTestCanvas(color) {
+        var canvas = factory.createCanvas(16, 16);
+        var context = canvas.getContext("2d");
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = color;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        return canvas;
+      }
+
+      function getTopLeftRgb(canvas) {
+        var data = canvas.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, 1, 1).data;
+        return [data[0], data[1], data[2], data[3]].join(",");
+      }
+
+      function runLayeredCompositeCase() {
+        var red = fillTestCanvas("rgba(255, 0, 0, 1)");
+        var blue = fillTestCanvas("rgba(0, 0, 255, 1)");
+        var redThenBlue = exporter.createLayeredCompositeCanvas([
+          { name: "red", visible: true, canvas: red },
+          { name: "blue", visible: true, canvas: blue }
+        ], 16, 16);
+        var blueHidden = exporter.createLayeredCompositeCanvas([
+          { name: "red", visible: true, canvas: red },
+          { name: "blue", visible: false, canvas: blue }
+        ], 16, 16);
+
+        assert(getTopLeftRgb(redThenBlue) === "0,0,255,255", "Later visible layers should draw on top");
+        assert(getTopLeftRgb(blueHidden) === "255,0,0,255", "Hidden layers should not affect the composite");
+
+        return {
+          name: "Layered visible composite",
+          description: "Visible processed layers flatten in order while hidden layers are omitted.",
+          resultCanvas: redThenBlue,
+          pass: true,
+          note: "order and visibility changed the flattened composite."
+        };
+      }
+
+      function runLayeredAsepriteExportCase() {
+        var red = fillTestCanvas("rgba(255, 0, 0, 1)");
+        var blue = fillTestCanvas("rgba(0, 0, 255, 1)");
+        var buffer = exporter.createAsepriteArrayBufferFromLayers([
+          { name: "Base", canvas: red },
+          { name: "Glow", canvas: blue }
+        ], 16, 16);
+        var header = exporter.inspectAsepriteArrayBuffer(buffer);
+
+        assert(header.magic === constants.ASEPRITE_MAGIC, "Layered Aseprite file magic failed");
+        assert(header.frameMagic === constants.ASEPRITE_FRAME_MAGIC, "Layered Aseprite frame magic failed");
+        assert(header.width === 16 && header.height === 16, "Layered Aseprite dimensions failed");
+        assert(header.layerCount === 2, "Layered Aseprite should include two layer chunks");
+        assert(header.celCount === 2, "Layered Aseprite should include two cel chunks");
+        assert(header.layerNames.join(",") === "Base,Glow", "Layer names should be preserved");
+
+        return {
+          name: "Layered Aseprite export",
+          description: "Visible processed layers export as separate Aseprite layer/cel records.",
+          pass: true,
+          note: "layer/cel counts and layer names were parsed from the binary."
+        };
+      }
+
+      function runLayeredUiCase() {
+        var ui = window.PixelIconUIController;
+        var fixture = createUiFixture();
+        var elements = ui.initUI();
+        var renamed = "";
+        var moved = "";
+        var visibilityToggled = "";
+        var deleted = "";
+
+        assert(!ui.isLayeredModeEnabled(), "Layered Mode should default off");
+        assert(elements.layerFileInput.disabled, "Layer file input should be disabled while Layered Mode is off");
+
+        ui.updateLayeredControls(true);
+        assert(ui.isLayeredModeEnabled(), "Layered Mode helper should enable the toggle");
+        assert(!elements.layerFileInput.disabled, "Layer file input should enable in Layered Mode");
+
+        ui.renderLayerList([
+          { id: "a", name: "Base", visible: true },
+          { id: "b", name: "Glow", visible: false }
+        ], {
+          onRename: function (id, name) {
+            renamed = id + ":" + name;
+          },
+          onMove: function (id, direction) {
+            moved = id + ":" + direction;
+          },
+          onToggleVisibility: function (id) {
+            visibilityToggled = id;
+          },
+          onDelete: function (id) {
+            deleted = id;
+          }
+        });
+
+        assert(elements.layerList.children.length === 2, "Layer list should render rows");
+        elements.layerList.querySelector("input").value = "Renamed";
+        elements.layerList.querySelector("input").dispatchEvent(new Event("change"));
+        elements.layerList.querySelector("[data-layer-id='b'] .layer-mini-button").click();
+        elements.layerList.querySelector("[data-layer-id='b'] .layer-mini-button:nth-of-type(2)").click();
+        elements.layerList.querySelector("[data-layer-id='a'] .layer-mini-button:nth-of-type(4)").click();
+        ui.setLayeredStatus("Layered ready");
+
+        assert(renamed === "a:Renamed", "Layer rename callback failed");
+        assert(visibilityToggled === "b", "Layer visibility callback failed");
+        assert(moved === "b:-1", "Layer move callback failed");
+        assert(deleted === "a", "Layer delete callback failed");
+        assert(elements.layeredStatus.textContent === "Layered ready", "Layered status should update");
+
+        fixture.remove();
+        return {
+          name: "Layered Mode UI",
+          description: "Layered Mode starts off and layer rows support rename, visibility, reorder, and delete actions.",
+          pass: true,
+          note: "Layered Mode fixture controls are wired."
+        };
       }
 
       async function runExportCases() {
@@ -1552,6 +1943,159 @@
         };
       }
 
+      async function runWorkerEquivalenceCase() {
+        var sourceCanvas = factory.createAlphaVariationImage();
+        var sourceImageData = getCanvasImageData(sourceCanvas);
+        var image = await canvasToImageElement(sourceCanvas);
+        var conversionOptions = {
+          outputWidth: 32,
+          outputHeight: 32,
+          samplingMode: "median",
+          preprocess: {
+            brightness: 8,
+            contrast: 12,
+            saturation: -10,
+            sharpenMode: "low",
+            backgroundCleanupEnabled: false,
+            backgroundCleanupColor: { r: 255, g: 255, b: 255 },
+            backgroundCleanupTolerance: 0
+          }
+        };
+        var paletteOptions = {
+          paletteMode: "16",
+          customPaletteCount: null,
+          paletteSource: "generated",
+          fixedPaletteColors: [],
+          ditheringMode: "bayer4x4"
+        };
+        var expected = processor.convertImageToPixelIcon(image, conversionOptions);
+        var expectedPalette = quantizer.applyPaletteLimitToCanvas(expected.canvas, paletteOptions);
+        var expectedOutline = iconAssist.applyOutlineToCanvas(expectedPalette.canvas, { mode: "black" });
+        var client = new WorkerClient();
+        var stages = [];
+        var workerResult;
+
+        try {
+          workerResult = await client.process(sourceImageData, {
+            conversion: conversionOptions,
+            palette: paletteOptions,
+            paletteSource: {
+              paletteId: "generated",
+              label: "generated"
+            },
+            outlineMode: "black"
+          }, {
+            onStage: function (stage) {
+              stages.push(stage);
+            }
+          });
+        } catch (error) {
+          if (error.fallback) {
+            return {
+              name: "Worker path availability",
+              description: "Worker creation may be blocked in direct file contexts.",
+              sourceCanvas: sourceCanvas,
+              pass: true,
+              note: "worker unavailable in this context; fallback path is expected."
+            };
+          }
+          throw error;
+        }
+
+        assert(workerResult.workerUsed, "Worker result should mark workerUsed");
+        assert(stages.length > 0, "Worker should report stage progress");
+        assert(workerResult.paletteInfo.paletteApplied, "Worker should apply palette processing");
+        assert(workerResult.paletteInfo.outlineMode === "black", "Worker should apply outline");
+        assertCanvasPixelsEqual(
+          imageDataToCanvas(workerResult.imageData),
+          expectedOutline.canvas,
+          "Worker result should match main-thread pipeline"
+        );
+
+        return {
+          name: "Worker conversion equivalence",
+          description: "Worker output matches the existing main-thread pipeline for a controlled image.",
+          sourceCanvas: sourceCanvas,
+          resultCanvas: imageDataToCanvas(workerResult.imageData),
+          pass: true,
+          note: "worker result matched main-thread result with progress stages."
+        };
+      }
+
+      async function runWorkerFallbackCase() {
+        var client = new WorkerClient({ forceFallback: true });
+        var sourceImageData = getCanvasImageData(factory.createSolidColorImage());
+        var fallbackSeen = false;
+
+        try {
+          await client.process(sourceImageData, {
+            conversion: { outputWidth: 16, outputHeight: 16, samplingMode: "median" },
+            palette: { paletteMode: "off", paletteSource: "generated", fixedPaletteColors: [] },
+            paletteSource: { paletteId: "generated", label: "generated" },
+            outlineMode: "off"
+          }, {
+            onFallback: function () {
+              fallbackSeen = true;
+            }
+          });
+          throw new Error("Forced fallback should reject worker processing.");
+        } catch (error) {
+          assert(error.fallback, "Forced fallback should report fallback=true");
+          assert(fallbackSeen, "Fallback callback should run");
+        }
+
+        return {
+          name: "Worker fallback signal",
+          description: "Worker client reports fallback when worker creation is disabled.",
+          pass: true,
+          note: "forced fallback rejected with fallback=true."
+        };
+      }
+
+      async function runWorkerCancelCase() {
+        if (typeof Worker === "undefined") {
+          return {
+            name: "Worker cancel",
+            description: "Cancel is available when Worker exists.",
+            pass: true,
+            note: "Worker API unavailable in this browser context."
+          };
+        }
+
+        var client = new WorkerClient();
+        var sourceImageData = getCanvasImageData(factory.createLargeImage());
+        var promise = client.process(sourceImageData, {
+          conversion: { outputWidth: 512, outputHeight: 256, samplingMode: "median" },
+          palette: { paletteMode: "16", paletteSource: "generated", fixedPaletteColors: [], ditheringMode: "floydSteinberg" },
+          paletteSource: { paletteId: "generated", label: "generated" },
+          outlineMode: "black"
+        });
+        var cancelIssued = client.cancel();
+
+        try {
+          await promise;
+          throw new Error("Canceled worker should not resolve.");
+        } catch (error) {
+          if (error.fallback) {
+            return {
+              name: "Worker cancel",
+              description: "Cancel is available when Worker creation succeeds.",
+              pass: true,
+              note: "worker unavailable in this context; fallback handles conversion."
+            };
+          }
+          assert(cancelIssued, "Cancel should be issued for an active worker");
+          assert(error.canceled, "Canceled worker should reject with canceled=true");
+        }
+
+        return {
+          name: "Worker cancel",
+          description: "Cancel terminates an active worker request.",
+          pass: true,
+          note: "canceled result did not resolve."
+        };
+      }
+
       async function runTests() {
         var allResults = [];
         var failed = false;
@@ -1596,6 +2140,13 @@
           allResults.push(runPerformanceWarningCase("Strong performance warning", 800, 600, "strong"));
 
           allResults = allResults.concat(runSizeUiCases());
+          allResults = allResults.concat(runPresetManagerCases());
+          allResults.push(runPresetUiRestoreCase());
+          allResults.push(await runExampleGalleryCases());
+          allResults.push(runExampleGalleryUiCase());
+          allResults.push(runLayeredCompositeCase());
+          allResults.push(runLayeredAsepriteExportCase());
+          allResults.push(runLayeredUiCase());
 
           allResults = allResults.concat(await runExportCases());
 
@@ -1655,6 +2206,9 @@
           allResults.push(runBlackOutlineCase());
           allResults.push(runDarkOutlineCase());
           allResults.push(await runProcessedExportCase());
+          allResults.push(await runWorkerEquivalenceCase());
+          allResults.push(await runWorkerFallbackCase());
+          allResults.push(await runWorkerCancelCase());
         } catch (error) {
           failed = true;
           allResults.push({

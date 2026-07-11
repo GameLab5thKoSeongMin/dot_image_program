@@ -1,0 +1,1432 @@
+You are working on an already existing project.
+
+This is a controlled v1.0.0 to v1.3.0 expansion task for the existing Pixel Icon Generator.
+
+The previous v0.6.0 to v0.9.0 expansion and M5 Final Stabilization are already complete.
+
+Aseprite desktop usage has already been validated by the user outside this task, so do not spend this milestone redoing external Aseprite validation unless an export regression is detected.
+
+Do not recreate the project from scratch.
+Do not replace the project with a new framework.
+Do not over-refactor or redesign the project more than necessary.
+Do not remove working features.
+Do not break current behavior.
+
+This task must be executed as sequential milestones:
+
+* v1.0.0: Performance Stabilization / Web Worker
+* v1.1.0: Settings Preset Save / Load
+* v1.2.0: Example Gallery / QA Set
+* v1.3.0: Layered PNG Input / Layered Aseprite Export
+
+Do not implement features outside this approved scope.
+
+Specifically, do not implement:
+
+* backend
+* Google login
+* OpenAI API integration
+* cloud storage
+* AI image generation
+* AI background removal
+* PSD import
+* GIF animation editing
+* indexed-color Aseprite export
+* batch conversion as a standalone feature
+* ZIP export
+* multi-frame animation export
+* per-layer animation
+* network URL palette fetching
+
+Layered multi-file input is allowed only for the v1.3.0 layered workflow. It must not become a general batch conversion tool in this task.
+
+---
+
+# 0. Active Command File Rule
+
+This task should be driven by a root-level command `.txt` file.
+
+Recommended command file name:
+
+* `program_make10_to_13.txt`
+
+If this file does not exist, create it before implementation and copy this full task instruction into it.
+
+If another latest command `.txt` file already exists in the project root and clearly describes v1.0.0 to v1.3.0 work, treat that file as the active command file.
+
+At the start of every milestone, reread the active command `.txt` file.
+
+Do not rely only on memory from the beginning of the session.
+
+---
+
+# 1. Required Startup Document Creation
+
+Before implementing any feature, create or update the required planning documents.
+
+Required existing documents:
+
+* `AGENTS.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+* `ROADMAP_V06_TO_V09.md`
+
+Create the following new Codex-facing English document if it does not already exist:
+
+* `ROADMAP_V10_TO_V13.md`
+
+Do not create unnecessary duplicate documents.
+
+## `ROADMAP_V10_TO_V13.md` purpose
+
+This file is the milestone roadmap and synchronization board for this v1.0.0 to v1.3.0 task.
+
+It must include:
+
+1. Current v0.9.0-stable baseline summary.
+2. Active command file name.
+3. v1.0.0 goals and checklist.
+4. v1.1.0 goals and checklist.
+5. v1.2.0 goals and checklist.
+6. v1.3.0 goals and checklist.
+7. Per-milestone status.
+8. Per-milestone test status.
+9. Per-milestone known risks.
+10. Final stabilization checklist.
+
+Use English only in this document.
+
+Do not put user-facing Korean summaries in this file.
+
+User-facing Korean progress should continue to be written in:
+
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+* `USER_GUIDE_KO.md`
+
+---
+
+# 2. Required First Step: Audit Current Project
+
+Before coding, read the existing repository and understand the current implementation.
+
+You must begin by reading and inspecting at least the following:
+
+* active command `.txt` file
+* `AGENTS.md`
+* `ROADMAP_V06_TO_V09.md`
+* `ROADMAP_V10_TO_V13.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+* `index.html`
+* `styles/style.css`
+* `src/constants.js`
+* `src/fileHandler.js`
+* `src/imageProcessor.js`
+* `src/paletteQuantizer.js`
+* `src/iconAssistProcessor.js`
+* `src/exporter.js`
+* `src/uiController.js`
+* `src/app.js`
+* all existing `src/*.js` files
+* `tests/test-cases.html`
+* `tests/testImageFactory.js`
+
+Record audit findings in:
+
+* `PLANS.md`
+* `ROADMAP_V10_TO_V13.md`
+
+Summarize the current state in Korean in:
+
+* `DEVELOPMENT_REPORT_KO.md`
+
+Do not start implementation before this audit.
+
+---
+
+# 3. Current Project Baseline
+
+The current app already supports:
+
+* PNG/JPG/JPEG input
+* drag and drop
+* default `32x32`, `median`, `png`, palette `off`
+* Custom size toggle
+* Width/Height presets: `16`, `32`, `64`, `128`, `256`
+* output size validation against original image dimensions
+* output above 256 when source dimensions allow it
+* large-output warning banner
+* result-header `미리보기 갱신`
+* sampling modes: `median`, `average`, `center`, `dominant`
+* palette modes: `off`, `auto`, numeric modes, `custom`
+* palette source modes: `generated`, `builtIn`, `imported`
+* median cut palette quantization
+* fixed palette mapping
+* palette-on alpha normalization to `0` or `255`
+* dithering modes: `off`, `floydSteinberg`, `bayer4x4`
+* result palette swatches
+* Copy HEX
+* Replace color
+* Merge color
+* source preprocess: brightness, contrast, saturation, sharpen
+* background cleanup by color and tolerance
+* icon assist outline: `off`, `black`, `dark`
+* PNG export
+* JPG export with white background compositing
+* `.aseprite` RGBA binary export
+* warning banner UI
+* clean preview placeholders
+* checkerboard preview
+* result summary
+* palette summary
+* tests
+* English Codex-facing documents
+* Korean user-facing review documents
+
+Preserve all of these features unless a change is explicitly required.
+
+The default behavior must remain:
+
+* output width: `32`
+* output height: `32`
+* sampling mode: `median`
+* output format: `png`
+* palette limit: `off`
+* dithering: `off`
+* preprocess: neutral
+* outline: `off`
+
+---
+
+# 4. Language Policy
+
+All Codex-facing documents and technical documents must remain in English.
+
+Codex-facing English documents:
+
+* `AGENTS.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+* `ROADMAP_V06_TO_V09.md`
+* `ROADMAP_V10_TO_V13.md`
+
+User-facing review documents must remain in Korean.
+
+User-facing Korean documents:
+
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+
+Code identifiers, file names, folder names, function names, constants, and API names must remain in English.
+
+The app UI text may be in Korean.
+
+When writing Korean user-facing documents, do not translate code identifiers, constants, file names, or function names.
+
+---
+
+# 5. Engineering Rules
+
+Do not:
+
+* introduce React, Vite, Webpack, or other build systems
+* switch to ES Modules
+* remove normal script tag loading
+* remove existing tests
+* use browser `alert()`
+* implement conversion as a simple `drawImage(image, 0, 0, width, height)` resize
+* move image processing logic into UI code
+* move DOM manipulation into image processing code
+* break PNG/JPG/Aseprite export
+* break palette alpha normalization
+* break default `32x32 median PNG palette off`
+* break clean preview placeholders
+* break result-header output format selector
+* break result-header `미리보기 갱신`
+* break final canvas export consistency
+
+Keep the app dependency-free unless absolutely necessary.
+
+Prefer Vanilla HTML/CSS/JavaScript.
+
+If a feature seems too large or risky, implement the smaller safe version and document the limitation.
+
+---
+
+# 6. Mandatory Milestone Sync Protocol
+
+Because this task spans multiple milestones, you must not rely only on the context you read at the beginning.
+
+At the start of every milestone, reread the current command file and the current project documents.
+
+Before starting each milestone, reread:
+
+* active command `.txt` file
+* `AGENTS.md`
+* `ROADMAP_V06_TO_V09.md`
+* `ROADMAP_V10_TO_V13.md`
+* `PLANS.md`
+* `README.md`
+* `DESIGN_SPEC.md`
+* `TEST_PLAN.md`
+* `CHANGELOG.md`
+* `USER_GUIDE_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `TEST_SUMMARY_KO.md`
+
+This reread is required before:
+
+* M0 audit
+* M1 v1.0.0 Performance Stabilization / Web Worker
+* M2 v1.1.0 Settings Preset Save / Load
+* M3 v1.2.0 Example Gallery / QA Set
+* M4 v1.3.0 Layered PNG Input / Layered Aseprite Export
+* M5 Final Stabilization
+
+Do not continue to the next milestone until the current milestone is fully synchronized.
+
+---
+
+# 7. Milestone Completion Gate
+
+A milestone is not complete until all of the following are done:
+
+1. Implementation is complete.
+2. Relevant tests are added or updated.
+3. Tests are executed.
+4. Test failures are fixed or clearly documented.
+5. `ROADMAP_V10_TO_V13.md` is updated in English.
+6. `PLANS.md` is updated in English.
+7. `DESIGN_SPEC.md` is updated in English if behavior or architecture changed.
+8. `README.md` is updated in English if usage changed.
+9. `TEST_PLAN.md` is updated in English with actual test results.
+10. `CHANGELOG.md` is updated in English under the correct version section.
+11. `USER_GUIDE_KO.md` is updated in Korean if user-facing behavior changed.
+12. `DEVELOPMENT_REPORT_KO.md` is updated in Korean with milestone progress.
+13. `TEST_SUMMARY_KO.md` is updated in Korean with actual test results.
+14. Known limitations are documented.
+15. The next milestone plan is written in both `PLANS.md` and `ROADMAP_V10_TO_V13.md`.
+
+Only after this gate is complete may you proceed to the next milestone.
+
+---
+
+# 8. Context Refresh Gate
+
+Before beginning the next milestone, perform a context refresh.
+
+Steps:
+
+1. Reread the active command `.txt` file.
+2. Reread all project MD files.
+3. Compare the latest code state against the documents.
+4. If documents are stale, update them before implementing the next milestone.
+5. If the command file conflicts with current implemented behavior, preserve working behavior and document the conflict in `PLANS.md` and `ROADMAP_V10_TO_V13.md`.
+6. If a requested change risks breaking default behavior, choose the safer smaller implementation and document the limitation.
+7. Confirm that default behavior remains:
+
+   * `32x32`
+   * `median`
+   * `png`
+   * palette `off`
+   * dithering `off`
+   * neutral preprocess
+   * outline `off`
+
+Do not proceed using outdated assumptions from previous milestones.
+
+---
+
+# 9. Target v1.3.0 Pipeline
+
+The final v1.3.0 pipeline should be conceptually:
+
+```txt
+single-image mode:
+input image
+-> optional worker or main-thread processing
+-> optional source preprocessing
+-> tile conversion
+-> palette source / palette mapping
+-> dithering if enabled
+-> palette editor edits if any
+-> icon assist outline if enabled
+-> final canvas
+-> preview/export
+
+layered mode:
+multiple layer images
+-> each layer processed independently using shared settings
+-> each processed layer becomes a layer result canvas
+-> ordered visibility-aware composite preview
+-> PNG/JPG export uses flattened composite
+-> Aseprite export preserves separate layers as separate layer/cel data
+```
+
+Do not pixelize the flattened layer composite first.
+
+Layered mode must process layers independently first, then composite only for preview or flattened PNG/JPG export.
+
+All export formats must use the final processed result, not a preview-only image.
+
+---
+
+# 10. v1.0.0 — Performance Stabilization / Web Worker
+
+## Goal
+
+Move expensive processing work off the UI thread where practical.
+
+The current app has many main-thread operations:
+
+* preprocessing
+* tile conversion
+* palette mapping
+* dithering
+* palette analysis
+* outline
+* export preparation
+
+The v1.0.0 goal is to reduce UI freezes for large images while preserving the existing app behavior.
+
+## Required Scope
+
+Add a worker-backed processing path for expensive conversion work.
+
+Recommended file structure:
+
+* `src/conversionWorker.js`
+* `src/workerClient.js` or equivalent main-thread wrapper
+
+If new files are created, load them through normal script tags where needed.
+
+Do not use ES Modules.
+
+Do not introduce a build step.
+
+## Worker Compatibility
+
+Important:
+
+The app should still run by opening `index.html` directly when possible, but Web Workers may be restricted in some `file://` browser contexts.
+
+Therefore:
+
+* worker path must be optional
+* if worker initialization fails, fallback to existing main-thread conversion
+* show a non-blocking warning or status text if fallback is used
+* document that using `python -m http.server 8000` is recommended for full worker behavior
+
+Do not break direct `index.html` execution.
+
+## Worker Processing
+
+The worker should handle, if practical:
+
+* source preprocessing
+* tile conversion
+* palette mapping
+* dithering
+* palette analysis
+* outline processing
+
+If some steps are safer to keep on the main thread, document the limitation.
+
+The worker should receive serializable data only.
+
+Use transferable objects where practical:
+
+* `ArrayBuffer`
+* `ImageData.data.buffer` if safe
+
+Do not attempt to send DOM nodes, canvas elements, or image elements directly to the worker.
+
+## Progress and Cancel
+
+Add processing status UI.
+
+Required:
+
+* show when processing is running
+* show progress stage text
+* disable conflicting controls during active processing where necessary
+* add cancel support if practical
+
+Recommended stage labels:
+
+```txt
+이미지 준비 중
+전처리 중
+픽셀 변환 중
+팔레트 처리 중
+디더링 처리 중
+외곽선 처리 중
+미리보기 갱신 중
+```
+
+If true percentage progress is hard, use stage-based progress.
+
+Cancel behavior:
+
+* user can cancel a long conversion
+* canceled result must not overwrite the current valid result
+* UI should return to a stable state
+* show a Korean message such as `변환을 취소했습니다.`
+
+If cancel is too risky, implement stage status only and document cancel as not included.
+
+## Large Output Behavior
+
+Keep existing large-output warning behavior.
+
+Do not repeatedly auto-convert very large output sizes.
+
+Web Worker should improve responsiveness, not remove validation/warnings.
+
+## v1.0.0 Tests
+
+Add or update tests for:
+
+* default behavior unchanged
+* worker path available when supported
+* worker fallback works when worker creation fails
+* conversion result from worker matches main-thread result for controlled images
+* progress/status UI appears during processing
+* cancel does not overwrite current result if implemented
+* PNG/JPG/Aseprite export still use final canvas
+* no ES Module import/export
+* no browser alert
+* no simple resize shortcut
+
+Update all docs and changelog after this milestone.
+
+---
+
+# 11. v1.1.0 — Settings Preset Save / Load
+
+## Goal
+
+Add settings preset save/load so users can quickly reuse icon-production recipes.
+
+This improves practical workflow for repeated game icon work.
+
+## Required Scope
+
+Add local settings presets.
+
+Presets must store processing settings only.
+
+Do not store uploaded image binary data.
+
+Do not store generated result canvas data.
+
+Do not store private file paths.
+
+Preset data may include:
+
+* output size mode
+* width preset
+* height preset
+* custom width
+* custom height
+* sampling mode
+* palette mode
+* custom palette count
+* palette source
+* selected built-in palette id
+* imported palette HEX list if currently active
+* dithering mode
+* preprocess settings
+* background cleanup settings
+* outline mode
+* output format
+* preview zoom if useful
+
+Preset data should not include:
+
+* source image pixels
+* uploaded file contents
+* generated output image
+* clipboard data
+
+## Storage
+
+Use `localStorage`.
+
+Add import/export preset JSON.
+
+Required actions:
+
+* Save current settings as preset
+* Load preset
+* Delete preset
+* Rename preset if practical
+* Reset to default
+* Export presets as JSON
+* Import presets from JSON
+
+If rename is too much, delete + save-as is acceptable, but document it.
+
+## Built-in Recommended Presets
+
+Add a few safe built-in preset templates if practical.
+
+Examples:
+
+* `Skill Icon 32`
+* `Item Icon 64`
+* `Portrait Base 64`
+* `Palette Cleanup Original`
+
+These should be generic and editable.
+
+Do not use copyrighted palette names unless already implemented as generic built-ins.
+
+## Validation
+
+When loading a preset:
+
+* validate fields
+* ignore unknown fields safely
+* fill missing fields with defaults
+* reject invalid values through warning banner
+* do not crash if a preset is stale
+* if a preset custom size exceeds current source image dimensions, show warning and clamp or block according to existing validation policy
+
+## UI
+
+Add a collapsed Presets section or compact top-level control.
+
+Recommended UI labels in Korean:
+
+```txt
+설정 프리셋
+현재 설정 저장
+프리셋 불러오기
+프리셋 삭제
+기본값으로 초기화
+JSON 내보내기
+JSON 가져오기
+```
+
+## v1.1.0 Tests
+
+Add or update tests for:
+
+* save preset to localStorage
+* load preset restores settings
+* delete preset removes it
+* reset to default restores `32x32`, `median`, `png`, palette `off`, dithering `off`, neutral preprocess, outline `off`
+* export preset JSON works
+* import preset JSON works
+* invalid preset JSON shows warning
+* stale or partial preset does not crash
+* loaded preset does not store image data
+* default behavior unchanged
+* docs updated
+
+---
+
+# 12. v1.2.0 — Example Gallery / QA Set
+
+## Goal
+
+Add an example gallery and QA set so users can understand good setting combinations and developers can visually verify quality.
+
+This is not a marketing gallery with external assets.
+
+Use generated or repository-owned test images only.
+
+Do not fetch external images.
+
+Do not include copyrighted sample art.
+
+## Required Scope
+
+Add an Example Gallery section.
+
+It should show:
+
+* generated source sample
+* recommended settings
+* result preview after applying settings
+* one-click apply settings
+* optional one-click run example conversion
+
+Example categories:
+
+* Simple transparent icon
+* Gradient object
+* Noisy photo-like sample
+* Low-color item icon
+* Background cleanup sample
+* Outline sample
+* Layer-ready transparent sample if useful for v1.3.0 preparation
+
+Use generated canvases from existing or expanded `tests/testImageFactory.js`.
+
+Do not rely on external image files unless they are generated in-repo.
+
+## QA Set
+
+Add a QA mode or QA page/section if practical.
+
+Required:
+
+* deterministic example inputs
+* deterministic expected properties
+* quick visual comparison
+* link or button to run example conversions
+* does not replace `tests/test-cases.html`
+
+The QA set should help verify:
+
+* default output
+* palette source
+* dithering
+* palette editor reset
+* preprocess
+* outline
+* export consistency where practical
+
+## UI
+
+Keep the main app usable.
+
+If the gallery makes the UI crowded, place it in a collapsed section or separate page such as:
+
+* `examples.html`
+
+If a new page is created:
+
+* it must use normal script tags
+* it must not require a build step
+* it must be documented
+* it must not replace `index.html`
+
+## v1.2.0 Tests
+
+Add or update tests for:
+
+* example gallery exists
+* examples use generated/repository-owned data
+* apply example settings works
+* example conversion produces deterministic result
+* QA set can run without external network
+* default app behavior unchanged
+* `index.html` remains the main entry point
+* docs updated
+
+---
+
+# 13. v1.3.0 — Layered PNG Input / Layered Aseprite Export
+
+## Goal
+
+Add a layered workflow for users who have separated images and want each layer pixelized independently.
+
+This is one of the strongest workflow features for Aseprite editing.
+
+Do not implement PSD import.
+
+Do not implement GIF animation.
+
+Do not implement multi-frame animation.
+
+Do not implement general batch conversion / ZIP export.
+
+## Input Model
+
+Layered mode accepts multiple local image files as layers.
+
+Supported file types should follow existing image support:
+
+* PNG
+* JPG
+* JPEG
+
+Recommended:
+
+* PNG is preferred because it preserves transparency.
+
+Each file becomes one layer.
+
+Layer data should include:
+
+* id
+* name
+* source file name
+* source width
+* source height
+* visibility
+* order
+* source image data
+* processed layer canvas
+* optional warning state
+
+Do not store absolute local file paths.
+
+## Layered Mode UI
+
+Add a Layered Mode section or toggle.
+
+Recommended Korean UI labels:
+
+```txt
+레이어 모드
+레이어 추가
+레이어 목록
+이름 변경
+표시 / 숨김
+위로 이동
+아래로 이동
+삭제
+합성 미리보기
+레이어별 미리보기
+```
+
+Required UI features:
+
+* add multiple image files as layers
+* list layers
+* rename layer
+* reorder layers
+* toggle visibility
+* delete layer
+* show composite preview
+* allow selecting a layer to inspect its processed preview if practical
+
+If the UI becomes crowded, use a collapsed Layered Mode section.
+
+## Layer Size Policy
+
+All layers should be processed to the same output size.
+
+Use the existing global output size settings:
+
+* Width/Height presets
+* Custom size
+
+Do not add per-layer output size in v1.3.0.
+
+If source images have different dimensions:
+
+Recommended safe behavior:
+
+* use each layer's own source dimensions for tile sampling
+* output every layer to the same resolved output width/height
+* warn if source dimensions differ
+* do not attempt complex positioning in v1.3.0
+
+Alternative safe behavior if implementation requires it:
+
+* create a shared source canvas based on the maximum source width/height
+* draw each layer at top-left before per-layer conversion
+* document that v1.3.0 does not support per-layer positioning
+
+Do not silently distort layer alignment without documenting the policy.
+
+## Layer Processing Pipeline
+
+Process each layer independently.
+
+Correct:
+
+```txt
+layer A source -> preprocess -> tile conversion -> palette/dither -> outline -> layer A result
+layer B source -> preprocess -> tile conversion -> palette/dither -> outline -> layer B result
+layer C source -> preprocess -> tile conversion -> palette/dither -> outline -> layer C result
+then composite visible processed layers for preview and PNG/JPG export
+```
+
+Incorrect:
+
+```txt
+flatten all source layers -> pixelize once -> lose layer separation
+```
+
+Do not use the incorrect pipeline.
+
+## Palette and Dithering Policy for Layers
+
+Use shared global settings in v1.3.0.
+
+Do not implement per-layer palette settings unless it is very safe.
+
+Important:
+
+* generated palette behavior must be clearly defined
+* fixed built-in/imported palette behavior is straightforward and should map each layer to the same fixed palette
+* generated palette can either:
+
+  * generate palette per layer, or
+  * generate one shared palette from composite/combined visible pixels
+
+Choose the safer implementation and document it.
+
+Recommended:
+
+* for `builtIn` and `imported`, use the fixed shared palette across all layers
+* for `generated`, use per-layer generated palette in v1.3.0 unless shared generation is simple and stable
+* document the behavior clearly
+
+## Preview and Export
+
+Preview:
+
+* composite visible processed layers in layer order
+* hidden layers should not appear in composite preview
+* selected layer preview shows that layer alone if implemented
+
+PNG export:
+
+* flattened composite of visible processed layers
+
+JPG export:
+
+* flattened composite of visible processed layers over white background
+
+Aseprite export:
+
+* preserve layers
+* one frame
+* one cel per visible or all layers, depending on safe exporter behavior
+* preserve layer order
+* preserve layer names
+* use RGBA cel data
+* hidden layers should either:
+
+  * export as hidden layers if exporter supports visibility flags safely, or
+  * be omitted from export and document this clearly
+
+Recommended safe behavior:
+
+* export visible layers as separate Aseprite layers
+* omit hidden layers from Aseprite export in v1.3.0
+* document hidden-layer export behavior clearly
+
+Do not break existing single-layer Aseprite export.
+
+## Aseprite Exporter Extension
+
+Extend the existing Aseprite exporter carefully.
+
+Current exporter likely creates:
+
+* one frame
+* one layer
+* one raw RGBA cel
+
+v1.3.0 should support:
+
+* multiple layer chunks
+* multiple cel chunks in one frame
+* each cel uses the processed layer canvas
+* each layer has a name
+* dimensions match output width/height
+* color depth remains 32-bit RGBA
+
+Add tests that parse the exported binary enough to verify:
+
+* valid Aseprite file magic
+* valid frame magic
+* output width
+* output height
+* 32-bit color depth
+* expected number of layers
+* expected number of cels
+* layer names if parser support is practical
+
+If layer name binary parsing is too much, at minimum verify layer/cel counts and dimensions.
+
+## State Management
+
+Layered mode must not destabilize single-image mode.
+
+Recommended:
+
+* keep existing single-image state intact
+* add `layeredState` separately
+* do not mix layer arrays into every single-image path unless needed
+
+Possible state:
+
+```txt
+layeredState = {
+  enabled,
+  layers,
+  selectedLayerId,
+  compositeCanvas,
+  lastProcessedLayerCanvases,
+  dirty
+}
+```
+
+When Layered Mode is off:
+
+* existing single-image behavior should be unchanged
+
+When Layered Mode is on:
+
+* conversion uses layers
+* preview uses composite
+* export follows layered policies
+
+## v1.3.0 Tests
+
+Add or update tests for:
+
+* Layered Mode default off
+* single-image mode unchanged
+* multiple files can be added as layers
+* layer names come from file names
+* layer rename works
+* layer reorder changes composite result
+* layer visibility changes composite result
+* deleting a layer updates layer list and composite
+* each layer is processed independently
+* flattened PNG export uses visible layer composite
+* flattened JPG export uses visible layer composite over white
+* layered Aseprite export creates multiple layer/cel records
+* hidden layer behavior matches documentation
+* output dimensions are correct for 32x32 and 64x64
+* palette/dithering/preprocess/outline settings are applied to layer processing
+* default behavior unchanged when Layered Mode is off
+* no batch ZIP export was added
+
+Update all docs and changelog after this milestone.
+
+---
+
+# 14. UI Organization Requirement
+
+By the end of v1.3.0, organize controls into clear groups.
+
+Recommended groups:
+
+```txt
+Input
+Output Size
+Presets
+Preprocess
+Pixel Processing
+Palette
+Dithering
+Palette Editor
+Icon Assist
+Examples / QA
+Layered Mode
+Export
+```
+
+Do not redesign the whole four-section layout.
+
+Keep the existing layout, but improve grouping and readability.
+
+If there are too many controls, use collapsible sections.
+
+Recommended default collapsed sections:
+
+* Presets
+* Preprocess
+* Palette Editor
+* Icon Assist
+* Examples / QA
+* Layered Mode
+
+Recommended default expanded sections:
+
+* Output Size
+* Pixel Processing
+* Palette
+* Export
+
+Do not hide essential export controls.
+
+---
+
+# 15. State Management Requirements
+
+As features increase, state must remain predictable.
+
+Improve the existing state structure without over-engineering.
+
+State should include:
+
+* source image
+* source dimensions
+* output size settings
+* sampling mode
+* palette mode
+* palette source
+* imported palette
+* dithering mode
+* preprocess settings
+* background cleanup settings
+* outline settings
+* final canvas
+* edited canvas if palette editor modifies result
+* export format
+* worker status
+* preset list
+* selected preset id
+* example/QA state
+* layered mode state
+* layer list
+* selected layer id
+* layered composite canvas
+
+Avoid scattered global variables.
+
+Vanilla JS object state is enough.
+
+---
+
+# 16. Export Consistency Requirement
+
+All features must feed into the same final canvas or layered final output used by export.
+
+Single-image mode:
+
+* PNG export uses final processed canvas
+* JPG export uses final processed canvas composited on white
+* Aseprite export uses final processed canvas as RGBA pixel data
+
+Layered mode:
+
+* PNG export uses flattened visible-layer composite
+* JPG export uses flattened visible-layer composite over white
+* Aseprite export preserves visible processed layers as separate RGBA layers/cels
+
+This must remain true after:
+
+* worker conversion
+* loaded presets
+* example settings
+* palette mapping
+* dithering
+* palette swatch edits
+* preprocessing
+* background cleanup
+* outline
+* layered processing
+
+Do not create preview-only effects that do not export unless clearly documented as preview-only.
+
+---
+
+# 17. Testing Requirements
+
+Extend `tests/test-cases.html`.
+
+Do not remove existing test coverage.
+
+The final test page should cover:
+
+## Regression
+
+* default `32x32`, `median`, `png`, palette `off`
+* PNG/JPG/JPEG input
+* drag and drop
+* Custom size toggle
+* output size validation
+* performance warning
+* preview placeholders
+* warning banner
+* output format selector
+* PNG export
+* JPG export
+* Aseprite export
+* no ES Modules
+* no browser alert
+* no simple resize shortcut
+
+## v1.0.0 Performance
+
+* worker path
+* worker fallback
+* progress/status UI
+* cancel if implemented
+* result equivalence with existing path
+
+## v1.1.0 Presets
+
+* save/load/delete preset
+* reset default
+* JSON export/import
+* invalid/stale preset handling
+* no image data stored
+
+## v1.2.0 Examples / QA
+
+* generated examples only
+* apply example settings
+* deterministic conversion
+* QA run without external network
+
+## v1.3.0 Layered Workflow
+
+* layer add/list/rename/reorder/visibility/delete
+* independent per-layer processing
+* composite preview
+* flattened PNG/JPG export
+* layered Aseprite export
+* single-image mode regression
+
+Run syntax checks and browser test page after each milestone.
+
+If Local Edge or another browser automation is available, verify the app flow manually or automatically.
+
+Record results in:
+
+* `TEST_PLAN.md`
+* `TEST_SUMMARY_KO.md`
+* `DEVELOPMENT_REPORT_KO.md`
+* `ROADMAP_V10_TO_V13.md`
+
+---
+
+# 18. Milestone Execution Plan
+
+Execute in this order.
+
+## M0. Audit and Startup Documentation
+
+* Ensure active command `.txt` file exists.
+* Create `ROADMAP_V10_TO_V13.md` if it does not exist.
+* Read all required docs and source files.
+* Confirm v0.9.0-stable baseline.
+* Identify current final canvas / export flow.
+* Identify expensive processing points for worker migration.
+* Identify settings state that should be preset-serializable.
+* Identify generated test images that can become examples.
+* Identify Aseprite exporter extension points for multi-layer export.
+* Update `ROADMAP_V10_TO_V13.md`.
+* Update `PLANS.md`.
+* Update `DEVELOPMENT_REPORT_KO.md`.
+
+## M1. v1.0.0 Performance Stabilization / Web Worker
+
+* Reread active command `.txt` file and all MD files.
+* Add worker architecture with fallback.
+* Move safe expensive processing to worker.
+* Add progress/status UI.
+* Add cancel only if safe.
+* Preserve main-thread fallback.
+* Update tests.
+* Update docs.
+* Update `ROADMAP_V10_TO_V13.md`.
+* Pass milestone completion gate.
+
+## M2. v1.1.0 Settings Preset Save / Load
+
+* Reread active command `.txt` file and all MD files.
+* Add preset state schema.
+* Add localStorage persistence.
+* Add save/load/delete/reset.
+* Add JSON export/import.
+* Add validation and stale preset handling.
+* Update tests.
+* Update docs.
+* Update `ROADMAP_V10_TO_V13.md`.
+* Pass milestone completion gate.
+
+## M3. v1.2.0 Example Gallery / QA Set
+
+* Reread active command `.txt` file and all MD files.
+* Add generated example images.
+* Add example settings recipes.
+* Add example gallery UI.
+* Add apply settings action.
+* Add QA set or examples page if useful.
+* Ensure no external images or network dependency.
+* Update tests.
+* Update docs.
+* Update `ROADMAP_V10_TO_V13.md`.
+* Pass milestone completion gate.
+
+## M4. v1.3.0 Layered PNG Input / Layered Aseprite Export
+
+* Reread active command `.txt` file and all MD files.
+* Add Layered Mode state.
+* Add multi-image layer input.
+* Add layer list UI.
+* Add rename/reorder/visibility/delete.
+* Process each layer independently.
+* Add composite preview.
+* Add flattened PNG/JPG export.
+* Extend Aseprite exporter for multiple layers/cels.
+* Add binary tests for layered Aseprite output.
+* Update tests.
+* Update docs.
+* Update `ROADMAP_V10_TO_V13.md`.
+* Pass milestone completion gate.
+
+## M5. Final Stabilization
+
+* Reread active command `.txt` file.
+* Reread all MD files.
+* Run all tests.
+* Verify default behavior.
+* Verify single-image mode.
+* Verify worker fallback.
+* Verify preset persistence.
+* Verify example gallery.
+* Verify layered mode.
+* Verify PNG/JPG/Aseprite export.
+* Verify that preview and export use the same final canvas or layered output.
+* Verify no ES Module `import/export`.
+* Verify no browser `alert()`.
+* Verify no simple resize shortcut conversion.
+* Update all English technical docs.
+* Update all Korean user-facing docs.
+* Add final self-evaluation to `PLANS.md`.
+* Add final roadmap summary to `ROADMAP_V10_TO_V13.md`.
+* Add final Korean summary to `DEVELOPMENT_REPORT_KO.md`.
+
+---
+
+# 19. Completion Criteria
+
+This v1.0.0 to v1.3.0 expansion is complete only if all of the following are satisfied:
+
+## Startup Documentation
+
+* [ ] Active command `.txt` file exists.
+* [ ] `ROADMAP_V10_TO_V13.md` exists.
+* [ ] Startup audit is recorded in `PLANS.md`.
+* [ ] Startup audit is recorded in `ROADMAP_V10_TO_V13.md`.
+* [ ] Korean startup summary is recorded in `DEVELOPMENT_REPORT_KO.md`.
+
+## Preservation
+
+* [ ] Current features still work.
+* [ ] Default behavior remains `32x32`, `median`, `png`, palette `off`.
+* [ ] Custom size behavior remains intact.
+* [ ] `dominant` sampling remains intact.
+* [ ] Palette alpha normalization remains intact.
+* [ ] Dithering remains intact.
+* [ ] Palette source remains intact.
+* [ ] Palette Editor remains intact.
+* [ ] Preprocess remains intact.
+* [ ] Icon Assist remains intact.
+* [ ] PNG/JPG/Aseprite export still works.
+* [ ] Warning banner still works.
+* [ ] Preview placeholders still work.
+* [ ] No ES Module `import/export`.
+* [ ] No browser `alert()`.
+* [ ] No simple resize shortcut conversion.
+
+## v1.0.0
+
+* [ ] Worker-backed conversion path exists.
+* [ ] Main-thread fallback exists.
+* [ ] Direct `index.html` usage is not broken.
+* [ ] Local server usage is documented for full worker behavior.
+* [ ] Progress/status UI exists.
+* [ ] Cancel exists or is clearly documented as not included.
+* [ ] Worker result matches main-thread result for controlled inputs.
+* [ ] Exports use final worker-produced canvas.
+
+## v1.1.0
+
+* [ ] Preset save works.
+* [ ] Preset load works.
+* [ ] Preset delete works.
+* [ ] Reset to default works.
+* [ ] Preset JSON export works.
+* [ ] Preset JSON import works.
+* [ ] Invalid/stale presets are handled safely.
+* [ ] Presets do not store uploaded image data.
+
+## v1.2.0
+
+* [ ] Example gallery exists.
+* [ ] Examples use generated or repository-owned data only.
+* [ ] Example settings can be applied.
+* [ ] QA set runs without network.
+* [ ] Examples do not replace core tests.
+* [ ] `index.html` remains the maintained app entry point.
+
+## v1.3.0
+
+* [ ] Layered Mode exists and defaults off.
+* [ ] Single-image mode is unchanged when Layered Mode is off.
+* [ ] Multiple images can be added as layers.
+* [ ] Layer names derive from file names and can be renamed.
+* [ ] Layer order can be changed.
+* [ ] Layer visibility can be toggled.
+* [ ] Layers can be deleted.
+* [ ] Each layer is processed independently.
+* [ ] Composite preview respects order and visibility.
+* [ ] PNG export uses flattened visible-layer composite.
+* [ ] JPG export uses flattened visible-layer composite over white.
+* [ ] Aseprite export preserves visible processed layers as separate RGBA layers/cels.
+* [ ] Layered output works at 32x32 and 64x64.
+* [ ] Layered mode does not add batch ZIP export.
+
+## Documentation and Testing
+
+* [ ] English docs are updated.
+* [ ] Korean docs are updated.
+* [ ] Tests are expanded.
+* [ ] Test results are recorded.
+* [ ] Known limitations are documented.
+* [ ] The project was extended without unnecessary recreation or overhauling.
+
+---
+
+# 20. Final Execution Instruction
+
+Start by auditing the current project and creating the required startup documentation.
+
+Do not start coding immediately.
+
+Then implement milestones sequentially from v1.0.0 to v1.3.0.
+
+At the start of every milestone:
+
+1. Reread the active command `.txt` file.
+2. Reread all MD files.
+3. Compare docs against current code.
+4. Update stale docs before implementation.
+
+After each milestone:
+
+1. Run relevant tests.
+2. Fix failures.
+3. Update `ROADMAP_V10_TO_V13.md`.
+4. Update English Codex-facing docs.
+5. Update Korean user-facing docs.
+6. Update `CHANGELOG.md`.
+7. Record remaining risks.
+8. Continue to the next milestone only after the current milestone is stable.
+
+Preserve working behavior.
+
+Make focused improvements.
+
+Avoid unnecessary project recreation.
+
+Avoid unnecessary structure changes.
+
+Keep the implementation grounded in the existing repository rules.
+
+Finally, deliver the existing Pixel Icon Generator with v1.0.0 through v1.3.0 completed, current functionality preserved, worker-backed performance stabilization, settings presets, example gallery / QA set, and layered PNG input with layered Aseprite export implemented and tested.

@@ -123,6 +123,10 @@ select {
   white-space: nowrap;
 }
 
+.processing-cancel-button {
+  min-height: 34px;
+}
+
 .preview-format-control select,
 .zoom-control select {
   min-height: 34px;
@@ -401,6 +405,21 @@ select {
   gap: 8px;
 }
 
+.preset-group {
+  display: grid;
+  gap: 8px;
+}
+
+.examples-group {
+  display: grid;
+  gap: 8px;
+}
+
+.layered-group {
+  display: grid;
+  gap: 8px;
+}
+
 .option-details {
   border: 1px solid var(--panel-border);
   border-radius: 7px;
@@ -492,6 +511,117 @@ select {
 
 .palette-import-actions input {
   min-width: 0;
+}
+
+.preset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.preset-status {
+  min-height: 18px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.example-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 8px;
+}
+
+.example-button {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.example-button:hover,
+.example-button:focus-visible {
+  border-color: var(--accent);
+}
+
+.example-thumb {
+  width: 100%;
+  max-width: 96px;
+  aspect-ratio: 1;
+  justify-self: center;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background:
+    linear-gradient(45deg, #e2e6de 25%, transparent 25%),
+    linear-gradient(-45deg, #e2e6de 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e2e6de 75%),
+    linear-gradient(-45deg, transparent 75%, #e2e6de 75%);
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+}
+
+.example-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.example-copy {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.layered-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.layered-controls.is-disabled {
+  opacity: 0.62;
+}
+
+.layer-list {
+  display: grid;
+  gap: 6px;
+}
+
+.layer-row {
+  display: grid;
+  grid-template-columns: auto minmax(90px, 1fr) repeat(4, auto);
+  gap: 6px;
+  align-items: center;
+  padding: 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.layer-row input[type="text"] {
+  min-width: 0;
+  min-height: 32px;
+  border: 1px solid #aab5a5;
+  border-radius: 6px;
+  padding: 0 8px;
+}
+
+.layer-index {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.layer-mini-button {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0 8px;
 }
 
 .secondary-button {

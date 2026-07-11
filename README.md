@@ -38,6 +38,16 @@ The conversion is not a simple resize. The source image is divided into an outpu
 - Clean preview placeholders without broken image icons
 - Result-header `미리보기 갱신` action
 - Result preview zoom options: `Fit`, `Actual`, `8x`, `16x`
+- Collapsed settings presets with local save/load/delete/reset
+- Preset JSON export and import
+- Built-in recommended preset templates
+- Collapsed generated Example Gallery / QA section
+- One-click generated example loading with matching settings recipes
+- Layered Mode default off with multi-image layer input
+- Layer rename, reorder, visibility toggle, and delete controls
+- Flattened visible-layer PNG/JPG export and visible-layer Aseprite export
+- Optional Web Worker-backed conversion with main-thread fallback
+- Stage-based processing status and cancel action for active worker conversions
 - PNG export
 - JPG export with white background compositing
 - `.aseprite` binary export
@@ -49,7 +59,7 @@ Open `index.html` directly in a modern browser.
 
 No package installation or build step is required.
 
-If a browser blocks local execution in your environment, run a simple local server from the project directory:
+For full Web Worker behavior, run a simple local server from the project directory:
 
 ```bash
 python -m http.server 8000
@@ -60,6 +70,8 @@ Then open:
 ```txt
 http://localhost:8000/
 ```
+
+Opening `index.html` directly is still supported. If the browser blocks Web Workers under `file://`, the app shows a non-blocking fallback warning and uses the main-thread conversion path.
 
 ## 4. How to Use
 1. Open `index.html`.
@@ -74,13 +86,17 @@ http://localhost:8000/
 10. Keep Palette source at `Generated` for median-cut behavior, or choose `Built-in` / `Imported` for fixed palette mapping.
 11. For Imported, paste HEX colors or load a local `.txt` / `.hex` file, then apply the palette.
 12. Choose Dithering only when palette mapping is active. Leave it `off` for original behavior.
-13. Use result-header `미리보기 갱신` when an explicit refresh is needed.
-14. Open Preprocess when source adjustment or background cleanup is needed.
-15. Open Icon Assist to add a black or derived dark outline.
-16. Open the collapsed Palette Editor to inspect result swatches.
-17. Select a swatch to copy its HEX, replace it with another HEX, or merge it into another result color.
-18. Check the generated preview, result summary, and palette summary.
-19. Download the result.
+13. Open Settings Presets to save the current settings or load a saved recipe.
+14. Open Examples / QA to load a generated sample and its matching settings, or run the deterministic example QA check.
+15. Turn on Layered Mode only when you need multiple local image files processed as separate layers.
+16. In Layered Mode, add image files, rename/reorder/hide/delete layers, and use shared global settings.
+17. Use result-header `미리보기 갱신` when an explicit refresh is needed.
+18. Open Preprocess when source adjustment or background cleanup is needed.
+19. Open Icon Assist to add a black or derived dark outline.
+20. Open the collapsed Palette Editor to inspect result swatches.
+21. Select a swatch to copy its HEX, replace it with another HEX, or merge it into another result color.
+22. Check the generated preview, result summary, and palette summary.
+23. Download the result.
 
 Large valid output sizes may show a warning and ask you to use `미리보기 갱신` to avoid repeated heavy auto-conversions. The warning does not block explicit conversion.
 
@@ -156,7 +172,19 @@ Built-in and imported palettes perform fixed nearest-color mapping, preserve tra
 ## 10. Output Formats
 - PNG: Preserves transparency.
 - JPG: Does not preserve transparency. Transparent pixels are composited over white and a warning is shown.
-- `.aseprite`: Exports a binary Aseprite file with one frame, one layer, and raw RGBA cel data.
+- `.aseprite`: In single-image mode, exports one frame with one RGBA layer/cel. In Layered Mode, exports visible processed layers as separate RGBA layers/cels and omits hidden layers.
+
+## 10A. Worker and Fallback
+The app attempts to run expensive conversion work in `src/conversionWorker.js`:
+- source preprocessing
+- tile conversion
+- palette mapping and dithering
+- result palette analysis
+- outline processing
+
+Source image decoding and source `ImageData` extraction remain on the main thread for browser compatibility. Export blob preparation also remains on the main thread.
+
+If worker creation or execution fails, the app falls back to the existing main-thread conversion path and keeps direct `index.html` usage working. During active worker conversion, the status text shows the current stage and the cancel action can terminate the worker request without overwriting the current valid result.
 
 ## 11. Palette Editor
 The collapsed Palette Editor analyzes the current final canvas and shows:
@@ -220,9 +248,9 @@ sample_512x384_median.png
 ## 15. Testing
 Open `tests/test-cases.html` to run generated test cases.
 
-The current test page verifies legacy conversion behavior, size controls, validation, placeholders, sampling, palette limiting, dithering, palette sources, Palette Editor, neutral preprocess regression, brightness, contrast, saturation, sharpen, cleanup tolerance, black/dark outline, transparency, and final-canvas PNG/JPG/Aseprite export consistency.
+The current test page covers legacy conversion behavior, size controls, validation, placeholders, sampling, palette limiting, dithering, palette sources, Palette Editor, preprocess, outline, worker fallback, presets, generated examples, Layered Mode UI, visible-layer compositing, and layered Aseprite binary structure.
 
-The final M5 browser run reported `94 / 94 cases passed.` The real app file-processing path was also checked with a generated PNG and produced the default `sample_32x32_median.png` result plus non-empty PNG/JPG and structurally valid 32-bit RGBA Aseprite output.
+For the v1.0.0-v1.3.0 expansion, syntax checks, test-page parser checks, preset VM checks, and static policy checks passed. Full browser assertion execution could not be recorded in this environment because headless Edge/Chrome exited before page execution with local GPU process initialization failures.
 
 Recorded test results are in `TEST_PLAN.md`. `index.html` is the maintained application entry point; the obsolete `Dotprogram.html` duplicate was removed.
 
@@ -234,6 +262,10 @@ Recorded test results are in `TEST_PLAN.md`. `index.html` is the maintained appl
 - Clipboard copy depends on browser clipboard permission. The selected HEX remains visible when copying is blocked.
 - Palette edits use exact RGB matching and do not provide undo/redo in v0.8.0.
 - Preprocess, sharpen, and outline run on the browser main thread.
+- Worker conversion may be unavailable when opening the app through `file://`; use a local HTTP server for reliable worker behavior.
+- Export blob preparation still runs on the main browser thread.
+- Layered Mode uses shared global settings and does not support per-layer positioning in v1.3.0.
+- Hidden layers are omitted from v1.3.0 Aseprite export.
 - Background cleanup uses RGB distance only and does not perform AI segmentation.
 - Outline is limited to one 8-neighbor pixel layer.
 - Aseprite export remains RGBA, not indexed color.

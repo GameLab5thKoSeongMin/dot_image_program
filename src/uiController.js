@@ -40,6 +40,27 @@
       resultSummary: requireElement("resultSummary"),
       downloadButton: requireElement("downloadButton"),
       previewRefreshButton: requireElement("previewRefreshButton"),
+      processingCancelButton: requireElement("processingCancelButton"),
+      presetSelect: requireElement("presetSelect"),
+      presetNameInput: requireElement("presetNameInput"),
+      savePresetButton: requireElement("savePresetButton"),
+      loadPresetButton: requireElement("loadPresetButton"),
+      deletePresetButton: requireElement("deletePresetButton"),
+      resetPresetButton: requireElement("resetPresetButton"),
+      exportPresetsButton: requireElement("exportPresetsButton"),
+      importPresetsButton: requireElement("importPresetsButton"),
+      presetJsonTextInput: requireElement("presetJsonTextInput"),
+      presetStatus: requireElement("presetStatus"),
+      examplesSection: requireElement("examplesSection"),
+      exampleGallery: requireElement("exampleGallery"),
+      runExampleQaButton: requireElement("runExampleQaButton"),
+      exampleStatus: requireElement("exampleStatus"),
+      layeredSection: requireElement("layeredSection"),
+      layeredModeToggle: requireElement("layeredModeToggle"),
+      layeredControls: requireElement("layeredControls"),
+      layerFileInput: requireElement("layerFileInput"),
+      layerList: requireElement("layerList"),
+      layeredStatus: requireElement("layeredStatus"),
       customSizeToggle: requireElement("customSizeToggle"),
       outputWidthInput: requireElement("outputWidthInput"),
       outputHeightInput: requireElement("outputHeightInput"),
@@ -118,9 +139,50 @@
     clearOriginalPreview();
     clearResultPreview();
     resetPaletteEditor();
+    updateLayeredControls(false);
+    renderLayerList([]);
     updateFileInfo(null);
     hideWarning();
     return elements;
+  }
+
+  function getProcessingControlledElements() {
+    return [
+      elements.fileInput,
+      elements.outputWidthInput,
+      elements.outputHeightInput,
+      elements.samplingModeSelect,
+      elements.ditheringModeSelect,
+      elements.brightnessInput,
+      elements.contrastInput,
+      elements.saturationInput,
+      elements.sharpenModeSelect,
+      elements.backgroundCleanupToggle,
+      elements.backgroundCleanupColorInput,
+      elements.backgroundCleanupToleranceInput,
+      elements.outlineModeSelect,
+      elements.paletteSourceSelect,
+      elements.builtInPaletteSelect,
+      elements.importedPaletteTextInput,
+      elements.importedPaletteFileInput,
+      elements.applyImportedPaletteButton,
+      elements.outputFormatSelect,
+      elements.paletteModeSelect,
+      elements.customPaletteCountInput,
+      elements.customSizeToggle,
+      elements.presetSelect,
+      elements.presetNameInput,
+      elements.savePresetButton,
+      elements.loadPresetButton,
+      elements.deletePresetButton,
+      elements.resetPresetButton,
+      elements.exportPresetsButton,
+      elements.importPresetsButton,
+      elements.presetJsonTextInput,
+      elements.runExampleQaButton,
+      elements.layeredModeToggle,
+      elements.layerFileInput
+    ].concat(elements.sizeAxisButtons);
   }
 
   function installPreviewErrorHandlers() {
@@ -235,6 +297,44 @@
     selectOptionFromSize("height", height);
   }
 
+  function setSelectValue(selectElement, value, fallback) {
+    var desiredValue = String(value || fallback || "");
+    var hasOption = Array.prototype.slice.call(selectElement.options).some(function (option) {
+      return option.value === desiredValue;
+    });
+
+    selectElement.value = hasOption ? desiredValue : fallback;
+  }
+
+  function setSelectedOptions(options) {
+    var safeOptions = options || {};
+
+    setCustomSizeEnabled(!!safeOptions.customSizeEnabled);
+    selectSizeOption("width", safeOptions.widthOption || constants.DEFAULT_WIDTH_OPTION);
+    selectSizeOption("height", safeOptions.heightOption || constants.DEFAULT_HEIGHT_OPTION);
+    elements.outputWidthInput.value = safeOptions.customWidth || constants.DEFAULT_OUTPUT_WIDTH;
+    elements.outputHeightInput.value = safeOptions.customHeight || constants.DEFAULT_OUTPUT_HEIGHT;
+    setSelectValue(elements.samplingModeSelect, safeOptions.samplingMode, constants.DEFAULT_SAMPLING_MODE);
+    setSelectValue(elements.ditheringModeSelect, safeOptions.ditheringMode, constants.DEFAULT_DITHERING_MODE);
+    elements.brightnessInput.value = safeOptions.brightness;
+    elements.contrastInput.value = safeOptions.contrast;
+    elements.saturationInput.value = safeOptions.saturation;
+    setSelectValue(elements.sharpenModeSelect, safeOptions.sharpenMode, constants.DEFAULT_SHARPEN_MODE);
+    elements.backgroundCleanupToggle.checked = !!safeOptions.backgroundCleanupEnabled;
+    elements.backgroundCleanupColorInput.value = safeOptions.backgroundCleanupColor || constants.DEFAULT_BACKGROUND_CLEANUP_COLOR;
+    elements.backgroundCleanupToleranceInput.value = safeOptions.backgroundCleanupTolerance;
+    setSelectValue(elements.outlineModeSelect, safeOptions.outlineMode, constants.DEFAULT_OUTLINE_MODE);
+    setSelectValue(elements.paletteSourceSelect, safeOptions.paletteSource, constants.DEFAULT_PALETTE_SOURCE);
+    setSelectValue(elements.builtInPaletteSelect, safeOptions.builtInPaletteId, constants.DEFAULT_BUILT_IN_PALETTE_ID);
+    elements.importedPaletteTextInput.value = safeOptions.importedPaletteText || "";
+    setSelectValue(elements.outputFormatSelect, safeOptions.outputFormat, constants.DEFAULT_OUTPUT_FORMAT);
+    setSelectValue(elements.paletteModeSelect, safeOptions.paletteMode, constants.DEFAULT_PALETTE_MODE);
+    elements.customPaletteCountInput.value = safeOptions.customPaletteCount || constants.MIN_PALETTE_COLORS;
+    updateCustomSizeVisibility();
+    updatePaletteControls();
+    updatePreprocessControls();
+  }
+
   function updateCustomSizeVisibility() {
     var customEnabled = isCustomSizeEnabled();
 
@@ -303,6 +403,178 @@
     elements.paletteModeSelect.disabled = !isGenerated;
     elements.customPaletteCountInput.disabled = !isCustom;
     elements.customPaletteField.classList.toggle("is-disabled", !isCustom);
+  }
+
+  function updatePresetControls(presets, selectedId) {
+    var safePresets = presets || [];
+
+    elements.presetSelect.textContent = "";
+    safePresets.forEach(function (preset) {
+      var option = document.createElement("option");
+      option.value = preset.id;
+      option.textContent = preset.name + (preset.builtIn ? " (built-in)" : "");
+      elements.presetSelect.appendChild(option);
+    });
+
+    if (selectedId) {
+      elements.presetSelect.value = selectedId;
+    }
+
+    elements.loadPresetButton.disabled = !elements.presetSelect.value;
+    elements.deletePresetButton.disabled = !elements.presetSelect.value ||
+      safePresets.some(function (preset) {
+        return preset.id === elements.presetSelect.value && preset.builtIn;
+      });
+  }
+
+  function getPresetName() {
+    return elements.presetNameInput.value;
+  }
+
+  function getSelectedPresetId() {
+    return elements.presetSelect.value;
+  }
+
+  function getPresetJsonText() {
+    return elements.presetJsonTextInput.value;
+  }
+
+  function setPresetJsonText(text) {
+    elements.presetJsonTextInput.value = text || "";
+  }
+
+  function setPresetStatus(message) {
+    elements.presetStatus.textContent = message || "";
+  }
+
+  function renderExampleGallery(examples, callbacks) {
+    var safeCallbacks = callbacks || {};
+
+    elements.exampleGallery.textContent = "";
+    (examples || []).forEach(function (example) {
+      var button = document.createElement("button");
+      var image = document.createElement("img");
+      var title = document.createElement("span");
+      var copy = document.createElement("span");
+
+      button.className = "example-button";
+      button.type = "button";
+      button.setAttribute("data-example-id", example.id);
+      button.title = example.description || example.title;
+
+      image.className = "example-thumb";
+      image.alt = "";
+      image.src = example.previewDataURL || "";
+
+      title.className = "example-title";
+      title.textContent = example.title;
+      copy.className = "example-copy";
+      copy.textContent = example.description || "";
+
+      button.appendChild(image);
+      button.appendChild(title);
+      button.appendChild(copy);
+      button.addEventListener("click", function () {
+        if (safeCallbacks.onSelect) {
+          safeCallbacks.onSelect(example.id);
+        }
+      });
+
+      elements.exampleGallery.appendChild(button);
+    });
+  }
+
+  function setExampleStatus(message) {
+    elements.exampleStatus.textContent = message || "";
+  }
+
+  function isLayeredModeEnabled() {
+    return !!elements.layeredModeToggle.checked;
+  }
+
+  function updateLayeredControls(enabled) {
+    elements.layeredModeToggle.checked = !!enabled;
+    elements.layerFileInput.disabled = !enabled;
+    elements.layeredControls.classList.toggle("is-disabled", !enabled);
+  }
+
+  function renderLayerList(layers, callbacks) {
+    var safeCallbacks = callbacks || {};
+
+    elements.layerList.textContent = "";
+    (layers || []).forEach(function (layer, index) {
+      var row = document.createElement("div");
+      var indexLabel = document.createElement("span");
+      var nameInput = document.createElement("input");
+      var visibilityButton = document.createElement("button");
+      var upButton = document.createElement("button");
+      var downButton = document.createElement("button");
+      var deleteButton = document.createElement("button");
+
+      row.className = "layer-row";
+      row.setAttribute("data-layer-id", layer.id);
+      indexLabel.className = "layer-index";
+      indexLabel.textContent = String(index + 1);
+
+      nameInput.type = "text";
+      nameInput.value = layer.name || ("Layer " + (index + 1));
+      nameInput.maxLength = 80;
+      nameInput.addEventListener("change", function () {
+        if (safeCallbacks.onRename) {
+          safeCallbacks.onRename(layer.id, nameInput.value);
+        }
+      });
+
+      visibilityButton.className = "secondary-button layer-mini-button";
+      visibilityButton.type = "button";
+      visibilityButton.textContent = layer.visible === false ? "Show" : "Hide";
+      visibilityButton.addEventListener("click", function () {
+        if (safeCallbacks.onToggleVisibility) {
+          safeCallbacks.onToggleVisibility(layer.id);
+        }
+      });
+
+      upButton.className = "secondary-button layer-mini-button";
+      upButton.type = "button";
+      upButton.textContent = "Up";
+      upButton.disabled = index === 0;
+      upButton.addEventListener("click", function () {
+        if (safeCallbacks.onMove) {
+          safeCallbacks.onMove(layer.id, -1);
+        }
+      });
+
+      downButton.className = "secondary-button layer-mini-button";
+      downButton.type = "button";
+      downButton.textContent = "Down";
+      downButton.disabled = index === layers.length - 1;
+      downButton.addEventListener("click", function () {
+        if (safeCallbacks.onMove) {
+          safeCallbacks.onMove(layer.id, 1);
+        }
+      });
+
+      deleteButton.className = "secondary-button layer-mini-button";
+      deleteButton.type = "button";
+      deleteButton.textContent = "Delete";
+      deleteButton.addEventListener("click", function () {
+        if (safeCallbacks.onDelete) {
+          safeCallbacks.onDelete(layer.id);
+        }
+      });
+
+      row.appendChild(indexLabel);
+      row.appendChild(nameInput);
+      row.appendChild(visibilityButton);
+      row.appendChild(upButton);
+      row.appendChild(downButton);
+      row.appendChild(deleteButton);
+      elements.layerList.appendChild(row);
+    });
+  }
+
+  function setLayeredStatus(message) {
+    elements.layeredStatus.textContent = message || "";
   }
 
   function updatePreprocessControls() {
@@ -607,6 +879,28 @@
     elements.dropZone.classList.toggle("is-active", !!active);
   }
 
+  function setProcessingState(isProcessing, options) {
+    var safeOptions = options || {};
+
+    getProcessingControlledElements().forEach(function (element) {
+      element.disabled = !!isProcessing;
+    });
+
+    elements.previewRefreshButton.disabled = !!isProcessing || !safeOptions.canConvert;
+    elements.processingCancelButton.hidden = !isProcessing;
+    elements.processingCancelButton.disabled = !isProcessing || !safeOptions.canCancel;
+
+    if (safeOptions.stage) {
+      setStatus(safeOptions.stage);
+    }
+
+    if (!isProcessing) {
+      updateSizeControls(safeOptions.sourceWidth || 0, safeOptions.sourceHeight || 0);
+      updatePaletteControls();
+      updatePreprocessControls();
+    }
+  }
+
   function resetResult() {
     clearResultPreview();
     resetPaletteEditor();
@@ -707,6 +1001,7 @@
     initUI: initUI,
     getElements: getElements,
     getSelectedOptions: getSelectedOptions,
+    setSelectedOptions: setSelectedOptions,
     getSelectedAxisOption: getSelectedAxisOption,
     selectSizeOption: selectSizeOption,
     setSelectedSize: setSelectedSize,
@@ -720,6 +1015,18 @@
     updateInputMaximums: updateInputMaximums,
     updatePaletteControls: updatePaletteControls,
     updatePreprocessControls: updatePreprocessControls,
+    updatePresetControls: updatePresetControls,
+    getPresetName: getPresetName,
+    getSelectedPresetId: getSelectedPresetId,
+    getPresetJsonText: getPresetJsonText,
+    setPresetJsonText: setPresetJsonText,
+    setPresetStatus: setPresetStatus,
+    renderExampleGallery: renderExampleGallery,
+    setExampleStatus: setExampleStatus,
+    isLayeredModeEnabled: isLayeredModeEnabled,
+    updateLayeredControls: updateLayeredControls,
+    renderLayerList: renderLayerList,
+    setLayeredStatus: setLayeredStatus,
     setImportedPaletteText: setImportedPaletteText,
     updateImportedPalettePreview: updateImportedPalettePreview,
     updatePaletteEditor: updatePaletteEditor,
@@ -742,6 +1049,7 @@
     showWarning: showWarning,
     hideWarning: hideWarning,
     setStatus: setStatus,
+    setProcessingState: setProcessingState,
     setDownloadEnabled: setDownloadEnabled,
     setConvertEnabled: setConvertEnabled,
     setDropActive: setDropActive,

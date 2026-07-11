@@ -133,3 +133,102 @@
 - brightness/contrast/saturation/sharpen/cleanup 최종 export 반영: Pass
 - black/dark outline 최종 export 반영: Pass
 - 남은 미검증 항목: Aseprite 데스크톱 앱/CLI에서 실제 파일 열기 및 다시 저장하기
+
+---
+
+## v1.0.0 M1 테스트 요약
+
+추가된 테스트 범위:
+- worker 변환 결과와 main-thread pipeline 결과 비교
+- worker fallback signal
+- worker cancel 처리
+- processing status UI와 cancel 버튼 표시
+- default behavior 유지 정적 검증
+
+실행 결과:
+- `node --check src/*.js`: Pass
+- `node --check tests/testImageFactory.js`: Pass
+- `tests/test-cases.html` inline script parse: Pass
+- ES Module `import/export`: 발견되지 않음
+- browser `alert()`: 발견되지 않음
+- 고정 `32x32` resize shortcut: 발견되지 않음
+
+Browser autorun:
+- `http://127.0.0.1:8000/tests/test-cases.html?autorun=1`로 Edge와 Chrome headless 실행을 시도했습니다.
+- 두 브라우저 모두 GPU process 초기화 실패로 page 실행 전에 종료되었습니다.
+- 따라서 이 환경에서는 v1.0.0 browser assertion pass count를 기록하지 못했습니다.
+## v1.1.0 M2 설정 프리셋 테스트 요약
+
+결과: 부분 실행 완료.
+
+통과한 항목:
+- `src/presetManager.js`, `src/uiController.js`, `src/app.js` syntax check 통과
+- `tests/test-cases.html` inline script parse 통과
+- Node VM preset manager 검증 통과
+- 프리셋 저장, 불러오기, 삭제 동작 확인
+- JSON export/import 동작 확인
+- 잘못된 JSON이 오류 결과로 처리되는지 확인
+- 오래되었거나 일부 field가 빠진 preset이 안전한 기본값 또는 clamp 값으로 정규화되는지 확인
+- 이미지 데이터 key와 로컬 경로 key가 저장되지 않는지 확인
+- UI restore test가 custom size, sampling, palette source, preprocess, cleanup, outline, output format 적용을 포함하도록 추가됨
+- ES Module `import/export`, browser `alert()`, 고정 `32x32` resize shortcut 정적 검색 문제 없음
+
+제한:
+- 이 로컬 환경에서는 headless browser가 GPU process initialization 실패로 page 실행 전에 종료되었습니다.
+- 따라서 v1.1.0 browser assertion 총 통과 개수는 기록하지 않았습니다.
+
+## v1.2.0 M3 Example Gallery / QA 테스트 요약
+
+결과: 부분 실행 완료.
+
+통과한 항목:
+- `src/exampleGallery.js`, `src/uiController.js`, `src/app.js` syntax check 통과
+- `tests/test-cases.html` inline script parse 통과
+- Example Gallery UI section 추가 확인
+- 예제가 코드 생성 canvas를 사용하고 외부 URL이나 외부 파일을 참조하지 않도록 테스트 추가
+- 각 예제에 settings recipe가 있고 생성 원본 크기 안에서 출력 크기가 유효한지 테스트 추가
+- 예제 QA conversion 테스트 추가
+- 예제 UI render와 click selection fixture 테스트 추가
+- ES Module `import/export`, browser `alert()`, 고정 `32x32` resize shortcut 정적 검색 문제 없음
+
+제한:
+- 이 로컬 환경에서는 headless browser가 GPU process initialization 실패로 page 실행 전에 종료되었습니다.
+- 따라서 v1.2.0 browser assertion 총 통과 개수는 기록하지 않았습니다.
+
+## v1.3.0 M4 Layered Mode 테스트 요약
+
+결과: 부분 실행 완료.
+
+통과한 항목:
+- `src/app.js`, `src/uiController.js`, `src/exporter.js` syntax check 통과
+- `tests/test-cases.html` inline script parse 통과
+- Layered Mode toggle 기본 off 확인 테스트 추가
+- Layered Mode off 상태에서 layer file input disabled 확인 테스트 추가
+- layer rename, visibility toggle, reorder, delete callback fixture 테스트 추가
+- visible layer composite가 layer 순서대로 합성되는지 테스트 추가
+- hidden layer가 composite에서 제외되는지 테스트 추가
+- layered Aseprite export가 여러 layer chunk와 cel chunk를 만드는지 테스트 추가
+- layered Aseprite binary inspection에서 layer name을 확인하는 테스트 추가
+- ES Module `import/export`, browser `alert()`, 고정 `32x32` resize shortcut 정적 검색 문제 없음
+
+제한:
+- 이 로컬 환경에서는 headless browser가 GPU process initialization 실패로 page 실행 전에 종료되었습니다.
+- 따라서 v1.3.0 browser assertion 총 통과 개수는 기록하지 않았습니다.
+
+## v1.0.0~v1.3.0 M5 최종 안정화 테스트 요약
+
+결과: 사용 가능한 비브라우저 검증 통과.
+
+통과한 항목:
+- 모든 app JavaScript 파일 syntax check 통과
+- `tests/testImageFactory.js` syntax check 통과
+- `tests/test-cases.html` inline script parse 통과
+- preset manager Node VM 검증 통과
+- ES Module `import/export` 정적 검색 문제 없음
+- browser `alert()` 정적 검색 문제 없음
+- 고정 `32x32` resize shortcut 정적 검색 문제 없음
+- 영어/한국어 문서 업데이트 완료
+
+제한:
+- headless Edge/Chrome이 GPU process initialization 실패로 page 실행 전에 종료되어 최종 browser assertion pass count는 기록하지 못했습니다.
+- 브라우저 실행이 가능한 환경에서 `tests/test-cases.html?autorun=1`을 다시 실행해야 최종 browser pass count를 확정할 수 있습니다.

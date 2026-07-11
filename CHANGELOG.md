@@ -1,5 +1,92 @@
 # Changelog
 
+## [1.3.0] - Layered PNG Input / Layered Aseprite Export
+
+### Added
+- Layered Mode UI defaulting to off.
+- Multi-image layer input with layer rename, reorder, visibility toggle, and delete controls.
+- Independent per-layer processing with shared global settings.
+- Visible-layer composite preview for Layered Mode.
+- Flattened visible-layer PNG/JPG export.
+- Multi-layer Aseprite export for visible processed layers.
+- Aseprite binary inspection now reports layer/cel counts and layer names for tests.
+- Tests for Layered Mode UI defaults/actions, visible-layer compositing, and layered Aseprite layer/cel records.
+
+### Changed
+- `src/exporter.js` keeps the existing single-canvas Aseprite export and adds separate layered export helpers.
+- `src/app.js` keeps single-image state and adds separate `state.layered` for Layered Mode.
+- Hidden layers are omitted from v1.3.0 Aseprite export and from flattened PNG/JPG composites.
+
+### Verification
+- `node --check` passed for `src/app.js`, `src/uiController.js`, and `src/exporter.js`.
+- `tests/test-cases.html` inline script parsed successfully after layered tests were added.
+- Static checks found no ES Module `import/export`, no browser `alert()`, and no fixed `32x32` resize shortcut.
+- Browser assertion execution remains blocked in this environment by the same local headless GPU initialization failure recorded for earlier v1.x milestones.
+
+## [1.2.0] - Example Gallery / QA Set
+
+### Added
+- `src/exampleGallery.js` with generated, repository-owned example canvases and settings recipes.
+- Collapsed Examples / QA UI section in `index.html`.
+- One-click example loading that applies matching settings and then uses the normal preview/conversion path.
+- Example QA action for deterministic generated sample conversion checks.
+- Test-page coverage for generated-only example metadata, deterministic QA conversion, and example UI rendering.
+
+### Changed
+- `src/app.js` exposes example selection and QA handlers while keeping default startup behavior unchanged.
+- `src/uiController.js` renders generated example thumbnails and status through the UI layer.
+
+### Verification
+- `node --check` passed for `src/exampleGallery.js`, `src/uiController.js`, and `src/app.js`.
+- `tests/test-cases.html` inline script parsed successfully after example tests were added.
+- Static checks found no ES Module `import/export`, no browser `alert()`, and no fixed `32x32` resize shortcut.
+- Browser assertion execution remains blocked in this environment by the same local headless GPU initialization failure recorded for v1.0.0 and v1.1.0.
+
+## [1.1.0] - Settings Preset Save / Load
+
+### Added
+- `src/presetManager.js` for settings-only preset schema, sanitization, `localStorage` persistence, and JSON import/export.
+- Collapsed Settings Presets UI with save, load, delete, reset, export, and import controls.
+- Built-in recommended presets for common 32px and 64px icon workflows.
+- Tests for preset storage, stale/partial preset normalization, JSON import/export, invalid JSON, image-data exclusion, and UI setting restore.
+
+### Changed
+- `src/app.js` can apply preset settings through the same option-change and conversion validation flow used by manual UI changes.
+- `src/uiController.js` can restore all serializable settings without storing file objects, data URLs, canvases, blobs, clipboard data, or local paths.
+
+### Verification
+- `node --check` passed for `src/presetManager.js`, `src/uiController.js`, `src/app.js`, and core support files.
+- `tests/test-cases.html` inline script parsed successfully after preset tests were added.
+- A Node VM check verified preset save/load/delete, JSON import rejection, stale preset normalization, and exclusion of private image/path fields.
+- Static checks found no ES Module `import/export`, no browser `alert()`, and no fixed `32x32` resize shortcut.
+- Browser execution remains blocked in this environment by the same local headless GPU initialization failure recorded for v1.0.0.
+
+## [1.0.0] - Performance Stabilization / Web Worker
+
+### Added
+- `src/conversionWorker.js` for optional worker-side preprocess, tile conversion, palette/dither processing, palette analysis, and outline processing.
+- `src/workerClient.js` as the main-thread wrapper for worker creation, progress stages, fallback signaling, and cancellation.
+- Processing status state and a visible cancel action while worker conversion is active.
+- Worker/fallback/cancel tests in `tests/test-cases.html`.
+
+### Changed
+- `src/app.js` now attempts worker-backed conversion first and falls back to the existing main-thread path if worker creation or execution fails.
+- Source image decoding and source `ImageData` extraction remain on the main thread for compatibility; expensive pixel processing can run in the worker.
+- Direct `index.html` use remains supported. A local HTTP server is recommended for reliable worker behavior because some browsers block workers under `file://`.
+
+### Fixed
+- Canceled worker results are guarded by a request id and cannot overwrite the current valid result.
+
+### Known Issues
+- Browser worker availability depends on browser policy and page origin. If worker startup fails, the app uses the main-thread fallback and shows a non-blocking warning.
+- Export blob preparation still runs on the main thread.
+
+### Verification
+- JS syntax checks passed for all app JS files, including `src/workerClient.js` and `src/conversionWorker.js`.
+- Static checks found no ES Module `import/export`, no browser `alert()`, and no fixed `32x32` resize shortcut.
+- `tests/test-cases.html` inline script parsed successfully.
+- Headless Edge and Chrome browser execution was attempted through `http://127.0.0.1:8000/tests/test-cases.html?autorun=1`, but both browsers exited before page execution with local GPU-process initialization failures. No test assertion failures were produced because the page could not execute in this environment.
+
 ## [0.9.0] - Source Preprocess and Icon Assist
 
 ### Added

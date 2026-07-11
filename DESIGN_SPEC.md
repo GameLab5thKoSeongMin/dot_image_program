@@ -10,6 +10,7 @@ The program does not simply resize the image.
 
 ```txt
 input image
+-> optional worker or main-thread processing path
 -> optional source cleanup / brightness / contrast / saturation / sharpen
 -> tile conversion using median / average / center / dominant
 -> palette source resolution using generated / built-in / imported colors
@@ -44,6 +45,7 @@ input image
 - `preprocess`: brightness, contrast, saturation, sharpen, cleanup enabled/color/tolerance.
 - `outlineMode`: `off`, `black`, or `dark`.
 - `outlineInfo`: applied state, added pixel count, and generated color.
+- `workerStatus`: active request id, stage text, and cancel state for optional worker-backed conversion.
 
 ## 4. Size UI Rules
 Width and Height are selected independently.
@@ -233,8 +235,50 @@ Desktop layout uses viewport-height panels with internal scrolling where needed,
 - `paletteQuantizer.js`: Performs visible color counting, median cut palette generation, fixed nearest-color mapping, dithering, result palette analysis, exact-RGB replacement/merge, and palette alpha normalization.
 - `fileHandler.js`: Validates files, output size, palette options, imported HEX palettes, performance warnings, and filenames.
 - `exporter.js`: Creates PNG/JPG/Aseprite export blobs.
+- `presetManager.js`: Owns settings-only preset defaults, sanitization, `localStorage` persistence, JSON import/export, and built-in recommended templates.
+- `exampleGallery.js`: Owns generated example definitions, canvas factories, matching settings recipes, and deterministic example QA conversion checks.
 - `uiController.js`: Handles DOM state, size controls, placeholders, zoom, palette sources, result swatches, Palette Editor controls, summaries, warnings, and output metadata.
 - `constants.js`: Stores size presets, defaults, thresholds, modes, formats, palette rules, alpha policy, and Aseprite constants.
+- `workerClient.js`: Creates optional conversion workers, reports stage progress, exposes cancellation, and signals fallback when workers are unavailable.
+- `conversionWorker.js`: Runs serializable source `ImageData` through preprocess, tile conversion, palette/dither processing, palette analysis, and outline processing without DOM access.
+
+## 18A. Worker Processing Rules
+- The worker path is optional and must not be required for direct `index.html` usage.
+- Source image decoding and source `ImageData` extraction remain on the main thread.
+- Worker messages pass serializable data only; no DOM nodes, canvas elements, or image elements are sent.
+- If worker creation or execution fails, `app.js` uses the existing main-thread conversion path.
+- Canceled worker requests are terminated and guarded by request id so stale results cannot replace the current valid result.
+- Export preparation remains on the main thread in v1.0.0.
+
+## 18B. Preset Rules
+- Presets store serializable settings only.
+- Presets may include size mode, width/height choices, sampling, output format, palette source/limit, dithering, preprocess, cleanup, and outline settings.
+- Presets must not store uploaded image data, file objects, data URLs, canvases, blobs, clipboard data, generated output, or private local paths.
+- Loading a preset updates the existing UI controls and then uses the normal validation/conversion flow.
+- Source-dimension validation still applies after a preset is loaded; a preset cannot bypass output-size rules.
+- Stale or partial preset data is sanitized back to safe defaults instead of crashing.
+
+## 18C. Example Gallery / QA Rules
+- Examples are generated canvases or repository-owned data only.
+- The app does not fetch network images for examples.
+- Example settings are normal UI settings and use the same validation/conversion path as manual settings.
+- Loading an example must not change the default startup behavior.
+- Example QA checks are deterministic and do not replace the main browser test suite.
+
+## 18D. Layered Mode Rules
+- Layered Mode defaults off.
+- When Layered Mode is off, the existing single-image source, preview, Palette Editor, and export flow remain the active behavior.
+- Layered state is stored separately from single-image state.
+- Layered Mode accepts multiple local PNG/JPG/JPEG image files.
+- Each image becomes one layer with a file-derived editable name, visibility state, and source dimensions.
+- All layers use the same resolved output width and height.
+- Each layer is processed independently through preprocess, tile conversion, palette/dither, and outline using shared global settings.
+- Source layers are not flattened before pixel conversion.
+- Processed visible layers are composited in layer order at top-left for preview and flattened PNG/JPG export.
+- v1.3.0 does not support per-layer positioning; all processed layers align at top-left.
+- Hidden layers are omitted from the composite and from v1.3.0 Aseprite export.
+- Layered Aseprite export preserves visible processed layers as separate 32-bit RGBA layer/cel records with layer names.
+- Manual Palette Editor edits are disabled in Layered Mode.
 
 ## 19. Future Extensions
 - Dithering strength control
@@ -245,9 +289,11 @@ Desktop layout uses viewport-height panels with internal scrolling where needed,
 - Indexed-color Aseprite export
 
 ## 20. Final Verification Status
-- M5 syntax checks pass for all app JavaScript files.
+- v1.0.0-v1.3.0 M5 syntax checks pass for all app JavaScript files and `tests/testImageFactory.js`.
+- `tests/test-cases.html` inline script parses successfully with the v1.0-v1.3 coverage added.
 - Static checks confirm no ES Modules, no browser `alert()`, no framework/build system, and no output resize shortcut.
-- The final browser test page reports `94 / 94 cases passed.`.
-- The actual app file-processing path produces `sample_32x32_median.png` from the default options and exports non-empty PNG/JPG plus structurally valid 32-bit RGBA Aseprite output.
+- Preset manager VM checks pass for save/load/delete/import/export/sanitization and exclusion of private image/path fields.
+- Full browser assertion execution is blocked in this environment because headless Edge/Chrome exits before page execution with GPU process initialization failures.
 - `state.resultCanvas` is the shared preview/export source after palette mapping, manual edits, preprocessing, cleanup, and outline processing.
+- `state.layered` is the separate Layered Mode state and Layered Mode defaults off.
 - External Aseprite desktop/CLI open/save validation remains pending.

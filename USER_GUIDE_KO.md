@@ -175,3 +175,58 @@ Dithering을 켜도 파일명에는 별도 suffix를 붙이지 않습니다.
 - JPG 투명 영역 흰색 합성: Pass
 - Aseprite binary 구조와 32-bit RGBA 출력: Pass
 - Aseprite 데스크톱 앱/CLI에서 직접 열기 및 다시 저장하기 검증: 미수행
+
+---
+
+## v1.0.0 Web Worker / fallback 안내
+
+v1.0.0에서는 큰 이미지 변환 중 UI 멈춤을 줄이기 위해 선택적 Web Worker 변환 경로를 추가했습니다.
+
+동작 방식:
+- 브라우저에서 Web Worker를 사용할 수 있으면 preprocess, tile conversion, palette/dithering, palette 분석, outline 처리를 worker에서 수행합니다.
+- source image 로딩과 source `ImageData` 추출은 호환성을 위해 main thread에서 수행합니다.
+- PNG/JPG/Aseprite export 준비는 v1.0.0에서도 main thread에서 수행합니다.
+- `file://` 환경에서 worker가 차단되면 warning banner로 안내하고 기존 main-thread 변환으로 자동 fallback합니다.
+- worker 변환 중에는 처리 단계가 status에 표시되고, `취소` 버튼으로 진행 중인 worker 변환을 중단할 수 있습니다.
+
+권장 실행 방법:
+```bash
+python -m http.server 8000
+```
+
+그 다음 `http://localhost:8000/`으로 접속하면 worker 동작이 더 안정적입니다. `index.html` 직접 열기도 계속 지원됩니다.
+## v1.1 설정 프리셋
+
+`설정 프리셋` 섹션에서 현재 변환 설정을 저장하고 다시 불러올 수 있습니다.
+
+- `현재 설정 저장`: 현재 크기, 샘플링, 출력 형식, 팔레트, 디더링, 전처리, 배경 제거, 외곽선 설정을 저장합니다.
+- `프리셋 불러오기`: 선택한 프리셋을 화면의 설정 컨트롤에 적용합니다.
+- `프리셋 삭제`: 사용자가 저장한 프리셋을 삭제합니다. 기본 제공 프리셋은 삭제되지 않습니다.
+- `기본값`: 기본 `32x32`, `median`, `PNG`, palette `off` 상태로 되돌립니다.
+- `Export JSON` / `Import JSON`: 저장한 사용자 프리셋을 JSON으로 내보내거나 가져옵니다.
+
+프리셋에는 이미지 파일, 이미지 데이터, 로컬 파일 경로, 생성된 결과 canvas가 저장되지 않습니다. 프리셋을 불러온 뒤에도 현재 원본 이미지 크기보다 큰 출력 크기는 기존 검증 규칙에 따라 경고 또는 차단됩니다.
+
+## v1.2 Example Gallery / QA
+
+`Examples / QA` 섹션에는 코드로 생성되는 예제 이미지가 들어 있습니다. 외부 이미지나 네트워크 파일을 사용하지 않습니다.
+
+- 예제 카드를 누르면 예제 이미지가 원본으로 로드되고, 그 예제에 맞는 설정이 자동으로 적용됩니다.
+- 적용된 뒤에는 기존 변환 흐름을 사용하므로 출력 크기 검증, palette 처리, outline, export 정책이 그대로 유지됩니다.
+- `Run QA`는 생성 예제들이 기본 변환 검사를 통과하는지 확인하는 개발용 점검 버튼입니다.
+
+예제 기능은 기본 시작 상태를 바꾸지 않습니다. 앱을 처음 열었을 때 기본값은 계속 `32x32`, `median`, `PNG`, palette `off`입니다.
+
+## v1.3 Layered Mode
+
+`Layered Mode`는 기본적으로 꺼져 있습니다. 여러 이미지를 각각 별도 layer로 pixelize해야 할 때만 켜세요.
+
+- Layered Mode를 켠 뒤 여러 PNG/JPG/JPEG 파일을 추가할 수 있습니다.
+- 각 파일은 하나의 layer가 되며, 이름 변경, 순서 변경, 표시/숨김, 삭제가 가능합니다.
+- 모든 layer는 현재 전역 설정을 공유합니다. v1.3에서는 layer별 개별 설정이나 layer별 위치 조정은 지원하지 않습니다.
+- 각 layer는 먼저 독립적으로 변환되고, 그 다음 visible layer만 top-left 기준으로 합성되어 preview에 표시됩니다.
+- PNG export는 visible processed layer의 flattened composite를 저장합니다.
+- JPG export는 같은 composite를 흰 배경 위에 합성해 저장합니다.
+- Aseprite export는 visible processed layer만 별도 RGBA layer/cel로 저장합니다. 숨긴 layer는 v1.3 Aseprite export에서 제외됩니다.
+
+Layered Mode가 꺼져 있으면 기존 단일 이미지 변환 흐름이 그대로 사용됩니다.
