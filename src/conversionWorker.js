@@ -28,72 +28,9 @@
     return new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height);
   }
 
-  function createOutputImageData(width, height) {
-    return new ImageData(new Uint8ClampedArray(width * height * 4), width, height);
-  }
-
-  function normalizeSamplingMode(samplingMode) {
-    return constants.SAMPLING_MODES.indexOf(samplingMode) === -1
-      ? constants.DEFAULT_SAMPLING_MODE
-      : samplingMode;
-  }
-
   function convertImageDataToPixelIcon(sourceImageData, options, requestId) {
-    var outputWidth = Number(options.outputWidth) || constants.DEFAULT_OUTPUT_WIDTH;
-    var outputHeight = Number(options.outputHeight) || constants.DEFAULT_OUTPUT_HEIGHT;
-    var samplingMode = normalizeSamplingMode(options.samplingMode);
-    var preprocessResult;
-    var processedSource;
-    var outputImageData;
-
-    postStage(requestId, "전처리 중");
-    preprocessResult = imageProcessor.applyPreprocessToImageData(
-      sourceImageData,
-      options.preprocess || {}
-    );
-    processedSource = preprocessResult.imageData;
-
-    postStage(requestId, "픽셀 변환 중");
-    outputImageData = createOutputImageData(outputWidth, outputHeight);
-
-    for (var tileY = 0; tileY < outputHeight; tileY += 1) {
-      for (var tileX = 0; tileX < outputWidth; tileX += 1) {
-        var bounds = imageProcessor.calculateTileBounds(
-          tileX,
-          tileY,
-          processedSource.width,
-          processedSource.height,
-          outputWidth,
-          outputHeight
-        );
-        var color = imageProcessor.calculateTileRepresentativeColor(
-          processedSource,
-          bounds,
-          samplingMode
-        );
-        var outputIndex = (tileY * outputWidth + tileX) * 4;
-
-        outputImageData.data[outputIndex] = color[0];
-        outputImageData.data[outputIndex + 1] = color[1];
-        outputImageData.data[outputIndex + 2] = color[2];
-        outputImageData.data[outputIndex + 3] = color[3];
-      }
-    }
-
-    return {
-      imageData: outputImageData,
-      width: outputWidth,
-      height: outputHeight,
-      sourceWidth: processedSource.width,
-      sourceHeight: processedSource.height,
-      samplingMode: samplingMode,
-      sourceHasTransparency: imageProcessor.imageDataHasTransparency(sourceImageData),
-      preprocessedSourceHasTransparency: imageProcessor.imageDataHasTransparency(processedSource),
-      preprocessApplied: preprocessResult.preprocessApplied,
-      preprocessOptions: preprocessResult.options,
-      backgroundRemovedPixelCount: preprocessResult.removedPixelCount,
-      resultHasTransparency: imageProcessor.imageDataHasTransparency(outputImageData)
-    };
+    postStage(requestId, "전처리 및 픽셀 변환 중");
+    return imageProcessor.convertImageDataToPixelIcon(sourceImageData, options);
   }
 
   function buildPaletteInfo(paletteResult, paletteSourceOptions, outlineResult, finalImageData) {

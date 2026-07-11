@@ -306,6 +306,158 @@
         return results;
       }
 
+      async function runInputFileCases() {
+        var png = new File([new Uint8Array([1])], "sample.png", { type: "image/png" });
+        var jpg = new File([new Uint8Array([1])], "sample.jpg", { type: "image/jpeg" });
+        var jpeg = new File([new Uint8Array([1])], "sample.jpeg", { type: "image/jpeg" });
+        var invalid = new File([new Uint8Array([1])], "sample.txt", { type: "text/plain" });
+        var corruptedRejected = false;
+
+        assert(fileHandler.validateImageFile(png).valid, "PNG input metadata should be accepted");
+        assert(fileHandler.validateImageFile(jpg).valid, "JPG input metadata should be accepted");
+        assert(fileHandler.validateImageFile(jpeg).valid, "JPEG input metadata should be accepted");
+        assert(!fileHandler.validateImageFile(invalid).valid, "Unsupported input metadata should be rejected");
+
+        try {
+          await processor.loadImageFromDataURL("data:image/png;base64,not-a-valid-image");
+        } catch (error) {
+          corruptedRejected = true;
+        }
+
+        assert(corruptedRejected, "Corrupted image data should fail decoding");
+
+        return [
+          {
+            name: "PNG/JPG/JPEG input validation",
+            description: "Supported image extensions and MIME types are accepted while unrelated files are rejected.",
+            pass: true,
+            note: "PNG, JPG, and JPEG metadata passed; TXT metadata was rejected."
+          },
+          {
+            name: "Corrupted image rejection",
+            description: "Invalid image data cannot enter the conversion pipeline.",
+            pass: true,
+            note: "Corrupted PNG data failed image decoding as expected."
+          }
+        ];
+      }
+
+      function canvasToBlob(canvas, mimeType) {
+        return new Promise(function (resolve, reject) {
+          canvas.toBlob(function (blob) {
+            if (blob) {
+              resolve(blob);
+              return;
+            }
+            reject(new Error("Canvas blob creation failed for " + mimeType));
+          }, mimeType);
+        });
+      }
+
+      function waitForCondition(condition, timeoutMs) {
+        var startedAt = Date.now();
+
+        return new Promise(function (resolve, reject) {
+          function check() {
+            if (condition()) {
+              resolve();
+              return;
+            }
+            if (Date.now() - startedAt >= timeoutMs) {
+              reject(new Error("Timed out waiting for app integration state."));
+              return;
+            }
+            window.setTimeout(check, 25);
+          }
+
+          check();
+        });
+      }
+
+      async function runAppInputIntegrationCases() {
+        var frame = document.createElement("iframe");
+        var sourceCanvas = factory.createSolidColorImage();
+        var pngBlob = await canvasToBlob(sourceCanvas, "image/png");
+        var jpgBlob = await canvasToBlob(sourceCanvas, "image/jpeg");
+        var pngFile = new File([pngBlob], "integration.png", { type: "image/png" });
+        var jpgFile = new File([jpgBlob], "integration.jpg", { type: "image/jpeg" });
+        var jpegFile = new File([jpgBlob], "integration.jpeg", { type: "image/jpeg" });
+        var invalidFile = new File(["not an image"], "integration.txt", { type: "text/plain" });
+        var corruptedFile = new File(["broken image bytes"], "corrupted.png", { type: "image/png" });
+        var appWindow;
+        var app;
+        var dropZone;
+        var dropEvent;
+        var frameLoaded = new Promise(function (resolve, reject) {
+          frame.addEventListener("load", resolve, { once: true });
+          frame.addEventListener("error", function () {
+            reject(new Error("App integration frame failed to load."));
+          }, { once: true });
+        });
+
+        frame.hidden = true;
+        frame.src = "../index.html?integration-test=1";
+        document.body.appendChild(frame);
+
+        try {
+          await frameLoaded;
+
+          appWindow = frame.contentWindow;
+          app = appWindow.PixelIconApp;
+          assert(app && app.handleFile && app.getState, "App integration API should be available");
+
+          for (var index = 0; index < 3; index += 1) {
+            var file = [pngFile, jpgFile, jpegFile][index];
+            await app.handleFile(file);
+            assert(app.getState().currentFile.name === file.name, file.name + " should reach app state");
+            assert(app.getState().resultCanvas, file.name + " should produce a final canvas");
+          }
+
+          dropZone = appWindow.document.getElementById("dropZone");
+          dropEvent = new appWindow.Event("drop", { bubbles: true, cancelable: true });
+          Object.defineProperty(dropEvent, "dataTransfer", {
+            value: { files: [pngFile] }
+          });
+          dropZone.dispatchEvent(dropEvent);
+          await waitForCondition(function () {
+            return app.getState().currentFile &&
+              app.getState().currentFile.name === pngFile.name &&
+              app.getState().resultCanvas;
+          }, 5000);
+
+          await app.handleFile(invalidFile);
+          assert(!app.getState().sourceImage, "Invalid file should clear source state");
+          assert(!appWindow.document.getElementById("warningBanner").hidden, "Invalid file should show the warning banner");
+
+          await app.handleFile(corruptedFile);
+          assert(!app.getState().sourceImage, "Corrupted image should clear source state");
+          assert(!appWindow.document.getElementById("warningBanner").hidden, "Corrupted image should show the warning banner");
+
+          return [
+            {
+              name: "Real app PNG/JPG/JPEG input",
+              description: "The real app decodes each supported input extension and produces its final canvas.",
+              pass: true,
+              note: "PNG, JPG, and JPEG reached app state and completed conversion."
+            },
+            {
+              name: "Real app drag and drop",
+              description: "The real drop-zone event binding forwards the dropped image into the normal file pipeline.",
+              pass: true,
+              note: "A dispatched file drop completed conversion through the app binding."
+            },
+            {
+              name: "Real app invalid and corrupted files",
+              description: "Unsupported metadata and corrupted image bytes are rejected through the warning banner.",
+              pass: true,
+              note: "Both failures cleared source state and used the in-app warning UI."
+            }
+          ];
+        } finally {
+          frame.remove();
+        }
+      }
+
       function runValidationCase(name, width, height, imageWidth, imageHeight, shouldPass) {
         var validation = fileHandler.validateOutputSize(width, height, imageWidth, imageHeight);
         assert(validation.valid === shouldPass, "Validation result mismatch: " + validation.message);
@@ -1945,8 +2097,8 @@
 
       async function runWorkerEquivalenceCase() {
         var sourceCanvas = factory.createAlphaVariationImage();
-        var sourceImageData = getCanvasImageData(sourceCanvas);
         var image = await canvasToImageElement(sourceCanvas);
+        var sourceImageData = processor.createSourceImageData(image);
         var conversionOptions = {
           outputWidth: 32,
           outputHeight: 32,
@@ -1968,12 +2120,18 @@
           fixedPaletteColors: [],
           ditheringMode: "bayer4x4"
         };
-        var expected = processor.convertImageToPixelIcon(image, conversionOptions);
-        var expectedPalette = quantizer.applyPaletteLimitToCanvas(expected.canvas, paletteOptions);
-        var expectedOutline = iconAssist.applyOutlineToCanvas(expectedPalette.canvas, { mode: "black" });
+        var expected = processor.convertImageDataToPixelIcon(sourceImageData, conversionOptions);
+        var expectedPalette = quantizer.applyPaletteLimitToImageData(expected.imageData, paletteOptions);
+        var expectedOutline = iconAssist.applyOutlineToImageData(expectedPalette.imageData, { mode: "black" });
         var client = new WorkerClient();
+        var expectedWorkerUrl = new URL("../src/conversionWorker.js", window.location.href).href;
         var stages = [];
         var workerResult;
+
+        assert(
+          client.workerUrl === expectedWorkerUrl,
+          "Worker URL should resolve from workerClient.js, not the nested test page: " + client.workerUrl + " !== " + expectedWorkerUrl
+        );
 
         try {
           workerResult = await client.process(sourceImageData, {
@@ -2008,7 +2166,7 @@
         assert(workerResult.paletteInfo.outlineMode === "black", "Worker should apply outline");
         assertCanvasPixelsEqual(
           imageDataToCanvas(workerResult.imageData),
-          expectedOutline.canvas,
+          imageDataToCanvas(expectedOutline.imageData),
           "Worker result should match main-thread pipeline"
         );
 
@@ -2105,6 +2263,8 @@
 
         try {
           allResults = allResults.concat(await runLegacyCases());
+          allResults = allResults.concat(await runInputFileCases());
+          allResults = allResults.concat(await runAppInputIntegrationCases());
 
           var solid = factory.createSolidColorImage();
           var split = factory.createLeftRightSplitImage();

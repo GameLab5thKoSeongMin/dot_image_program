@@ -115,7 +115,7 @@
 
     return {
       id: safeOptions.id || createId(),
-      name: String(name || "Untitled preset").trim().slice(0, 80) || "Untitled preset",
+      name: String(name || "이름 없는 프리셋").trim().slice(0, 80) || "이름 없는 프리셋",
       builtIn: !!safeOptions.builtIn,
       createdAt: safeOptions.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -126,7 +126,7 @@
 
   function getBuiltInPresets() {
     return [
-      createPreset("Skill Icon 32", {
+      createPreset("스킬 아이콘 32", {
         customSizeEnabled: false,
         widthOption: "32",
         heightOption: "32",
@@ -137,7 +137,7 @@
         outlineMode: "off",
         outputFormat: "png"
       }, { id: "builtin-skill-icon-32", builtIn: true, createdAt: "2026-07-01T00:00:00.000Z" }),
-      createPreset("Item Icon 64", {
+      createPreset("아이템 아이콘 64", {
         customSizeEnabled: false,
         widthOption: "64",
         heightOption: "64",
@@ -148,7 +148,7 @@
         outlineMode: "black",
         outputFormat: "png"
       }, { id: "builtin-item-icon-64", builtIn: true, createdAt: "2026-07-01T00:00:00.000Z" }),
-      createPreset("Portrait Base 64", {
+      createPreset("인물 기본형 64", {
         customSizeEnabled: false,
         widthOption: "64",
         heightOption: "64",
@@ -163,7 +163,7 @@
         outlineMode: "dark",
         outputFormat: "png"
       }, { id: "builtin-portrait-base-64", builtIn: true, createdAt: "2026-07-01T00:00:00.000Z" }),
-      createPreset("Palette Cleanup Original", {
+      createPreset("원본 팔레트 정리", {
         customSizeEnabled: true,
         customWidth: 32,
         customHeight: 32,
@@ -226,7 +226,7 @@
     return sourceList.reduce(function (list, item) {
       var source = item || {};
       var settings = source.settings || source;
-      var preset = createPreset(source.name || "Imported preset", settings, {
+      var preset = createPreset(source.name || "가져온 프리셋", settings, {
         id: String(source.id || createId()),
         builtIn: !!source.builtIn && !!safeOptions.includeBuiltIns,
         createdAt: source.createdAt
@@ -262,7 +262,7 @@
     if (!writeUserPresets(presets)) {
       return {
         valid: false,
-        message: "Preset storage is unavailable."
+        message: "프리셋 저장소를 사용할 수 없습니다."
       };
     }
 
@@ -282,7 +282,7 @@
     if (nextPresets.length === presets.length) {
       return {
         valid: false,
-        message: "Built-in presets cannot be deleted."
+        message: "기본 제공 프리셋은 삭제할 수 없습니다."
       };
     }
 
@@ -319,7 +319,7 @@
     } catch (error) {
       return {
         valid: false,
-        message: "Preset JSON is invalid."
+        message: "프리셋 JSON이 올바르지 않습니다."
       };
     }
 
@@ -327,7 +327,7 @@
     if (!imported.length) {
       return {
         valid: false,
-        message: "Preset JSON does not contain valid presets."
+        message: "프리셋 JSON에 유효한 프리셋이 없습니다."
       };
     }
 

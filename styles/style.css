@@ -35,8 +35,18 @@ body {
 button,
 input,
 label,
-select {
+select,
+textarea {
   font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 3px solid rgba(47, 125, 86, 0.28);
+  outline-offset: 2px;
 }
 
 .app-shell {
@@ -280,8 +290,7 @@ select {
   transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
 }
 
-.drop-zone.is-active,
-.drop-zone:focus-visible {
+.drop-zone.is-active {
   border-color: var(--accent);
   background: var(--accent-soft);
   box-shadow: 0 0 0 3px rgba(47, 125, 86, 0.18);
@@ -511,6 +520,11 @@ select {
 
 .palette-import-actions input {
   min-width: 0;
+}
+
+.palette-file-button {
+  min-height: 34px;
+  padding: 0 12px;
 }
 
 .preset-actions {
@@ -800,6 +814,16 @@ select {
   white-space: nowrap;
 }
 
+.file-input:focus-visible {
+  outline: none;
+}
+
+.file-input:focus-visible + .file-button,
+.file-input:focus-visible + .palette-file-button {
+  outline: 3px solid rgba(47, 125, 86, 0.28);
+  outline-offset: 2px;
+}
+
 .file-button,
 .download-button,
 .convert-button {
@@ -825,9 +849,9 @@ select {
 
 .download-button:disabled,
 .convert-button:disabled {
-  border-color: #b9c0b5;
-  background: #dfe4dc;
-  color: #778074;
+  border-color: #aeb6aa;
+  background: #e6e9e3;
+  color: #586157;
   cursor: not-allowed;
 }
 

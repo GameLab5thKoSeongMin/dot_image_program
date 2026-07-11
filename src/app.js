@@ -164,14 +164,14 @@
 
   function buildPaletteText(paletteResult, paletteSourceOptions) {
     if (paletteResult.fixedPaletteApplied) {
-      return paletteSourceOptions.label + " (" + paletteResult.effectivePaletteCount + " colors)";
+      return paletteSourceOptions.label + " (" + paletteResult.effectivePaletteCount + "색)";
     }
 
     if (paletteResult.paletteMode === "off") {
       return "off";
     }
 
-    return paletteResult.paletteMode + " (" + paletteResult.effectivePaletteCount + " colors)";
+    return paletteResult.paletteMode + " (" + paletteResult.effectivePaletteCount + "색)";
   }
 
   function resolvePaletteSourceOptions(options) {
@@ -183,10 +183,10 @@
       builtInPalette = fileHandler.getBuiltInPaletteById(options.builtInPaletteId);
       return {
         valid: !!builtInPalette,
-        message: builtInPalette ? "" : "Built-in palette을 찾을 수 없습니다.",
+        message: builtInPalette ? "" : "기본 제공 팔레트를 찾을 수 없습니다.",
         paletteSource: paletteSource,
         paletteId: builtInPalette && builtInPalette.id,
-        label: builtInPalette ? builtInPalette.label : "Built-in palette",
+        label: builtInPalette ? builtInPalette.label : "기본 제공 팔레트",
         fixedPaletteColors: builtInPalette ? fileHandler.createRgbPaletteFromHexColors(builtInPalette.colors) : []
       };
     }
@@ -200,7 +200,7 @@
           valid: false,
           message: importedPalette.message,
           paletteSource: paletteSource,
-          label: "Imported palette",
+          label: "가져온 팔레트",
           fixedPaletteColors: []
         };
       }
@@ -210,7 +210,7 @@
         message: "",
         paletteSource: paletteSource,
         paletteId: "imported",
-        label: "Imported palette",
+        label: "가져온 팔레트",
         fixedPaletteColors: importedPalette.rgbColors
       };
     }
@@ -220,7 +220,7 @@
       message: "",
       paletteSource: constants.DEFAULT_PALETTE_SOURCE,
       paletteId: "generated",
-      label: "generated",
+      label: "자동 생성",
       fixedPaletteColors: []
     };
   }
@@ -245,7 +245,7 @@
     }
 
     if (paletteInfo && paletteInfo.ditheringSkipped) {
-      messages.push("Dithering은 palette 제한이 적용된 상태에서 사용할 수 있습니다.");
+      messages.push("디더링은 팔레트 제한이 적용된 상태에서 사용할 수 있습니다.");
     }
 
     return messages.join(" ");
@@ -319,15 +319,20 @@
   }
 
   function processImageElementOnMainThread(sourceImage, conversionOptions, paletteOptions, paletteSourceOptions, options) {
-    var result = imageProcessor.convertImageToPixelIcon(sourceImage, conversionOptions);
-    var paletteResult = paletteQuantizer.applyPaletteLimitToCanvas(result.canvas, paletteOptions);
+    var sourceImageData = imageProcessor.createSourceImageData(sourceImage);
+    var result = imageProcessor.convertImageDataToPixelIcon(sourceImageData, conversionOptions);
+    var paletteResult = paletteQuantizer.applyPaletteLimitToImageData(result.imageData, paletteOptions);
     var paletteText = buildPaletteText(paletteResult, paletteSourceOptions);
-    var outlineResult = applyOutline(paletteResult.canvas, options.outlineMode, null);
+    var outlineResult = iconAssistProcessor.applyOutlineToImageData(
+      paletteResult.imageData,
+      { mode: options.outlineMode }
+    );
 
-    result.editableCanvas = paletteResult.canvas;
-    result.canvas = outlineResult.canvas;
+    result.editableCanvas = imageDataToCanvas(paletteResult.imageData);
+    result.canvas = imageDataToCanvas(outlineResult.imageData);
+    result.imageData = outlineResult.imageData;
     result.outlineInfo = outlineResult;
-    result.resultHasTransparency = exporter.canvasHasTransparency(result.canvas);
+    result.resultHasTransparency = imageProcessor.imageDataHasTransparency(outlineResult.imageData);
     result.paletteInfo = {
       paletteMode: paletteResult.paletteMode,
       paletteSource: paletteResult.paletteSource,
@@ -348,10 +353,7 @@
       outlineApplied: outlineResult.outlineApplied,
       outlineAddedPixelCount: outlineResult.outlineAddedPixelCount,
       outlineColorHex: outlineResult.outlineColorHex,
-      finalColorCount: paletteQuantizer.countUniqueVisibleColors(
-        result.canvas.getContext("2d", { willReadFrequently: true })
-          .getImageData(0, 0, result.canvas.width, result.canvas.height)
-      )
+      finalColorCount: paletteQuantizer.countUniqueVisibleColors(outlineResult.imageData)
     };
     result.paletteText = paletteText;
     result.workerUsed = false;
@@ -494,7 +496,7 @@
       state.resultCanvas = null;
       ui.clearResultPreview();
       ui.setDownloadEnabled(false);
-      ui.setLayeredStatus("No visible processed layers.");
+      ui.setLayeredStatus("표시 중인 처리 완료 레이어가 없습니다.");
       return;
     }
 
@@ -507,7 +509,7 @@
     state.resultHasTransparency = exporter.canvasHasTransparency(state.resultCanvas);
     ui.showResultPreview(state.resultCanvas);
     ui.setDownloadEnabled(true);
-    ui.setLayeredStatus("Composite updated from " + visibleLayers.length + " visible layer(s).");
+    ui.setLayeredStatus("표시 레이어 " + visibleLayers.length + "개로 합성 결과를 갱신했습니다.");
   }
 
   function updateLayeredResultInfo(result, options, performanceWarning) {
@@ -547,7 +549,7 @@
       paletteText: "layered (" + visibleLayers.length + " visible)"
     });
     updateResultWarning(options.outputFormat, state.resultHasTransparency, null, performanceWarning);
-    ui.setStatus("Layered composite generated from " + visibleLayers.length + " visible layer(s).");
+    ui.setStatus("표시 레이어 " + visibleLayers.length + "개로 레이어 합성을 완료했습니다.");
   }
 
   async function processLayeredImages(runOptions) {
@@ -570,7 +572,7 @@
     }
 
     if (!state.layered.layers.length) {
-      resetResultWithWarning("Layered Mode is on. Add image layers first.", "Layered Mode is waiting for layers.");
+      resetResultWithWarning("레이어 모드가 켜져 있습니다. 이미지 레이어를 먼저 추가하세요.", "이미지 레이어를 기다리는 중입니다.");
       return true;
     }
 
@@ -582,7 +584,7 @@
     firstSizeValidation = validateCurrentOptions(options);
 
     if (!firstSizeValidation.valid) {
-      resetResultWithWarning(firstSizeValidation.message, "Check layered output size.");
+      resetResultWithWarning(firstSizeValidation.message, "레이어 출력 크기를 확인하세요.");
       return true;
     }
 
@@ -596,7 +598,7 @@
       );
 
       if (!layerSizeValidation.valid) {
-        resetResultWithWarning(layer.name + ": " + layerSizeValidation.message, "Check layer source dimensions.");
+        resetResultWithWarning(layer.name + ": " + layerSizeValidation.message, "레이어 원본 크기를 확인하세요.");
         return true;
       }
     }
@@ -608,8 +610,8 @@
 
     if (executionOptions.auto && performanceWarning) {
       resetResultWithWarning(
-        performanceWarning.message + " Use the preview refresh button to process layered output.",
-        "Layered preview refresh is required for large output."
+        performanceWarning.message + " 레이어 출력을 처리하려면 미리보기 갱신 버튼을 누르세요.",
+        "큰 레이어 출력은 미리보기 갱신이 필요합니다."
       );
       return true;
     }
@@ -626,18 +628,18 @@
     }
 
     if (!paletteSourceOptions.valid) {
-      resetResultWithWarning(paletteSourceOptions.message, "Check layered palette source.");
+      resetResultWithWarning(paletteSourceOptions.message, "레이어 팔레트 소스를 확인하세요.");
       return true;
     }
 
     if (!paletteValidation.valid) {
-      resetResultWithWarning(paletteValidation.message, "Check layered palette count.");
+      resetResultWithWarning(paletteValidation.message, "레이어 팔레트 색상 수를 확인하세요.");
       return true;
     }
 
     requestId = state.processingRequestId + 1;
     state.processingRequestId = requestId;
-    setProcessing(true, "Processing layered output...", false);
+    setProcessing(true, "레이어 출력 처리 중", false);
 
     try {
       paletteOptions = getPaletteProcessingOptions(options, paletteValidation, paletteSourceOptions);
@@ -647,7 +649,7 @@
         var conversionOptions = getConversionOptions(options, firstSizeValidation);
         var layerResult;
 
-        setProcessing(true, "Processing layer " + (processIndex + 1) + " / " + state.layered.layers.length, false);
+        setProcessing(true, "레이어 처리 " + (processIndex + 1) + " / " + state.layered.layers.length, false);
         layerResult = processImageElementOnMainThread(
           currentLayer.sourceImage,
           conversionOptions,
@@ -681,8 +683,8 @@
       }
     } catch (error) {
       resetResultWithWarning(
-        error.message || "Layered conversion failed.",
-        "Layered conversion failed."
+        error.message || "레이어 변환에 실패했습니다.",
+        "레이어 변환에 실패했습니다."
       );
     } finally {
       if (requestId === state.processingRequestId) {
@@ -758,7 +760,7 @@
     }
 
     if (!paletteSourceOptions.valid) {
-      resetResultWithWarning(paletteSourceOptions.message, "palette source를 확인하세요.");
+      resetResultWithWarning(paletteSourceOptions.message, "팔레트 소스를 확인하세요.");
       return;
     }
 
@@ -793,7 +795,7 @@
                 }
               },
               onFallback: function () {
-                ui.showWarning("Web Worker를 사용할 수 없어 main thread fallback으로 변환합니다.");
+                ui.showWarning("Web Worker를 사용할 수 없어 메인 스레드 대체 경로로 변환합니다.");
               }
             }
           );
@@ -807,15 +809,15 @@
           }
 
           if (!workerError || !workerError.fallback) {
-            ui.showWarning("Worker 변환에 실패해 main thread fallback으로 변환합니다.");
+            ui.showWarning("Worker 변환에 실패해 메인 스레드 대체 경로로 변환합니다.");
           }
 
-          setProcessing(true, "main thread fallback 처리 중", false);
+          setProcessing(true, "메인 스레드 대체 처리 중", false);
           result = processImageOnMainThread(conversionOptions, paletteOptions, paletteSourceOptions, options);
         }
       } else {
-        ui.showWarning("Web Worker를 사용할 수 없어 main thread fallback으로 변환합니다.");
-        setProcessing(true, "main thread fallback 처리 중", false);
+        ui.showWarning("Web Worker를 사용할 수 없어 메인 스레드 대체 경로로 변환합니다.");
+        setProcessing(true, "메인 스레드 대체 처리 중", false);
         result = processImageOnMainThread(conversionOptions, paletteOptions, paletteSourceOptions, options);
       }
 
@@ -924,8 +926,8 @@
 
     example = exampleGallery.getExampleById(exampleId);
     if (!example) {
-      ui.showWarning("Example could not be found.");
-      ui.setExampleStatus("Example could not be found.");
+      ui.showWarning("예제를 찾을 수 없습니다.");
+      ui.setExampleStatus("예제를 찾을 수 없습니다.");
       return;
     }
 
@@ -936,10 +938,10 @@
     state.sourceWidth = 0;
     state.sourceHeight = 0;
     ui.clearOriginalPreview();
-    applyPresetSettings(example.settings, "Applied example settings: " + example.title);
+    applyPresetSettings(example.settings, "예제 설정 적용: " + example.title);
 
     try {
-      setProcessing(true, "Example source loading...", false);
+      setProcessing(true, "예제 원본을 불러오는 중", false);
       dataURL = exampleGallery.createExampleDataURL(example.id);
       image = await imageProcessor.loadImageFromDataURL(dataURL);
 
@@ -954,12 +956,12 @@
 
       ui.showOriginalPreview(dataURL, state.sourceWidth, state.sourceHeight);
       setProcessing(false, null, false);
-      ui.setExampleStatus("Loaded example: " + example.title);
+      ui.setExampleStatus("예제 불러오기 완료: " + example.title);
       await processCurrentImage({ auto: false });
     } catch (error) {
       resetForNewInput();
-      ui.showWarning(error.message || "Example could not be loaded.");
-      ui.setExampleStatus("Example load failed.");
+      ui.showWarning(error.message || "예제를 불러올 수 없습니다.");
+      ui.setExampleStatus("예제 불러오기에 실패했습니다.");
       setProcessing(false, null, false);
     }
   }
@@ -970,16 +972,16 @@
     }
 
     try {
-      ui.setExampleStatus("Running generated example QA...");
+      ui.setExampleStatus("생성 예제 품질 검사 중...");
       var results = await exampleGallery.runQa({
         imageProcessor: imageProcessor,
         fileHandler: fileHandler
       });
-      ui.setExampleStatus("QA passed for " + results.length + " generated examples.");
+      ui.setExampleStatus("생성 예제 " + results.length + "개의 품질 검사를 통과했습니다.");
       ui.hideWarning();
     } catch (error) {
-      ui.showWarning(error.message || "Example QA failed.");
-      ui.setExampleStatus("Example QA failed.");
+      ui.showWarning(error.message || "예제 품질 검사에 실패했습니다.");
+      ui.setExampleStatus("예제 품질 검사에 실패했습니다.");
     }
   }
 
@@ -993,7 +995,7 @@
     }
 
     try {
-      setProcessing(true, "Loading layers...", false);
+      setProcessing(true, "레이어를 불러오는 중", false);
 
       for (var index = 0; index < files.length; index += 1) {
         var file = files[index];
@@ -1024,15 +1026,15 @@
 
       refreshLayerList();
       updateLayeredSourceBounds();
-      ui.setLayeredStatus("Added " + addedCount + " layer(s).");
+      ui.setLayeredStatus("레이어 " + addedCount + "개를 추가했습니다.");
       setProcessing(false, null, false);
 
       if (addedCount) {
         await processCurrentImage({ auto: true });
       }
     } catch (error) {
-      ui.showWarning(error.message || "Layer files could not be loaded.");
-      ui.setLayeredStatus("Layer load failed.");
+      ui.showWarning(error.message || "레이어 파일을 불러올 수 없습니다.");
+      ui.setLayeredStatus("레이어 불러오기에 실패했습니다.");
       setProcessing(false, null, false);
     } finally {
       event.target.value = "";
@@ -1047,7 +1049,7 @@
     if (layer) {
       layer.name = String(name || layer.name || "Layer").slice(0, 80);
       refreshLayerList();
-      ui.setLayeredStatus("Layer renamed.");
+      ui.setLayeredStatus("레이어 이름을 변경했습니다.");
     }
   }
 
@@ -1060,7 +1062,7 @@
       layer.visible = layer.visible === false;
       refreshLayerList();
       refreshLayerComposite();
-      ui.setLayeredStatus("Layer visibility updated.");
+      ui.setLayeredStatus("레이어 표시 상태를 변경했습니다.");
     }
   }
 
@@ -1079,7 +1081,7 @@
     state.layered.layers.splice(targetIndex, 0, layer);
     refreshLayerList();
     refreshLayerComposite();
-    ui.setLayeredStatus("Layer order updated.");
+    ui.setLayeredStatus("레이어 순서를 변경했습니다.");
   }
 
   function handleLayerDelete(layerId) {
@@ -1089,7 +1091,7 @@
     refreshLayerList();
     updateLayeredSourceBounds();
     refreshLayerComposite();
-    ui.setLayeredStatus("Layer deleted.");
+    ui.setLayeredStatus("레이어를 삭제했습니다.");
   }
 
   function handleLayeredModeToggle() {
@@ -1098,10 +1100,10 @@
     refreshLayerList();
 
     if (state.layered.enabled) {
-      ui.setLayeredStatus("Layered Mode is on. Add image layers.");
+      ui.setLayeredStatus("레이어 모드가 켜졌습니다. 이미지 레이어를 추가하세요.");
       processCurrentImage({ auto: true });
     } else {
-      ui.setLayeredStatus("Layered Mode is off.");
+      ui.setLayeredStatus("레이어 모드가 꺼졌습니다.");
       state.layered.compositeCanvas = null;
       if (state.sourceImage) {
         processCurrentImage({ auto: true });
@@ -1151,12 +1153,6 @@
       handleFile(getFirstDroppedFile(event));
     });
 
-    elements.dropZone.addEventListener("keydown", function (event) {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        elements.fileInput.click();
-      }
-    });
   }
 
   function handleOptionChange() {
@@ -1174,7 +1170,7 @@
 
     ui.setSelectedOptions(sanitized);
     updateImportedPalettePreviewFromInput();
-    ui.setPresetStatus(statusMessage || "Preset loaded.");
+    ui.setPresetStatus(statusMessage || "프리셋을 불러왔습니다.");
     handleOptionChange();
   }
 
@@ -1189,7 +1185,7 @@
     }
 
     refreshPresetControls(result.preset.id);
-    ui.setPresetStatus("Saved preset: " + result.preset.name);
+    ui.setPresetStatus("프리셋 저장: " + result.preset.name);
     ui.hideWarning();
   }
 
@@ -1198,12 +1194,12 @@
     var preset = presetManager.findPreset(presetId);
 
     if (!preset) {
-      ui.showWarning("Preset could not be found.");
-      ui.setPresetStatus("Preset could not be found.");
+      ui.showWarning("프리셋을 찾을 수 없습니다.");
+      ui.setPresetStatus("프리셋을 찾을 수 없습니다.");
       return;
     }
 
-    applyPresetSettings(preset.settings, "Loaded preset: " + preset.name);
+    applyPresetSettings(preset.settings, "프리셋 불러오기: " + preset.name);
   }
 
   function handleDeletePreset() {
@@ -1217,17 +1213,17 @@
     }
 
     refreshPresetControls();
-    ui.setPresetStatus("Preset deleted.");
+    ui.setPresetStatus("프리셋을 삭제했습니다.");
     ui.hideWarning();
   }
 
   function handleResetPreset() {
-    applyPresetSettings(presetManager.getDefaultSettings(), "Restored default settings.");
+    applyPresetSettings(presetManager.getDefaultSettings(), "기본 설정을 복원했습니다.");
   }
 
   function handleExportPresets() {
     ui.setPresetJsonText(presetManager.exportPresets());
-    ui.setPresetStatus("Preset JSON exported.");
+    ui.setPresetStatus("프리셋 JSON을 내보냈습니다.");
     ui.hideWarning();
   }
 
@@ -1241,7 +1237,7 @@
     }
 
     refreshPresetControls();
-    ui.setPresetStatus("Imported " + result.importedCount + " preset(s).");
+    ui.setPresetStatus("프리셋 " + result.importedCount + "개를 가져왔습니다.");
     ui.hideWarning();
   }
 
@@ -1300,7 +1296,7 @@
     var targetColor = fileHandler.hexToRgb(targetHex);
 
     if (state.layered.enabled) {
-      ui.showWarning("Manual Palette Editor edits are not available in Layered Mode.");
+      ui.showWarning("레이어 모드에서는 수동 팔레트 편집을 사용할 수 없습니다.");
       return false;
     }
 
@@ -1343,7 +1339,7 @@
           replacedPixelCount: state.outlineInfo.outlineAddedPixelCount
         };
       } else {
-        ui.showWarning("선택한 색상과 일치하는 visible pixel이 없습니다.");
+        ui.showWarning("선택한 색상과 일치하는 표시 픽셀이 없습니다.");
         return false;
       }
     } else {
@@ -1384,7 +1380,7 @@
     ui.updatePaletteEditor(state.resultPalette, {
       selectedHex: targetColor.hex,
       status: actionLabel + ": " + sourceColor.hex + " ->" + targetColor.hex +
-        " / " + editResult.replacedPixelCount + " pixels"
+        " / " + editResult.replacedPixelCount + "픽셀"
     });
     ui.updatePaletteSummary(state.paletteInfo);
     ui.hideWarning();
@@ -1421,18 +1417,18 @@
     elements.copyPaletteHexButton.addEventListener("click", handleCopyPaletteHex);
 
     elements.replacePaletteColorButton.addEventListener("click", function () {
-      applyPaletteColorEdit(ui.getPaletteReplacementHex(), "Replace color");
+      applyPaletteColorEdit(ui.getPaletteReplacementHex(), "색상 교체");
     });
 
     elements.mergePaletteColorButton.addEventListener("click", function () {
       var targetHex = ui.getPaletteMergeTargetHex();
 
       if (!targetHex) {
-        ui.showWarning("Merge target 색상을 선택하세요.");
+        ui.showWarning("병합 대상 색상을 선택하세요.");
         return;
       }
 
-      applyPaletteColorEdit(targetHex, "Merge color");
+      applyPaletteColorEdit(targetHex, "색상 병합");
     });
 
     elements.paletteMergeTargetSelect.addEventListener("change", function () {
@@ -1546,7 +1542,7 @@
     if (state.layered.enabled && state.outputFormat === "aseprite") {
       var visibleLayers = getVisibleProcessedLayers();
       if (!visibleLayers.length) {
-        ui.showWarning("No visible processed layers are available for Aseprite export.");
+        ui.showWarning("Aseprite로 내보낼 표시 상태의 처리 완료 레이어가 없습니다.");
         return;
       }
       blob = exporter.createAsepriteBlobFromLayers(

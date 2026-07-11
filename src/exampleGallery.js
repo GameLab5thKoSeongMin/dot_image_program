@@ -4,8 +4,8 @@
   var EXAMPLES = [
     {
       id: "skill-badge-32",
-      title: "Skill Badge 32",
-      description: "Transparent badge source for small UI skills.",
+      title: "스킬 배지 32",
+      description: "작은 UI 스킬용 투명 배지 예제입니다.",
       fileName: "example_skill_badge.png",
       expectedWidth: 32,
       expectedHeight: 32,
@@ -23,8 +23,8 @@
     },
     {
       id: "item-gem-64",
-      title: "Item Gem 64",
-      description: "High-contrast transparent object for item icons.",
+      title: "아이템 보석 64",
+      description: "아이템 아이콘용 고대비 투명 오브젝트 예제입니다.",
       fileName: "example_item_gem.png",
       expectedWidth: 64,
       expectedHeight: 64,
@@ -42,8 +42,8 @@
     },
     {
       id: "portrait-base-64",
-      title: "Portrait Base 64",
-      description: "Simple face blockout for portrait sampling and cleanup checks.",
+      title: "인물 기본형 64",
+      description: "인물 샘플링과 배경 정리 확인용 얼굴 블록 예제입니다.",
       fileName: "example_portrait_base.png",
       expectedWidth: 64,
       expectedHeight: 64,
@@ -65,8 +65,8 @@
     },
     {
       id: "cleanup-sprite-32",
-      title: "Cleanup Sprite 32",
-      description: "White-background source for background cleanup and outline review.",
+      title: "배경 정리 스프라이트 32",
+      description: "배경 제거와 외곽선 확인용 흰색 배경 예제입니다.",
       fileName: "example_cleanup_sprite.png",
       expectedWidth: 32,
       expectedHeight: 32,
@@ -256,7 +256,7 @@
     var results = [];
 
     if (!processor || !fileHandler) {
-      throw new Error("Example QA dependencies are missing.");
+      throw new Error("예제 품질 검사에 필요한 기능을 찾을 수 없습니다.");
     }
 
     for (var index = 0; index < EXAMPLES.length; index += 1) {
@@ -270,7 +270,7 @@
       var conversion;
 
       if (!sizeValidation.valid) {
-        throw new Error(example.title + " failed size validation: " + sizeValidation.message);
+        throw new Error(example.title + " 크기 검증 실패: " + sizeValidation.message);
       }
 
       conversion = processor.convertImageToPixelIcon(

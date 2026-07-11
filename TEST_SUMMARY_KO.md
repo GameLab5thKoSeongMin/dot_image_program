@@ -232,3 +232,31 @@ Browser autorun:
 제한:
 - headless Edge/Chrome이 GPU process initialization 실패로 page 실행 전에 종료되어 최종 browser assertion pass count는 기록하지 못했습니다.
 - 브라우저 실행이 가능한 환경에서 `tests/test-cases.html?autorun=1`을 다시 실행해야 최종 browser pass count를 확정할 수 있습니다.
+
+## 2026-07-11 최종 안정화·폴리싱 테스트 요약
+
+결과: `110 / 110 cases passed.`
+
+통과한 핵심 항목:
+- 모든 app JavaScript와 `tests/testImageFactory.js` syntax check
+- `tests/test-cases.html` inline script parse
+- Worker script URL 중첩 경로 회귀 테스트
+- Worker 성공, 강제 fallback, cancel, main-thread pixel equivalence
+- PNG/JPG/JPEG 실제 앱 디코딩·변환
+- 실제 drop 이벤트를 통한 드래그앤드롭 변환
+- 잘못된 파일과 손상 이미지의 source 초기화 및 warning banner 표시
+- 기본 `32x32 / median / palette off / PNG`
+- Custom size 기본 off 및 preset/input 표시 전환
+- 팔레트, 디더링, 수동 색상 편집, 전처리, 배경 제거, 외곽선
+- PNG/JPG/Aseprite blob, 파일명, 투명도, Aseprite binary 구조
+- 1280x720 4패널 화면과 약 390x844 단일 열 화면
+- 가로 넘침 없음, 중복 ID 없음, 이름 없는 form control 없음, 중첩 interactive control 없음
+- 기본·초기화 상태의 깨진 이미지 없음
+- browser console error/warning 0건
+- ES Module `import/export`, browser `alert()`, output resize shortcut 없음
+
+이번 실행에서 확인하지 못한 항목:
+- 직접 `file://` 탐색: 브라우저 제어 보안 정책으로 차단
+- Aseprite desktop/CLI 외부 open/save: 실행 파일 미설치
+
+과거 v1.0~v1.3 기록의 GPU 초기화 실패는 당시 실행 이력이며, 위 `110 / 110`이 2026-07-11 현재의 최신 브라우저 검증 결과입니다.

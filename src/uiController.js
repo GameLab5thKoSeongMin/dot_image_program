@@ -412,7 +412,7 @@
     safePresets.forEach(function (preset) {
       var option = document.createElement("option");
       option.value = preset.id;
-      option.textContent = preset.name + (preset.builtIn ? " (built-in)" : "");
+      option.textContent = preset.name + (preset.builtIn ? " (기본 제공)" : "");
       elements.presetSelect.appendChild(option);
     });
 
@@ -517,8 +517,9 @@
       indexLabel.textContent = String(index + 1);
 
       nameInput.type = "text";
-      nameInput.value = layer.name || ("Layer " + (index + 1));
+      nameInput.value = layer.name || ("레이어 " + (index + 1));
       nameInput.maxLength = 80;
+      nameInput.setAttribute("aria-label", "레이어 " + (index + 1) + " 이름");
       nameInput.addEventListener("change", function () {
         if (safeCallbacks.onRename) {
           safeCallbacks.onRename(layer.id, nameInput.value);
@@ -527,7 +528,8 @@
 
       visibilityButton.className = "secondary-button layer-mini-button";
       visibilityButton.type = "button";
-      visibilityButton.textContent = layer.visible === false ? "Show" : "Hide";
+      visibilityButton.textContent = layer.visible === false ? "표시" : "숨기기";
+      visibilityButton.setAttribute("aria-label", nameInput.value + (layer.visible === false ? " 표시" : " 숨기기"));
       visibilityButton.addEventListener("click", function () {
         if (safeCallbacks.onToggleVisibility) {
           safeCallbacks.onToggleVisibility(layer.id);
@@ -536,7 +538,8 @@
 
       upButton.className = "secondary-button layer-mini-button";
       upButton.type = "button";
-      upButton.textContent = "Up";
+      upButton.textContent = "위로";
+      upButton.setAttribute("aria-label", nameInput.value + " 위로 이동");
       upButton.disabled = index === 0;
       upButton.addEventListener("click", function () {
         if (safeCallbacks.onMove) {
@@ -546,7 +549,8 @@
 
       downButton.className = "secondary-button layer-mini-button";
       downButton.type = "button";
-      downButton.textContent = "Down";
+      downButton.textContent = "아래로";
+      downButton.setAttribute("aria-label", nameInput.value + " 아래로 이동");
       downButton.disabled = index === layers.length - 1;
       downButton.addEventListener("click", function () {
         if (safeCallbacks.onMove) {
@@ -556,7 +560,8 @@
 
       deleteButton.className = "secondary-button layer-mini-button";
       deleteButton.type = "button";
-      deleteButton.textContent = "Delete";
+      deleteButton.textContent = "삭제";
+      deleteButton.setAttribute("aria-label", nameInput.value + " 삭제");
       deleteButton.addEventListener("click", function () {
         if (safeCallbacks.onDelete) {
           safeCallbacks.onDelete(layer.id);
@@ -597,12 +602,12 @@
     elements.importedPalettePreview.textContent = "";
 
     if (!parseResult || !parseResult.colors || !parseResult.colors.length) {
-      elements.importedPalettePreview.textContent = "Imported palette: none";
+      elements.importedPalettePreview.textContent = "가져온 팔레트: 없음";
       return;
     }
 
     if (!parseResult.valid) {
-      elements.importedPalettePreview.textContent = parseResult.message || "Invalid imported palette";
+      elements.importedPalettePreview.textContent = parseResult.message || "가져온 팔레트가 올바르지 않습니다.";
       return;
     }
 
@@ -615,7 +620,7 @@
     });
 
     var label = document.createElement("span");
-    label.textContent = parseResult.colors.length + " colors";
+    label.textContent = "가져온 색상 " + parseResult.colors.length + "개";
     elements.importedPalettePreview.appendChild(label);
   }
 
@@ -637,7 +642,7 @@
 
     var placeholder = document.createElement("option");
     placeholder.value = "";
-    placeholder.textContent = "Select target";
+    placeholder.textContent = "대상 선택";
     elements.paletteMergeTargetSelect.appendChild(placeholder);
 
     if (!resultPaletteData || !resultPaletteData.colors) {
@@ -686,7 +691,7 @@
     if (!paletteData || !paletteData.colors || !paletteData.colors.length) {
       elements.resultPaletteStats.textContent = paletteData
         ? "사용 색상 0개 / 투명 픽셀 " + paletteData.transparentPixelCount + "개"
-        : "결과를 생성하면 palette swatch가 표시됩니다.";
+        : "결과를 생성하면 팔레트 색상표가 표시됩니다.";
       elements.selectedPaletteColor.textContent = "없음";
       populatePaletteMergeTargets();
       setPaletteEditorActionState(false);
@@ -694,7 +699,7 @@
     }
 
     elements.resultPaletteStats.textContent =
-      "사용 색상 " + paletteData.visibleColorCount + "개 / visible pixel " +
+      "사용 색상 " + paletteData.visibleColorCount + "개 / 표시 픽셀 " +
       paletteData.visiblePixelCount + "개 / 투명 픽셀 " + paletteData.transparentPixelCount + "개";
 
     paletteData.colors.forEach(function (color) {
@@ -706,7 +711,7 @@
       button.type = "button";
       button.setAttribute("data-hex", color.hex);
       button.setAttribute("aria-pressed", "false");
-      button.title = color.hex + " / " + color.count + " pixels / " + color.percentage + "%";
+      button.title = color.hex + " / " + color.count + "픽셀 / " + color.percentage + "%";
 
       chip.className = "result-palette-chip";
       chip.style.backgroundColor = color.hex;
@@ -728,7 +733,7 @@
   function resetPaletteEditor() {
     resultPaletteData = null;
     selectedPaletteHex = "";
-    elements.resultPaletteStats.textContent = "결과를 생성하면 palette swatch가 표시됩니다.";
+    elements.resultPaletteStats.textContent = "결과를 생성하면 팔레트 색상표가 표시됩니다.";
     elements.resultPaletteSwatches.textContent = "";
     elements.selectedPaletteColor.textContent = "없음";
     elements.paletteReplacementInput.value = "#000000";
@@ -771,7 +776,7 @@
         if (document.execCommand && document.execCommand("copy")) {
           resolve();
         } else {
-          reject(new Error("Clipboard copy failed."));
+          reject(new Error("클립보드 복사에 실패했습니다."));
         }
       } catch (error) {
         reject(error);
@@ -787,7 +792,7 @@
     elements.originalPreview.src = dataURL;
     elements.originalPreview.hidden = false;
     elements.originalPlaceholder.hidden = true;
-    elements.sourceSizeLabel.textContent = width && height ? width + "x" + height + " px" : "loaded";
+    elements.sourceSizeLabel.textContent = width && height ? width + "x" + height + " px" : "불러옴";
     setCustomSizeInputDefaults(width, height);
     updateSizeControls(width, height);
     setConvertEnabled(true);
@@ -915,10 +920,10 @@
     var outputFormat = fileInfo ? fileInfo.outputFormat : constants.DEFAULT_OUTPUT_FORMAT;
     var paletteText = fileInfo && fileInfo.paletteText ? fileInfo.paletteText : "off";
     var ditheringMode = fileInfo && fileInfo.ditheringMode ? fileInfo.ditheringMode : constants.DEFAULT_DITHERING_MODE;
-    var ditheringText = ditheringMode === constants.DEFAULT_DITHERING_MODE ? "" : " / dither " + ditheringMode;
-    var preprocessText = fileInfo && fileInfo.preprocessApplied ? " / preprocess" : "";
+    var ditheringText = ditheringMode === constants.DEFAULT_DITHERING_MODE ? "" : " / 디더링 " + ditheringMode;
+    var preprocessText = fileInfo && fileInfo.preprocessApplied ? " / 전처리" : "";
     var outlineMode = fileInfo && fileInfo.outlineMode ? fileInfo.outlineMode : constants.DEFAULT_OUTLINE_MODE;
-    var outlineText = outlineMode === constants.DEFAULT_OUTLINE_MODE ? "" : " / outline " + outlineMode;
+    var outlineText = outlineMode === constants.DEFAULT_OUTLINE_MODE ? "" : " / 외곽선 " + outlineMode;
 
     return width + "x" + height + " / " + samplingMode + preprocessText + ditheringText + " / palette " +
       paletteText + outlineText + " / " + constants.FORMAT_LABELS[outputFormat];
@@ -954,10 +959,10 @@
     if (!paletteInfo || !paletteInfo.paletteApplied) {
       var offParts = ["팔레트 제한: off"];
       if (paletteInfo && paletteInfo.outlineApplied) {
-        offParts.push("outline " + paletteInfo.outlineMode + " +" + paletteInfo.outlineAddedPixelCount + "px");
+        offParts.push("외곽선 " + paletteInfo.outlineMode + " +" + paletteInfo.outlineAddedPixelCount + "px");
       }
       if (paletteInfo && paletteInfo.manualEditCount) {
-        offParts.push("manual edits " + paletteInfo.manualEditCount);
+        offParts.push("수동 편집 " + paletteInfo.manualEditCount + "회");
       }
       elements.paletteSummary.textContent = offParts.join(" / ");
       return;
@@ -965,17 +970,17 @@
 
     var parts = [];
     if (paletteInfo.fixedPaletteApplied) {
-      parts.push((paletteInfo.paletteSourceLabel || "fixed palette") + " " + paletteInfo.effectivePaletteCount + "색");
+      parts.push((paletteInfo.paletteSourceLabel || "고정 팔레트") + " " + paletteInfo.effectivePaletteCount + "색");
     } else if (paletteInfo.paletteMode === "auto") {
       parts.push("자동 추천 팔레트 " + paletteInfo.effectivePaletteCount + "색");
     } else {
       parts.push("제한 색상 수 " + paletteInfo.effectivePaletteCount);
     }
-    parts.push("visible RGB " + paletteInfo.beforeColorCount + " -> " + paletteInfo.afterColorCount);
+    parts.push("표시 RGB " + paletteInfo.beforeColorCount + " -> " + paletteInfo.afterColorCount);
 
     if (Number.isInteger(paletteInfo.beforeRgbaColorCount) &&
       Number.isInteger(paletteInfo.afterRgbaColorCount)) {
-      parts.push("unique RGBA " + paletteInfo.beforeRgbaColorCount + " -> " + paletteInfo.afterRgbaColorCount);
+      parts.push("고유 RGBA " + paletteInfo.beforeRgbaColorCount + " -> " + paletteInfo.afterRgbaColorCount);
     }
 
     if (paletteInfo.alphaMode === constants.PALETTE_LIMIT_ALPHA_MODE) {
@@ -983,15 +988,15 @@
     }
 
     if (paletteInfo.ditheringApplied) {
-      parts.push("dither " + paletteInfo.ditheringMode);
+      parts.push("디더링 " + paletteInfo.ditheringMode);
     }
 
     if (paletteInfo.manualEditCount) {
-      parts.push("manual edits " + paletteInfo.manualEditCount);
+      parts.push("수동 편집 " + paletteInfo.manualEditCount + "회");
     }
 
     if (paletteInfo.outlineApplied) {
-      parts.push("outline " + paletteInfo.outlineMode + " +" + paletteInfo.outlineAddedPixelCount + "px");
+      parts.push("외곽선 " + paletteInfo.outlineMode + " +" + paletteInfo.outlineAddedPixelCount + "px");
     }
 
     elements.paletteSummary.textContent = parts.join(" / ");

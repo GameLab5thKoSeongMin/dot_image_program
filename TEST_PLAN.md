@@ -372,3 +372,37 @@ Result: Available non-browser verification passed.
 Blocked:
 - Full browser assertion execution remains blocked in this environment because headless Edge/Chrome exits before page execution with GPU process initialization failures.
 - The v1.0-v1.3 browser tests are present in `tests/test-cases.html`, but a final browser pass count is not recorded here.
+
+## 26. 2026-07-11 Stabilization and Product-Polish Verification
+
+Environment:
+- App served from a local HTTP server on `127.0.0.1`.
+- Browser execution used the in-app local browser surface.
+
+Executed:
+- [x] `node --check` passed for every app JavaScript file.
+- [x] `node --check tests/testImageFactory.js` passed.
+- [x] The single inline script in `tests/test-cases.html` parsed successfully.
+- [x] Full browser suite: `110 / 110 cases passed.`
+- [x] Browser console errors/warnings during the final test and app runs: 0.
+- [x] Worker URL resolves from `workerClient.js` on the nested test page.
+- [x] Worker success, forced fallback, cancel, and main-thread equivalence passed.
+- [x] Real app PNG, JPG, and JPEG files decoded and produced a final canvas.
+- [x] A real `drop` event passed a PNG through the normal app file handler and completed conversion.
+- [x] Unsupported file metadata and corrupted PNG bytes cleared source state and used the warning banner.
+- [x] Default state remained `32x32 / median / palette off / PNG`; Custom size, preprocess, and outline defaults remained off/neutral.
+- [x] Custom size off/on visibility policy passed.
+- [x] Generated-example conversion produced an enabled download state and the expected PNG filename.
+- [x] JPG and Aseprite format changes produced the expected extensions and enabled download state; JPG transparency showed the white-background warning.
+- [x] PNG/JPG/Aseprite blob and Aseprite binary-structure tests passed.
+- [x] 1280x720 retained the four-panel layout with page width/height equal to the viewport.
+- [x] Approximately 390x844 retained a single column with no horizontal overflow.
+- [x] No duplicate IDs, unnamed form controls, nested interactive drop-zone controls, or visible broken images were found.
+- [x] Static checks found no ES Module syntax or browser `alert()`.
+- [x] The only full-source `drawImage` call copies the decoded image into a same-size source canvas before tile sampling; no output resize shortcut was found.
+
+Not executed:
+- Direct `file://` navigation was blocked by the browser-control security policy. The local HTTP path and Worker fallback behavior passed.
+- Aseprite desktop/CLI was not installed, so external open/save validation remains pending.
+
+Result: The implemented stabilization and polish scope passed all executable automated and browser checks. The two external/manual items above remain explicitly unverified.

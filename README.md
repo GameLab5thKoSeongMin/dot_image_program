@@ -248,9 +248,11 @@ sample_512x384_median.png
 ## 15. Testing
 Open `tests/test-cases.html` to run generated test cases.
 
-The current test page covers legacy conversion behavior, size controls, validation, placeholders, sampling, palette limiting, dithering, palette sources, Palette Editor, preprocess, outline, worker fallback, presets, generated examples, Layered Mode UI, visible-layer compositing, and layered Aseprite binary structure.
+The current test page covers legacy conversion behavior, real PNG/JPG/JPEG app input, drag and drop, invalid and corrupted files, size controls, validation, placeholders, sampling, palette limiting, dithering, palette sources, Palette Editor, preprocess, outline, worker success/fallback/cancel, presets, generated examples, Layered Mode UI, visible-layer compositing, and layered Aseprite binary structure.
 
-For the v1.0.0-v1.3.0 expansion, syntax checks, test-page parser checks, preset VM checks, and static policy checks passed. Full browser assertion execution could not be recorded in this environment because headless Edge/Chrome exited before page execution with local GPU process initialization failures.
+On 2026-07-11, the full local HTTP browser suite reported `110 / 110 cases passed.` with no console errors. The real app integration cases load `index.html` in a same-origin frame and exercise the normal file and drop handlers. Earlier v1.0.0-v1.3.0 records about headless GPU startup failures remain historical; they no longer describe the latest verification run.
+
+The same run verified the default `32x32 / median / palette off / PNG` state, the 1280x720 four-panel layout, the approximately 390x844 single-column layout without horizontal overflow, generated-example conversion, and PNG/JPG/Aseprite output state. Direct `file://` navigation could not be rerun through the current browser-control security policy, while the Worker fallback test passed.
 
 Recorded test results are in `TEST_PLAN.md`. `index.html` is the maintained application entry point; the obsolete `Dotprogram.html` duplicate was removed.
 

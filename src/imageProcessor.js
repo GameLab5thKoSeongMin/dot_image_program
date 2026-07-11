@@ -518,9 +518,8 @@
     return false;
   }
 
-  function convertImageToPixelIcon(image, options) {
+  function convertImageDataToPixelIcon(originalSourceImageData, options) {
     var conversionOptions = normalizeConversionOptions(options);
-    var originalSourceImageData = createSourceImageData(image);
     var preprocessResult = applyPreprocessToImageData(
       originalSourceImageData,
       conversionOptions.preprocess
@@ -529,12 +528,11 @@
     var outputWidth = conversionOptions.outputWidth;
     var outputHeight = conversionOptions.outputHeight;
     var samplingMode = conversionOptions.samplingMode;
-    var outputCanvas = document.createElement("canvas");
-    outputCanvas.width = outputWidth;
-    outputCanvas.height = outputHeight;
-
-    var outputContext = outputCanvas.getContext("2d");
-    var outputImageData = outputContext.createImageData(outputWidth, outputHeight);
+    var outputImageData = new ImageData(
+      new Uint8ClampedArray(outputWidth * outputHeight * 4),
+      outputWidth,
+      outputHeight
+    );
 
     for (var tileY = 0; tileY < outputHeight; tileY += 1) {
       for (var tileX = 0; tileX < outputWidth; tileX += 1) {
@@ -556,12 +554,10 @@
       }
     }
 
-    outputContext.putImageData(outputImageData, 0, 0);
-
     return {
-      canvas: outputCanvas,
-      width: outputCanvas.width,
-      height: outputCanvas.height,
+      imageData: outputImageData,
+      width: outputWidth,
+      height: outputHeight,
       sourceWidth: sourceImageData.width,
       sourceHeight: sourceImageData.height,
       samplingMode: samplingMode,
@@ -574,9 +570,21 @@
     };
   }
 
+  function convertImageToPixelIcon(image, options) {
+    var result = convertImageDataToPixelIcon(createSourceImageData(image), options);
+    var outputCanvas = document.createElement("canvas");
+
+    outputCanvas.width = result.width;
+    outputCanvas.height = result.height;
+    outputCanvas.getContext("2d").putImageData(result.imageData, 0, 0);
+    result.canvas = outputCanvas;
+    return result;
+  }
+
   window.PixelIconImageProcessor = {
     loadImageFromDataURL: loadImageFromDataURL,
     createSourceImageData: createSourceImageData,
+    convertImageDataToPixelIcon: convertImageDataToPixelIcon,
     convertImageToPixelIcon: convertImageToPixelIcon,
     calculateTileBounds: calculateTileBounds,
     calculateTileMedianColor: calculateTileMedianColor,

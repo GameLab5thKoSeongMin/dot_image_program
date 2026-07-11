@@ -238,6 +238,35 @@ M4에서 Layered PNG Input / Layered Aseprite Export를 구현했습니다.
 제한 사항:
 - 이 환경에서는 headless Edge/Chrome이 GPU process initialization 실패로 page 실행 전에 종료되어 전체 browser assertion count는 기록하지 못했습니다.
 
+## 현재 최종 상태
+
+2026-07-11의 최신 검증 결과는 `110 / 110 cases passed.`이며 browser console error/warning은 0건입니다. 위 문서에 남아 있는 GPU 초기화 실패는 과거 milestone 실행 기록입니다. 직접 `file://` 실행과 Aseprite desktop/CLI 외부 open/save만 이번 실행에서 미검증 상태로 남았습니다.
+
+## 2026-07-11 v1.3 안정화 및 제품 폴리싱
+
+이번 단계는 신규 기능을 추가하지 않고 Worker 안정화, UI 용어 정리, 접근성, 반응형 화면, 실제 입력 경로 검증에 집중했습니다.
+
+핵심 변경:
+- `workerClient.js`가 현재 페이지가 아니라 자신의 script URL을 기준으로 `conversionWorker.js`를 찾도록 수정했습니다.
+- main thread와 Worker가 동일한 ImageData 타일 변환 함수를 사용하도록 중복 로직을 통합했습니다.
+- 한국어 우선 UI로 프리셋, 예제, 레이어, 출력 크기, 픽셀 처리, 팔레트, 상태 메시지를 정리했습니다.
+- 드롭존을 중첩 버튼 구조가 아닌 레이블이 있는 group으로 바꾸고, 파일·range·레이어 컨트롤의 접근성 이름과 focus 표시를 보강했습니다.
+- PNG/JPG/JPEG 실제 앱 입력, 실제 drop 이벤트, 잘못된 확장자, 손상 이미지 데이터를 같은 출처의 실제 `index.html` 통합 테스트로 검증했습니다.
+
+검증 결과:
+- 모든 app JavaScript 및 `tests/testImageFactory.js` syntax check: Pass
+- `tests/test-cases.html` inline script parse: Pass
+- 전체 로컬 HTTP 브라우저 테스트: `110 / 110 cases passed.`
+- 최종 테스트와 앱 실행의 browser console error/warning: 0건
+- 기본 `32x32 / median / palette off / PNG`, Custom size off, 중립 전처리, outline off: 유지
+- Worker 성공, 강제 fallback, cancel, main-thread equivalence: Pass
+- PNG/JPG/Aseprite blob 및 Aseprite binary 구조: Pass
+- 1280x720 4패널과 약 390x844 단일 열·가로 넘침 없음: Pass
+
+남은 수동 확인:
+- 직접 `file://` 탐색은 브라우저 제어 보안 정책이 차단해 이번 실행에서는 재검증하지 못했습니다. 로컬 HTTP 실행과 Worker fallback 테스트는 통과했습니다.
+- Aseprite 데스크톱 앱/CLI가 설치되어 있지 않아 외부 open/save 검증은 미수행입니다.
+
 ## v1.0.0~v1.3.0 M5 최종 안정화 요약
 
 사용 가능한 비브라우저 검증은 통과했습니다.
@@ -294,3 +323,7 @@ M2에서 설정 프리셋 저장/불러오기를 구현했습니다.
 
 제한 사항:
 - 이 환경에서는 headless Edge/Chrome이 GPU process initialization 실패로 page 실행 전에 종료되어 전체 browser assertion count는 기록하지 못했습니다.
+
+## 문서 최신 상태
+
+2026-07-11 최신 검증은 `110 / 110 cases passed.`와 browser console error/warning 0건입니다. 바로 위의 GPU 초기화 실패는 과거 v1.1 milestone 기록이며 현재 상태를 의미하지 않습니다. 이번 실행에서 남은 미검증 항목은 직접 `file://` 탐색과 Aseprite desktop/CLI 외부 open/save입니다.

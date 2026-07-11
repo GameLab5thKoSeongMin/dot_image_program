@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.3.1] - Stabilization and Product Polish
+
+### Fixed
+- Worker URL resolution now uses the `workerClient.js` script location instead of the containing page, so nested pages such as `/tests/test-cases.html` load `/src/conversionWorker.js` correctly.
+- Main-thread and Worker conversion now share the ImageData tile-conversion implementation, removing duplicated conversion logic and pixel-equivalence drift.
+
+### Changed
+- User-facing controls, actions, examples, presets, status messages, and layer actions use Korean-first terminology while internal option values remain stable.
+- The drop zone is a labeled group rather than an interactive container around the file input.
+- Range and file inputs have explicit labels, layer controls have contextual accessible names, and visible keyboard focus styling is consistent.
+- Disabled primary controls use clearer contrast without changing their disabled behavior.
+
+### Tests
+- Added nested Worker URL regression coverage.
+- Added PNG/JPG/JPEG metadata validation and corrupted image decoding coverage.
+- Added same-origin real-app integration coverage for PNG/JPG/JPEG conversion, the actual drop binding, invalid files, and corrupted image bytes.
+
+### Verification
+- On 2026-07-11, the local HTTP browser suite reported `110 / 110 cases passed.` with zero console errors.
+- All app JavaScript syntax checks and the test-page inline parser check passed.
+- The default `32x32 / median / palette off / PNG` state, Custom size behavior, generated-example conversion, PNG/JPG/Aseprite output state, 1280x720 four-panel layout, and approximately 390x844 single-column layout passed.
+- Static checks found no ES Module syntax, browser `alert()`, framework/build system, or output resize shortcut.
+- Direct `file://` navigation was not rerun because the browser-control security policy blocked it.
+- Aseprite desktop/CLI was unavailable; external open/save validation remains pending.
+
 ## [1.3.0] - Layered PNG Input / Layered Aseprite Export
 
 ### Added

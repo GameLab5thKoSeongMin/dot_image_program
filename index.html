@@ -7,11 +7,11 @@
   <link rel="stylesheet" href="./styles/style.css">
 </head>
 <body>
-  <main class="app-shell" aria-label="pixel icon generator">
+  <main class="app-shell" aria-label="픽셀 아이콘 생성기">
     <div id="warningBanner" class="warning-banner" role="status" aria-live="polite" hidden>
       <span class="warning-icon" aria-hidden="true">!</span>
       <span id="warningMessage" class="warning-text"></span>
-      <button id="warningCloseButton" class="warning-close" type="button" aria-label="경고 닫기">x</button>
+      <button id="warningCloseButton" class="warning-close" type="button" aria-label="경고 닫기">×</button>
     </div>
 
     <section class="panel panel-preview" aria-labelledby="originalPreviewTitle">
@@ -33,7 +33,7 @@
         </div>
         <div class="preview-actions">
           <label class="preview-format-control">
-            <span>Output</span>
+            <span>출력 형식</span>
             <select id="outputFormatSelect">
               <option value="png" selected>PNG</option>
               <option value="jpg">JPG</option>
@@ -43,10 +43,10 @@
           <button id="previewRefreshButton" class="convert-button preview-refresh-button" type="button" disabled>미리보기 갱신</button>
           <button id="processingCancelButton" class="secondary-button processing-cancel-button" type="button" hidden disabled>취소</button>
           <label class="zoom-control">
-            <span>Zoom</span>
+            <span>확대</span>
             <select id="resultZoomSelect">
-              <option value="fit" selected>Fit</option>
-              <option value="actual">Actual</option>
+              <option value="fit" selected>맞춤</option>
+              <option value="actual">실제 크기</option>
               <option value="8">8x</option>
               <option value="16">16x</option>
             </select>
@@ -64,21 +64,21 @@
         <h2 id="inputTitle">이미지 입력 / 변환 옵션</h2>
       </div>
 
-      <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-describedby="inputHelp errorMessage">
+      <div id="dropZone" class="drop-zone" role="group" aria-labelledby="fileInputLabel" aria-describedby="inputHelp errorMessage">
         <input id="fileInput" class="file-input" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg">
-        <label class="file-button" for="fileInput">파일 선택</label>
+        <label id="fileInputLabel" class="file-button" for="fileInput">파일 선택</label>
         <p id="inputHelp" class="drop-copy">또는 이미지를 이 영역으로 드래그하세요.</p>
         <p class="file-types">지원 형식: PNG, JPG, JPEG</p>
       </div>
 
       <div class="control-grid" aria-label="변환 옵션">
         <fieldset class="control-group preset-group">
-          <legend>Presets</legend>
+          <legend>프리셋</legend>
           <details id="presetsSection" class="option-details">
             <summary>설정 프리셋</summary>
             <div class="option-details-content">
               <label class="control-field">
-                <span>Preset</span>
+                <span>프리셋</span>
                 <select id="presetSelect"></select>
               </label>
               <div class="preset-actions">
@@ -87,17 +87,17 @@
                 <button id="resetPresetButton" class="secondary-button" type="button">기본값</button>
               </div>
               <label class="control-field">
-                <span>Preset name</span>
-                <input id="presetNameInput" type="text" maxlength="80" placeholder="My pixel recipe">
+                <span>프리셋 이름</span>
+                <input id="presetNameInput" type="text" maxlength="80" placeholder="나만의 픽셀 설정">
               </label>
               <button id="savePresetButton" class="secondary-button" type="button">현재 설정 저장</button>
               <label class="control-field">
-                <span>Preset JSON</span>
+                <span>프리셋 JSON</span>
                 <textarea id="presetJsonTextInput" rows="4" spellcheck="false" placeholder="{ &quot;presets&quot;: [] }"></textarea>
               </label>
               <div class="preset-actions">
-                <button id="exportPresetsButton" class="secondary-button" type="button">Export JSON</button>
-                <button id="importPresetsButton" class="secondary-button" type="button">Import JSON</button>
+                <button id="exportPresetsButton" class="secondary-button" type="button">JSON 내보내기</button>
+                <button id="importPresetsButton" class="secondary-button" type="button">JSON 가져오기</button>
               </div>
               <p id="presetStatus" class="preset-status" aria-live="polite"></p>
             </div>
@@ -105,33 +105,33 @@
         </fieldset>
 
         <fieldset class="control-group examples-group">
-          <legend>Examples / QA</legend>
+          <legend>예제 / 품질 검사</legend>
           <details id="examplesSection" class="option-details">
-            <summary>Example Gallery</summary>
+            <summary>예제 갤러리</summary>
             <div class="option-details-content">
-              <div id="exampleGallery" class="example-gallery" aria-label="Generated examples"></div>
-              <button id="runExampleQaButton" class="secondary-button" type="button">Run QA</button>
+              <div id="exampleGallery" class="example-gallery" aria-label="생성 예제"></div>
+              <button id="runExampleQaButton" class="secondary-button" type="button">품질 검사 실행</button>
               <p id="exampleStatus" class="preset-status" aria-live="polite"></p>
             </div>
           </details>
         </fieldset>
 
         <fieldset class="control-group layered-group">
-          <legend>Layered Mode</legend>
+          <legend>레이어 모드</legend>
           <details id="layeredSection" class="option-details">
-            <summary>Layered PNG Input</summary>
+            <summary>레이어 이미지 입력</summary>
             <div class="option-details-content">
               <label class="custom-size-toggle">
                 <input id="layeredModeToggle" type="checkbox">
-                <span>Layered Mode</span>
+                <span>레이어 모드</span>
               </label>
               <div id="layeredControls" class="layered-controls is-disabled">
                 <label class="control-field">
-                  <span>Add image layers</span>
+                  <span>이미지 레이어 추가</span>
                   <input id="layerFileInput" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" multiple disabled>
                 </label>
-                <div id="layerList" class="layer-list" aria-label="Layer list"></div>
-                <p class="option-help">Visible layers are processed independently with shared settings, composited at top-left, and exported as flattened PNG/JPG or visible Aseprite layers.</p>
+                <div id="layerList" class="layer-list" aria-label="레이어 목록"></div>
+                <p class="option-help">표시 중인 레이어를 공통 설정으로 각각 처리하고 왼쪽 위 기준으로 합성합니다. PNG/JPG는 단일 이미지로, Aseprite는 표시 레이어별로 내보냅니다.</p>
               </div>
               <p id="layeredStatus" class="preset-status" aria-live="polite"></p>
             </div>
@@ -139,14 +139,14 @@
         </fieldset>
 
         <fieldset class="control-group size-axis-group">
-          <legend>Output Size</legend>
+          <legend>출력 크기</legend>
           <label class="custom-size-toggle">
             <input id="customSizeToggle" type="checkbox">
-            <span>Custom size</span>
+            <span>사용자 지정 크기</span>
           </label>
 
           <div class="size-axis-row" data-axis-row="width">
-            <div class="axis-label">Width</div>
+            <div class="axis-label">너비</div>
             <div class="axis-buttons" id="widthAxisButtons">
               <button class="size-axis-button" type="button" data-axis="width" data-value="16">16</button>
               <button class="size-axis-button is-selected" type="button" data-axis="width" data-value="32">32</button>
@@ -155,13 +155,13 @@
               <button class="size-axis-button" type="button" data-axis="width" data-value="256">256</button>
             </div>
             <label id="customWidthField" class="custom-size-field" hidden>
-              <span>Custom Width</span>
+              <span>사용자 지정 너비</span>
               <input id="outputWidthInput" type="number" min="1" step="1" value="32" inputmode="numeric">
             </label>
           </div>
 
           <div class="size-axis-row" data-axis-row="height">
-            <div class="axis-label">Height</div>
+            <div class="axis-label">높이</div>
             <div class="axis-buttons" id="heightAxisButtons">
               <button class="size-axis-button" type="button" data-axis="height" data-value="16">16</button>
               <button class="size-axis-button is-selected" type="button" data-axis="height" data-value="32">32</button>
@@ -170,31 +170,31 @@
               <button class="size-axis-button" type="button" data-axis="height" data-value="256">256</button>
             </div>
             <label id="customHeightField" class="custom-size-field" hidden>
-              <span>Custom Height</span>
+              <span>사용자 지정 높이</span>
               <input id="outputHeightInput" type="number" min="1" step="1" value="32" inputmode="numeric">
             </label>
           </div>
         </fieldset>
 
         <fieldset class="control-group processing-group">
-          <legend>Pixel Processing</legend>
+          <legend>픽셀 처리</legend>
           <details id="preprocessSection" class="option-details">
-            <summary>Preprocess</summary>
+            <summary>전처리</summary>
             <div class="option-details-content">
-              <label class="range-field">
-                <span>Brightness <output id="brightnessValue">0</output></span>
+              <label class="range-field" for="brightnessInput">
+                <span>밝기 <output id="brightnessValue">0</output></span>
                 <input id="brightnessInput" type="range" min="-100" max="100" step="1" value="0">
               </label>
-              <label class="range-field">
-                <span>Contrast <output id="contrastValue">0</output></span>
+              <label class="range-field" for="contrastInput">
+                <span>대비 <output id="contrastValue">0</output></span>
                 <input id="contrastInput" type="range" min="-100" max="100" step="1" value="0">
               </label>
-              <label class="range-field">
-                <span>Saturation <output id="saturationValue">0</output></span>
+              <label class="range-field" for="saturationInput">
+                <span>채도 <output id="saturationValue">0</output></span>
                 <input id="saturationInput" type="range" min="-100" max="100" step="1" value="0">
               </label>
               <label class="control-field">
-                <span>Sharpen</span>
+                <span>선명하게</span>
                 <select id="sharpenModeSelect">
                   <option value="off" selected>off</option>
                   <option value="low">low</option>
@@ -210,7 +210,7 @@
                   <span>제거 색상</span>
                   <input id="backgroundCleanupColorInput" type="color" value="#ffffff" disabled>
                 </label>
-                <label class="range-field">
+                <label class="range-field" for="backgroundCleanupToleranceInput">
                   <span>허용 오차 <output id="backgroundCleanupToleranceValue">0</output></span>
                   <input id="backgroundCleanupToleranceInput" type="range" min="0" max="255" step="1" value="0" disabled>
                 </label>
@@ -218,7 +218,7 @@
             </div>
           </details>
           <label class="control-field">
-            <span>Sampling</span>
+            <span>샘플링</span>
             <select id="samplingModeSelect">
               <option value="median" selected>median</option>
               <option value="average">average</option>
@@ -227,7 +227,7 @@
             </select>
           </label>
           <label class="control-field">
-            <span>Dithering</span>
+            <span>디더링</span>
             <select id="ditheringModeSelect">
               <option value="off" selected>off</option>
               <option value="floydSteinberg">Floyd-Steinberg</option>
@@ -237,15 +237,15 @@
 
           <div class="palette-source-controls">
             <label class="control-field">
-              <span>Palette source</span>
+              <span>팔레트 소스</span>
               <select id="paletteSourceSelect">
-                <option value="generated" selected>Generated</option>
-                <option value="builtIn">Built-in</option>
-                <option value="imported">Imported</option>
+                <option value="generated" selected>자동 생성</option>
+                <option value="builtIn">기본 제공</option>
+                <option value="imported">가져오기</option>
               </select>
             </label>
             <label id="builtInPaletteField" class="control-field" hidden>
-              <span>Built-in palette</span>
+              <span>기본 제공 팔레트</span>
               <select id="builtInPaletteSelect">
                 <option value="grayscale4" selected>Grayscale 4</option>
                 <option value="gameboyLike4">Gameboy-like 4</option>
@@ -256,12 +256,13 @@
             </label>
             <div id="importedPaletteField" class="imported-palette-field" hidden>
               <label class="control-field">
-                <span>Imported HEX colors</span>
+                <span>가져온 HEX 색상</span>
                 <textarea id="importedPaletteTextInput" rows="3" spellcheck="false" placeholder="#000000, #ffffff"></textarea>
               </label>
               <div class="palette-import-actions">
-                <input id="importedPaletteFileInput" type="file" accept=".txt,.hex,text/plain">
-                <button id="applyImportedPaletteButton" class="secondary-button" type="button">Apply palette</button>
+                <input id="importedPaletteFileInput" class="file-input" type="file" accept=".txt,.hex,text/plain">
+                <label class="secondary-button palette-file-button" for="importedPaletteFileInput">HEX 파일 선택</label>
+                <button id="applyImportedPaletteButton" class="secondary-button" type="button">팔레트 적용</button>
               </div>
               <div id="importedPalettePreview" class="palette-preview" aria-live="polite"></div>
             </div>
@@ -269,7 +270,7 @@
 
           <div class="palette-controls">
             <label class="control-field">
-              <span>Palette limit</span>
+              <span>팔레트 제한</span>
               <select id="paletteModeSelect">
                 <option value="off" selected>off</option>
                 <option value="auto">auto</option>
@@ -284,23 +285,23 @@
               </select>
             </label>
             <label id="customPaletteField" class="control-field custom-palette-field is-disabled">
-              <span>Custom colors</span>
+              <span>사용자 지정 색상 수</span>
               <input id="customPaletteCountInput" type="number" min="2" max="256" step="1" value="16" inputmode="numeric" disabled>
             </label>
           </div>
           <p id="paletteSummary" class="palette-summary">팔레트 제한: off</p>
           <details id="iconAssistSection" class="option-details">
-            <summary>Icon Assist</summary>
+            <summary>아이콘 보조</summary>
             <div class="option-details-content">
               <label class="control-field">
-                <span>Outline</span>
+                <span>외곽선</span>
                 <select id="outlineModeSelect">
                   <option value="off" selected>off</option>
                   <option value="black">1px black</option>
                   <option value="dark">1px dark</option>
                 </select>
               </label>
-              <p class="option-help">Outline은 palette/editor 결과 뒤에 적용되며 색상이 1개 추가될 수 있습니다.</p>
+              <p class="option-help">외곽선은 팔레트 편집 결과 뒤에 적용되며 색상이 1개 추가될 수 있습니다.</p>
             </div>
           </details>
         </fieldset>
@@ -341,28 +342,28 @@
         </div>
       </dl>
       <details id="paletteEditorSection" class="palette-editor">
-        <summary>Palette Editor</summary>
-        <p id="paletteEditorNotice" class="palette-editor-notice">설정을 변경하거나 다시 변환하면 수동 palette 편집 결과가 초기화됩니다.</p>
-        <p id="resultPaletteStats" class="palette-editor-stats">결과를 생성하면 palette swatch가 표시됩니다.</p>
+        <summary>팔레트 편집기</summary>
+        <p id="paletteEditorNotice" class="palette-editor-notice">설정을 변경하거나 다시 변환하면 수동 팔레트 편집 결과가 초기화됩니다.</p>
+        <p id="resultPaletteStats" class="palette-editor-stats">결과를 생성하면 팔레트 색상표가 표시됩니다.</p>
         <div id="resultPaletteSwatches" class="result-palette-swatches" role="list" aria-label="결과 팔레트"></div>
         <div class="palette-editor-selection">
           <span>선택 색상</span>
           <strong id="selectedPaletteColor">없음</strong>
         </div>
         <div class="palette-editor-actions">
-          <button id="copyPaletteHexButton" class="secondary-button" type="button" disabled>Copy HEX</button>
+          <button id="copyPaletteHexButton" class="secondary-button" type="button" disabled>HEX 복사</button>
           <label class="control-field">
-            <span>Replace HEX</span>
+            <span>교체할 HEX</span>
             <input id="paletteReplacementInput" type="text" value="#000000" maxlength="7" spellcheck="false">
           </label>
-          <button id="replacePaletteColorButton" class="secondary-button" type="button" disabled>Replace color</button>
+          <button id="replacePaletteColorButton" class="secondary-button" type="button" disabled>색상 교체</button>
           <label class="control-field">
-            <span>Merge target</span>
+            <span>병합 대상</span>
             <select id="paletteMergeTargetSelect" disabled>
-              <option value="">Select target</option>
+              <option value="">대상 선택</option>
             </select>
           </label>
-          <button id="mergePaletteColorButton" class="secondary-button" type="button" disabled>Merge color</button>
+          <button id="mergePaletteColorButton" class="secondary-button" type="button" disabled>색상 병합</button>
         </div>
         <p id="paletteEditorStatus" class="palette-editor-status" aria-live="polite"></p>
       </details>

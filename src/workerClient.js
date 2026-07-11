@@ -2,6 +2,25 @@
   "use strict";
 
   var nextRequestId = 1;
+  var workerClientScriptUrl = findWorkerClientScriptUrl();
+
+  function findWorkerClientScriptUrl() {
+    var currentScript = document.currentScript && document.currentScript.src;
+    var scripts;
+
+    if (currentScript) {
+      return currentScript;
+    }
+
+    scripts = document.getElementsByTagName("script");
+    for (var index = scripts.length - 1; index >= 0; index -= 1) {
+      if (/workerClient\.js(?:\?.*)?$/.test(scripts[index].src || "")) {
+        return scripts[index].src;
+      }
+    }
+
+    return "";
+  }
 
   function createFallbackError(message) {
     var error = new Error(message || "Worker conversion is not available.");
@@ -16,10 +35,10 @@
   }
 
   function resolveWorkerUrl() {
-    var currentScript = document.currentScript && document.currentScript.src;
+    var scriptUrl = workerClientScriptUrl || findWorkerClientScriptUrl();
 
-    if (currentScript) {
-      return currentScript.replace(/workerClient\.js(?:\?.*)?$/, "conversionWorker.js");
+    if (scriptUrl) {
+      return scriptUrl.replace(/workerClient\.js(?:\?.*)?$/, "conversionWorker.js");
     }
 
     return "./src/conversionWorker.js";

@@ -293,7 +293,13 @@ Desktop layout uses viewport-height panels with internal scrolling where needed,
 - `tests/test-cases.html` inline script parses successfully with the v1.0-v1.3 coverage added.
 - Static checks confirm no ES Modules, no browser `alert()`, no framework/build system, and no output resize shortcut.
 - Preset manager VM checks pass for save/load/delete/import/export/sanitization and exclusion of private image/path fields.
-- Full browser assertion execution is blocked in this environment because headless Edge/Chrome exits before page execution with GPU process initialization failures.
+- The 2026-07-11 local HTTP browser run reports `110 / 110 cases passed.` with zero console errors.
+- Real app integration coverage includes PNG/JPG/JPEG decoding and conversion, drag and drop, invalid metadata, corrupted image bytes, Worker success/fallback/cancel, and final PNG/JPG/Aseprite export data.
+- `workerClient.js` resolves `conversionWorker.js` from its own script location, including when the client is loaded by the nested `/tests/` page.
+- Main-thread and Worker conversion share the same ImageData tile-conversion function before palette and outline processing.
+- UI labels are Korean-first, all form controls have accessible names, the drop zone no longer nests interactive roles, and visible focus styling is preserved.
+- The 1280x720 four-panel layout and approximately 390x844 single-column layout pass without page-level overflow regressions.
 - `state.resultCanvas` is the shared preview/export source after palette mapping, manual edits, preprocessing, cleanup, and outline processing.
 - `state.layered` is the separate Layered Mode state and Layered Mode defaults off.
+- Direct `file://` browser navigation was not rerun because the browser-control security policy blocked that navigation; Worker fallback behavior is covered by the browser suite.
 - External Aseprite desktop/CLI open/save validation remains pending.

@@ -4,7 +4,7 @@
 Complete the controlled v1.0.0 to v1.3.0 expansion from `program_make10_to_13.txt` while preserving the existing v0.9.0-stable Pixel Icon Generator behavior.
 
 ## 2. Current Step
-M5 final stabilization for v1.0.0 through v1.3.0 is complete with available non-browser verification. Browser execution remains blocked by local headless GPU initialization failures.
+The v1.3 stabilization and product-polish pass completed on 2026-07-11. The local HTTP browser suite reports `110 / 110 cases passed.` with zero console errors; direct `file://` navigation and external Aseprite desktop/CLI compatibility remain unverified in this run.
 
 ## 3. Active Command File
 - `program_make10_to_13.txt`
@@ -260,3 +260,20 @@ M4 notes:
 - Recommended next direction: First perform external Aseprite desktop/CLI compatibility validation. If a new development scope is later approved, prioritize Web Worker performance isolation before adding broader product features.
 
 M5 is complete. No v1.0 or new feature work was started.
+
+## 10. 2026-07-11 Stabilization and Product Polish
+- [x] Preserve `32x32`, `median`, PNG, palette `off`, Custom size `off`, neutral preprocess, and outline `off` defaults.
+- [x] Resolve the Worker URL relative to `workerClient.js` instead of the containing page.
+- [x] Share ImageData tile conversion between Worker and main-thread paths.
+- [x] Verify Worker success, forced fallback, cancellation, and output equivalence.
+- [x] Add real app PNG/JPG/JPEG, drag-and-drop, invalid-file, and corrupted-image integration cases.
+- [x] Apply Korean-first UI terminology without changing internal option values.
+- [x] Remove the nested drop-zone button structure and provide explicit control labels and focus styling.
+- [x] Verify 1280x720 four-panel and approximately 390x844 single-column layouts without page-level overflow.
+- [x] Verify generated-example conversion and PNG/JPG/Aseprite output filenames and enabled download state.
+- [x] Run all app JS syntax checks, the test-page inline parser check, static policy searches, and `git diff --check`.
+- [x] Record `110 / 110 cases passed.` and zero browser console errors.
+
+Remaining manual items:
+- Direct `file://` navigation was blocked by the browser-control security policy and was not rerun.
+- Aseprite desktop/CLI was unavailable, so external open/save compatibility remains pending.
