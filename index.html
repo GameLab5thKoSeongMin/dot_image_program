@@ -3,11 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="이미지를 타일 기반 대표 색상 샘플링으로 변환하는 로컬 픽셀 아이콘 생성기">
+  <meta name="theme-color" content="#f1f5f0">
   <title>Pixel Icon Generator</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles/style.css">
 </head>
 <body>
   <main class="app-shell" aria-label="픽셀 아이콘 생성기">
+    <h1 class="visually-hidden">Pixel Icon Generator</h1>
     <div id="warningBanner" class="warning-banner" role="status" aria-live="polite" hidden>
       <span class="warning-icon" aria-hidden="true">!</span>
       <span id="warningMessage" class="warning-text"></span>
@@ -16,7 +20,7 @@
 
     <section class="panel panel-preview" aria-labelledby="originalPreviewTitle">
       <div class="panel-header">
-        <h1 id="originalPreviewTitle">입력 이미지 미리보기</h1>
+        <h2 id="originalPreviewTitle">입력 이미지 미리보기</h2>
         <span id="sourceSizeLabel" class="panel-meta">대기 중</span>
       </div>
       <div class="preview-stage preview-stage-original">
@@ -64,14 +68,19 @@
         <h2 id="inputTitle">이미지 입력 / 변환 옵션</h2>
       </div>
 
-      <div id="dropZone" class="drop-zone" role="group" aria-labelledby="fileInputLabel" aria-describedby="inputHelp errorMessage">
+      <div id="dropZone" class="drop-zone" role="group" aria-labelledby="fileInputLabel" aria-describedby="inputHelp localProcessingNote errorMessage">
         <input id="fileInput" class="file-input" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg">
         <label id="fileInputLabel" class="file-button" for="fileInput">파일 선택</label>
         <p id="inputHelp" class="drop-copy">또는 이미지를 이 영역으로 드래그하세요.</p>
         <p class="file-types">지원 형식: PNG, JPG, JPEG</p>
+        <p id="localProcessingNote" class="local-processing-note">
+          <span aria-hidden="true"></span>
+          업로드 없이 브라우저 안에서만 처리됩니다.
+        </p>
       </div>
 
       <div class="control-grid" aria-label="변환 옵션">
+        <div class="control-column control-column-tools">
         <fieldset class="control-group preset-group">
           <legend>프리셋</legend>
           <details id="presetsSection" class="option-details">
@@ -137,7 +146,9 @@
             </div>
           </details>
         </fieldset>
+        </div>
 
+        <div class="control-column control-column-options">
         <fieldset class="control-group size-axis-group">
           <legend>출력 크기</legend>
           <label class="custom-size-toggle">
@@ -305,6 +316,7 @@
             </div>
           </details>
         </fieldset>
+        </div>
       </div>
 
       <p id="errorMessage" class="message error-message" role="alert" aria-live="polite"></p>

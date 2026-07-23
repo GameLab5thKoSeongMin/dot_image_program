@@ -1,19 +1,19 @@
 :root {
   color-scheme: light;
-  --bg: #f6f7f4;
+  --bg: #f1f5f0;
   --panel: #ffffff;
-  --panel-border: #d7dcd1;
-  --text: #20251f;
-  --muted: #667064;
-  --accent: #2f7d56;
-  --accent-strong: #245f42;
-  --accent-soft: #e5f1e9;
+  --panel-border: #d5ddd3;
+  --text: #19231c;
+  --muted: #657066;
+  --accent: #22764c;
+  --accent-strong: #185d3a;
+  --accent-soft: #e2f2e8;
   --warning: #b46d00;
   --error: #b3261e;
-  --error-soft: #fae9e7;
-  --grid-gap: 8px;
-  --radius: 8px;
-  font-family: Arial, Helvetica, sans-serif;
+  --grid-gap: 10px;
+  --radius: 12px;
+  --panel-shadow: 0 10px 30px rgba(35, 55, 42, 0.06);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", Arial, sans-serif;
 }
 
 * {
@@ -28,7 +28,10 @@ body {
   margin: 0;
   overflow: hidden;
   min-height: 100vh;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 14% 8%, rgba(34, 118, 76, 0.08), transparent 28%),
+    radial-gradient(circle at 88% 92%, rgba(90, 128, 103, 0.07), transparent 30%),
+    var(--bg);
   color: var(--text);
 }
 
@@ -38,6 +41,18 @@ label,
 select,
 textarea {
   font: inherit;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 button:focus-visible,
@@ -69,6 +84,7 @@ summary:focus-visible {
   border: 1px solid var(--panel-border);
   border-radius: var(--radius);
   background: var(--panel);
+  box-shadow: var(--panel-shadow);
   overflow: hidden;
 }
 
@@ -79,6 +95,7 @@ summary:focus-visible {
   gap: 12px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfa 100%);
 }
 
 .panel-header.compact {
@@ -91,6 +108,7 @@ summary:focus-visible {
   font-size: 18px;
   line-height: 1.25;
   font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .panel-meta {
@@ -187,6 +205,7 @@ summary:focus-visible {
     linear-gradient(-45deg, transparent 75%, #dfe4dc 75%);
   background-position: 0 0, 0 10px, 10px -10px, -10px 0;
   background-size: 20px 20px;
+  box-shadow: 0 10px 26px rgba(32, 52, 39, 0.1);
 }
 
 .original-preview {
@@ -284,10 +303,28 @@ summary:focus-visible {
   gap: 10px;
   border: 2px dashed #9ead97;
   border-radius: var(--radius);
-  background: #fbfcfa;
+  background: linear-gradient(180deg, #ffffff 0%, #f8faf7 100%);
   text-align: center;
   outline: none;
   transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.local-processing-note {
+  display: inline-flex;
+  margin: 0;
+  align-items: center;
+  gap: 7px;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.local-processing-note span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .drop-zone.is-active {
@@ -302,6 +339,13 @@ summary:focus-visible {
   gap: 10px;
   margin: 0 14px 8px;
   align-items: start;
+}
+
+.control-column {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  align-content: start;
 }
 
 .control-group {
@@ -441,6 +485,11 @@ summary:focus-visible {
   color: var(--text);
   font-size: 13px;
   font-weight: 700;
+}
+
+.option-details > summary::marker,
+.palette-editor > summary::marker {
+  color: var(--accent);
 }
 
 .option-details[open] > summary {
@@ -651,6 +700,7 @@ summary:focus-visible {
   cursor: pointer;
   font-weight: 700;
   white-space: nowrap;
+  transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease;
 }
 
 .secondary-button:hover,
@@ -838,6 +888,7 @@ summary:focus-visible {
   color: #ffffff;
   cursor: pointer;
   font-weight: 700;
+  transition: border-color 140ms ease, background-color 140ms ease, transform 140ms ease;
 }
 
 .file-button:hover,
@@ -845,6 +896,7 @@ summary:focus-visible {
 .convert-button:hover:not(:disabled) {
   background: var(--accent-strong);
   border-color: var(--accent-strong);
+  transform: translateY(-1px);
 }
 
 .download-button:disabled,
@@ -891,20 +943,26 @@ summary:focus-visible {
 
 .file-info {
   display: grid;
-  gap: 8px;
-  margin: 12px 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+  margin: 10px 14px;
 }
 
 .file-info div {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 8px;
   align-items: baseline;
+}
+
+.file-info div:first-child,
+.file-info div:last-child {
+  grid-column: 1 / -1;
 }
 
 .file-info dt {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .file-info dd {
@@ -915,17 +973,14 @@ summary:focus-visible {
 }
 
 .download-button {
-  align-self: flex-start;
+  align-self: stretch;
+  width: calc(100% - 28px);
   margin: auto 14px 0;
 }
 
 @media (max-width: 980px) {
   .control-grid {
     grid-template-columns: 1fr 1fr;
-  }
-
-  .size-axis-group {
-    grid-column: 1 / -1;
   }
 }
 
@@ -978,6 +1033,10 @@ summary:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .control-column-options {
+    order: -1;
+  }
+
   .axis-buttons,
   .palette-controls,
   .palette-import-actions,
@@ -989,5 +1048,18 @@ summary:focus-visible {
   .file-info div {
     grid-template-columns: 1fr;
     gap: 2px;
+  }
+
+  .file-info {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }

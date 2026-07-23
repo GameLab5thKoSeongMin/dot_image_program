@@ -222,11 +222,23 @@ The options area is grouped into:
 
 The Pixel Processing group includes collapsed Preprocess, Sampling, Dithering, Palette source, Palette limit, and collapsed Icon Assist controls.
 
-The output panel shows filename, size, sampling mode, format, palette text, a compact result summary, and a collapsed Palette Editor.
+The desktop options area uses two independent columns:
+- Optional workflow tools: Settings Presets, Examples / QA, and Layered Mode
+- Core conversion controls: Output Size and Pixel Processing
+
+Expanding an optional workflow section must not create a matching blank grid row beside the core controls. At narrow widths the core conversion column is presented first.
+
+The output panel shows filename, size, sampling mode, format, palette text, a compact result summary, and a collapsed Palette Editor. Desktop metadata uses a compact two-column arrangement, while filename and summary span the full width. The download action spans the content width and stays visible without internal scrolling at the verified 1280x720 baseline.
 
 The upper-center warning banner is reused for invalid values, JPG transparency limitations, palette notices, and large output warnings. Browser `alert()` is not used.
 
 Desktop layout uses viewport-height panels with internal scrolling where needed, so the page does not become larger than the viewport on ordinary desktop sizes.
+
+Portfolio and accessibility presentation rules:
+- The document exposes one semantic page-level heading while keeping the four visible panel headings at level 2.
+- The page includes a concise description, theme color, and SVG favicon.
+- The input area states that images are processed locally without upload.
+- Controls retain visible keyboard focus, explicit labels, and a reduced-motion fallback.
 
 ## 18. Module Responsibilities
 - `app.js`: Connects events, current source state, validation, conversion, palette limiting, manual palette edits, final-canvas export, and download.
@@ -284,7 +296,8 @@ Desktop layout uses viewport-height panels with internal scrolling where needed,
 - Dithering strength control
 - Palette edit undo/redo
 - AI or edge-aware background removal
-- Web Worker quantization
+- Per-layer positioning and per-layer settings
+- Export blob preparation outside the main UI path
 - Aseprite CLI validation
 - Indexed-color Aseprite export
 
@@ -293,10 +306,11 @@ Desktop layout uses viewport-height panels with internal scrolling where needed,
 - `tests/test-cases.html` inline script parses successfully with the v1.0-v1.3 coverage added.
 - Static checks confirm no ES Modules, no browser `alert()`, no framework/build system, and no output resize shortcut.
 - Preset manager VM checks pass for save/load/delete/import/export/sanitization and exclusion of private image/path fields.
-- The 2026-07-11 local HTTP browser run reports `110 / 110 cases passed.` with zero console errors.
+- The 2026-07-24 local HTTP browser run reports `111 / 111 cases passed.` with zero console errors or warnings.
 - Real app integration coverage includes PNG/JPG/JPEG decoding and conversion, drag and drop, invalid metadata, corrupted image bytes, Worker success/fallback/cancel, and final PNG/JPG/Aseprite export data.
 - `workerClient.js` resolves `conversionWorker.js` from its own script location, including when the client is loaded by the nested `/tests/` page.
 - Main-thread and Worker conversion share the same ImageData tile-conversion function before palette and outline processing.
+- Real app shell coverage includes portfolio metadata, local-processing copy, semantic heading structure, independent option columns, and a 390x844 single-column integration layout without horizontal overflow.
 - UI labels are Korean-first, all form controls have accessible names, the drop zone no longer nests interactive roles, and visible focus styling is preserved.
 - The 1280x720 four-panel layout and approximately 390x844 single-column layout pass without page-level overflow regressions.
 - `state.resultCanvas` is the shared preview/export source after palette mapping, manual edits, preprocessing, cleanup, and outline processing.

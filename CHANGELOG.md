@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.3.2] - Portfolio Presentation Polish
+
+### Added
+- Added a local-only processing note to the input area.
+- Added a concise page description, browser theme color, semantic page heading, and project favicon.
+- Added a real-app integration assertion for portfolio metadata, responsive layout, and the independent control-column structure.
+
+### Changed
+- Refined the visual system with a Korean-friendly system font stack, softer app background, card shadows, clearer focus/details accents, and restrained control motion.
+- Split optional tools and core conversion controls into independent columns so expanding Examples, Presets, or Layered Mode no longer creates a large blank grid row beside them.
+- Reworked output metadata into a compact two-column layout and made the download action full-width and visible without internal scrolling at 1280x720.
+- Preserved the four-section app layout and all conversion defaults.
+
+### Verification
+- On 2026-07-24, all app JavaScript syntax checks and the test-page inline parser check passed.
+- The local HTTP browser suite reported `111 / 111 cases passed.` with zero console errors or warnings.
+- The default state, generated example flow, 1280x720 layout, 390x844 single-column integration layout, and enabled PNG download state passed.
+
 ## [1.3.1] - Stabilization and Product Polish
 
 ### Fixed

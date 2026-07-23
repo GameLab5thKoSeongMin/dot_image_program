@@ -1,10 +1,10 @@
 # PLANS.md
 
 ## 1. Current Objective
-Complete the controlled v1.0.0 to v1.3.0 expansion from `program_make10_to_13.txt` while preserving the existing v0.9.0-stable Pixel Icon Generator behavior.
+Maintain a portfolio-ready Pixel Icon Generator while preserving the completed v1.0.0-v1.3.0 feature set and all required defaults.
 
 ## 2. Current Step
-The v1.3 stabilization and product-polish pass completed on 2026-07-11. The local HTTP browser suite reports `110 / 110 cases passed.` with zero console errors; direct `file://` navigation and external Aseprite desktop/CLI compatibility remain unverified in this run.
+The v1.3.2 portfolio-readiness pass completed on 2026-07-24. The local HTTP browser suite reports `111 / 111 cases passed.` with zero console errors or warnings; direct `file://` navigation and external Aseprite desktop/CLI compatibility remain unverified in this run.
 
 ## 3. Active Command File
 - `program_make10_to_13.txt`
@@ -277,3 +277,19 @@ M5 is complete. No v1.0 or new feature work was started.
 Remaining manual items:
 - Direct `file://` navigation was blocked by the browser-control security policy and was not rerun.
 - Aseprite desktop/CLI was unavailable, so external open/save compatibility remains pending.
+
+## 11. 2026-07-24 Portfolio Readiness Pass
+- [x] Re-audit the repository, app shell, console output, and current Git state.
+- [x] Confirm the existing suite passes before presentation changes.
+- [x] Preserve the four-panel layout and all required defaults.
+- [x] Separate optional workflow tools from core conversion controls so expanded details do not create paired-column blank space.
+- [x] Keep output metadata compact and the primary download action visible at 1280x720.
+- [x] Add a local-processing privacy note and portfolio-ready document metadata.
+- [x] Improve heading semantics, Korean font fallback, focus/details accents, and reduced-motion behavior.
+- [x] Add real-app assertions for the new shell structure and a 390x844 single-column integration frame.
+- [x] Run JavaScript syntax checks, the inline test parser, `git diff --check`, visual app checks, and the full browser suite.
+- [x] Record `111 / 111 cases passed.` with zero browser console errors or warnings.
+
+Remaining manual items are unchanged:
+- Direct `file://` navigation is still not rerun because the browser-control security policy blocks that navigation.
+- External Aseprite desktop/CLI open/save validation remains pending because the application is unavailable in this environment.

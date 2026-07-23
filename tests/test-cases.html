@@ -386,6 +386,7 @@
         var corruptedFile = new File(["broken image bytes"], "corrupted.png", { type: "image/png" });
         var appWindow;
         var app;
+        var appDocument;
         var dropZone;
         var dropEvent;
         var frameLoaded = new Promise(function (resolve, reject) {
@@ -395,7 +396,14 @@
           }, { once: true });
         });
 
-        frame.hidden = true;
+        frame.title = "Pixel Icon Generator responsive integration frame";
+        frame.width = "390";
+        frame.height = "844";
+        frame.style.position = "fixed";
+        frame.style.left = "-10000px";
+        frame.style.top = "0";
+        frame.style.border = "0";
+        frame.style.pointerEvents = "none";
         frame.src = "../index.html?integration-test=1";
         document.body.appendChild(frame);
 
@@ -404,7 +412,16 @@
 
           appWindow = frame.contentWindow;
           app = appWindow.PixelIconApp;
+          appDocument = appWindow.document;
           assert(app && app.handleFile && app.getState, "App integration API should be available");
+          assert(appDocument.querySelector('meta[name="description"]'), "App should expose a portfolio-ready meta description");
+          assert(appDocument.querySelector('meta[name="theme-color"]'), "App should expose a browser theme color");
+          assert(appDocument.querySelectorAll(".control-column").length === 2, "App controls should use two independent columns");
+          assert(appDocument.querySelector(".local-processing-note").textContent.indexOf("브라우저") !== -1, "Local-only processing note should be visible");
+          assert(appDocument.querySelectorAll("h1").length === 1, "App should expose one semantic page heading");
+          assert(appDocument.querySelector("h1.visually-hidden"), "The semantic page heading should not consume panel space");
+          assert(appDocument.documentElement.scrollWidth <= appWindow.innerWidth, "390px app layout should not overflow horizontally");
+          assert(appWindow.getComputedStyle(appDocument.querySelector(".app-shell")).gridTemplateColumns.split(" ").length === 1, "390px app layout should use one panel column");
 
           for (var index = 0; index < 3; index += 1) {
             var file = [pngFile, jpgFile, jpegFile][index];
@@ -451,6 +468,12 @@
               description: "Unsupported metadata and corrupted image bytes are rejected through the warning banner.",
               pass: true,
               note: "Both failures cleared source state and used the in-app warning UI."
+            },
+            {
+              name: "Portfolio UI structure",
+              description: "The real app exposes metadata, a local-processing notice, semantic headings, and independent control columns.",
+              pass: true,
+              note: "Portfolio polish remains part of the tested app shell."
             }
           ];
         } finally {

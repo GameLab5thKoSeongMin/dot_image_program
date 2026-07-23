@@ -406,3 +406,31 @@ Not executed:
 - Aseprite desktop/CLI was not installed, so external open/save validation remains pending.
 
 Result: The implemented stabilization and polish scope passed all executable automated and browser checks. The two external/manual items above remain explicitly unverified.
+
+## 27. 2026-07-24 Portfolio Readiness Verification
+
+Environment:
+- App served from a local HTTP server on `127.0.0.1`.
+- Browser execution used the in-app local browser surface.
+- The responsive integration path loaded the real app in a 390x844 same-origin frame.
+
+Executed:
+- [x] `node --check` passed for every app JavaScript file.
+- [x] The inline script in `tests/test-cases.html` parsed successfully.
+- [x] `git diff --check` passed.
+- [x] Full browser suite: `111 / 111 cases passed.`
+- [x] Browser console errors/warnings during the app and test runs: 0.
+- [x] Default state remained `32x32 / median / palette off / PNG`.
+- [x] The real app exposes one semantic page heading, panel-level headings, a description, theme color, and local-processing notice.
+- [x] The optional workflow tools and core conversion controls render in two independent desktop columns.
+- [x] Expanding Examples / QA does not create a paired blank row beside Output Size and Pixel Processing.
+- [x] At 1280x720, page width and height match the viewport, output content has no internal overflow, and the full-width download action is visible.
+- [x] The 390x844 integration frame uses one panel column and has no horizontal overflow.
+- [x] Generated example conversion produced the expected `example_skill_badge_32x32_median_p16.png` filename and enabled download state.
+- [x] No runtime console errors or warnings were recorded.
+
+Not executed:
+- Direct `file://` navigation remains blocked by browser-control security policy.
+- Aseprite desktop/CLI external open/save validation remains unavailable.
+
+Result: The portfolio presentation changes passed all executable checks without altering conversion behavior or required defaults.

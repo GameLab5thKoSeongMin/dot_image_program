@@ -7,6 +7,14 @@ The default behavior is `32x32`, `median`, `PNG`, palette limit `off`.
 
 The conversion is not a simple resize. The source image is divided into an output-width by output-height grid, each tile is sampled, and optional palette limiting is applied after tile conversion.
 
+## 1A. Portfolio Highlights
+- Pure Vanilla HTML/CSS/JavaScript with no build step or runtime dependency.
+- Tile-based representative color sampling rather than a resize shortcut.
+- Optional Web Worker processing with a tested main-thread fallback.
+- PNG/JPG export plus a custom RGBA `.aseprite` binary writer.
+- Local-only image processing; selected files are not uploaded.
+- `111 / 111` browser cases covering conversion, UI policy, invalid input, palette editing, Worker behavior, layered export, responsive layout, and the real app input path.
+
 ## 2. Main Features
 - PNG/JPG/JPEG image input
 - Drag-and-drop support
@@ -250,9 +258,9 @@ Open `tests/test-cases.html` to run generated test cases.
 
 The current test page covers legacy conversion behavior, real PNG/JPG/JPEG app input, drag and drop, invalid and corrupted files, size controls, validation, placeholders, sampling, palette limiting, dithering, palette sources, Palette Editor, preprocess, outline, worker success/fallback/cancel, presets, generated examples, Layered Mode UI, visible-layer compositing, and layered Aseprite binary structure.
 
-On 2026-07-11, the full local HTTP browser suite reported `110 / 110 cases passed.` with no console errors. The real app integration cases load `index.html` in a same-origin frame and exercise the normal file and drop handlers. Earlier v1.0.0-v1.3.0 records about headless GPU startup failures remain historical; they no longer describe the latest verification run.
+On 2026-07-24, the full local HTTP browser suite reported `111 / 111 cases passed.` with no console errors. The real app integration cases load `index.html` in a same-origin frame and exercise the normal file and drop handlers. Earlier v1.0.0-v1.3.0 records about headless GPU startup failures remain historical; they no longer describe the latest verification run.
 
-The same run verified the default `32x32 / median / palette off / PNG` state, the 1280x720 four-panel layout, the approximately 390x844 single-column layout without horizontal overflow, generated-example conversion, and PNG/JPG/Aseprite output state. Direct `file://` navigation could not be rerun through the current browser-control security policy, while the Worker fallback test passed.
+The same run verified the default `32x32 / median / palette off / PNG` state, the 1280x720 four-panel layout, a 390x844 single-column integration frame without horizontal overflow, generated-example conversion, and PNG/JPG/Aseprite output state. Direct `file://` navigation could not be rerun through the current browser-control security policy, while the Worker fallback test passed.
 
 Recorded test results are in `TEST_PLAN.md`. `index.html` is the maintained application entry point; the obsolete `Dotprogram.html` duplicate was removed.
 
